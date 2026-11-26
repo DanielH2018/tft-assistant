@@ -37,28 +37,53 @@ def _board_units(comp: Comp) -> list[str]:
     return units[: max(size, len(comp.core))]
 
 
-def _tell_apart(comps: list[dict[str, Any]], static: StaticData) -> None:
-    """Give comps that share a name the costliest core unit each has and the others lack."""
-    by_name: dict[str, list[dict[str, Any]]] = {}
+def _clashes(names: list[str]) -> list[list[int]]:
+    """The positions of each name that more than one comp has."""
+    positions: dict[str, list[int]] = {}
+    for position, name in enumerate(names):
+        positions.setdefault(name, []).append(position)
+    return [same for same in positions.values() if len(same) > 1]
+
+
+def _as_a_group(trait_name: str) -> str:
+    """A trait named for what its units do reads as a group in the plural; other names stay as they are."""
+    return f"{trait_name}s" if trait_name.endswith(("er", "or")) else trait_name
+
+
+def _names(comps: Sequence[Comp], static: StaticData) -> list[str]:
+    """A name for each comp: its main trait and its main carry, made unique among the comps.
+
+    Comps that would share a name are told apart first by the trait their two carries share,
+    which replaces the carry, and then by the costliest core unit each has and the others lack.
+    """
+
+    def trait_name(trait: str | None) -> str:
+        return static.traits[trait].name if trait in static.traits else ""
+
+    names = []
     for comp in comps:
-        by_name.setdefault(comp["name"], []).append(comp)
-    for same in by_name.values():
-        if len(same) < 2:
-            continue
-        shared = set.intersection(*(set(comp["core"]) for comp in same))
-        for comp in same:
-            own = [unit for unit in comp["core"] if unit not in shared and unit not in comp["carries"][:1]]
+        carry = static.units[comp.carries[0]].name if comp.carries else ""
+        names.append(f"{trait_name(comp.main_trait)} {carry}".strip() or "Unnamed")
+    for same in _clashes(names):
+        for position in same:
+            comp = comps[position]
+            if comp.carry_trait in static.traits and comp.carry_trait != comp.main_trait:
+                names[position] = f"{trait_name(comp.main_trait)} {_as_a_group(trait_name(comp.carry_trait))}"
+    for same in _clashes(names):
+        shared = set.intersection(*(set(comps[position].core) for position in same))
+        for position in same:
+            comp = comps[position]
+            own = [unit for unit in comp.core if unit not in shared and unit not in comp.carries[:1]]
             if own:
-                comp["name"] += f" · {static.units[own[0]].name}"
+                names[position] += f" · {static.units[own[0]].name}"
+    return names
 
 
-def _comp(comp: Comp, static: StaticData) -> dict[str, Any]:
-    trait = static.traits[comp.main_trait].name if comp.main_trait in static.traits else ""
-    carries = " ".join(static.units[unit].name for unit in comp.carries[:1])
+def _comp(comp: Comp, name: str, static: StaticData) -> dict[str, Any]:
     board = default_board(_board_units(comp), comp.carries, static)
     return {
         "id": hashlib.sha1(" ".join(sorted(comp.core)).encode()).hexdigest()[:10],
-        "name": f"{trait} {carries}".strip() or "Unnamed",
+        "name": name,
         "tier": _tier(comp.avg_placement),
         "boards": comp.boards,
         "share": comp.share,
@@ -98,6 +123,7 @@ def _comp(comp: Comp, static: StaticData) -> dict[str, Any]:
         "levels": [[level, share] for level, share in comp.tempo.levels],
         "three_stars": list(comp.tempo.three_stars),
         "style": comp.tempo.style,
+        "roll_level": comp.tempo.roll_level,
         "items": [
             {
                 "item": pick.item,
@@ -137,8 +163,7 @@ def build_snapshot(
     """Analyse the boards of one selection into the document the page reads."""
     report = find_comps(boards, static)
     groups = find_item_groups(boards, static)
-    comps = [_comp(comp, static) for comp in report.comps]
-    _tell_apart(comps, static)
+    comps = [_comp(comp, name, static) for comp, name in zip(report.comps, _names(report.comps, static))]
 
     units = {unit for comp in comps for unit in [*comp["core"], *comp["three_stars"]]}
     units |= {unit for comp in comps for package in comp["packages"] for unit in package["units"]}

@@ -11,8 +11,10 @@ from tft_assistant.boards import Board
 from tft_assistant.static_data import StaticData
 
 _TRAIT_FLOOR = 0.50
+_VERTICAL = 4
 _THREE_STAR_FLOOR = 0.40
 _REROLL_COST = 3
+_LEVELS_ABOVE_COST = 4
 _FAST_LEVEL = 9
 _PICK_FLOOR = 0.20
 _PICKS_PER_HOLDER = 3
@@ -54,7 +56,9 @@ class Tempo:
     three_stars: tuple[str, ...]
     """Units the comp usually takes to three stars, which marks a reroll comp."""
     style: str
-    """What players call the tempo: the unit cost the comp rerolls for, or the level it ends at."""
+    """What players call the tempo: the unit cost the comp rerolls for, or the level it plays at."""
+    roll_level: int
+    """The level at which the comp spends its gold on finding its units."""
 
 
 @dataclass(frozen=True)
@@ -88,22 +92,60 @@ def typical_traits(members: Sequence[Board]) -> tuple[CompTrait, ...]:
     return tuple(sorted(traits, key=lambda trait: (-trait.units, -trait.tier / trait.tiers, trait.name)))
 
 
-def tempo(members: Sequence[Board], static: StaticData) -> Tempo:
+def main_trait(traits: Sequence[CompTrait], carries: Sequence[str], static: StaticData) -> str | None:
+    """The trait a comp is named for: its largest vertical, or else its carry's largest trait.
+
+    Only a trait with more than one tier counts, because a one-tier trait says nothing its unit's
+    name does not. A vertical is a trait with `_VERTICAL` units. Without one, a trait of the main
+    carry names the comp better than a larger trait its front line happens to share.
+    """
+    tiered = [trait for trait in traits if trait.tiers > 1]
+    own = set(static.units[carries[0]].traits) if carries else set()
+
+    def rank(trait: CompTrait) -> tuple:
+        vertical = trait.units if trait.units >= _VERTICAL else 0
+        return (-vertical, trait.name not in own, -trait.units, -trait.tier / trait.tiers, trait.name)
+
+    return min(tiered, key=rank).name if tiered else None
+
+
+def carry_trait(traits: Sequence[CompTrait], carries: Sequence[str], static: StaticData) -> str | None:
+    """The largest tiered trait the comp has active that its carry and its second carry both have."""
+    if len(carries) < 2:
+        return None
+    shared = set(static.units[carries[0]].traits) & set(static.units[carries[1]].traits)
+    return next((trait.name for trait in traits if trait.name in shared and trait.tiers > 1), None)
+
+
+def tempo(members: Sequence[Board], carry: str | None, static: StaticData) -> Tempo:
+    """The levels a comp's boards end at, the units it three-stars, and the style those make.
+
+    The style comes from what the comp rolls for, not from where its boards end: a winning board
+    levels past the point at which its comp was built. A comp that usually three-stars a unit of
+    cost `_REROLL_COST` or less rerolls for that cost, the main carry's when the carry is one of
+    them. Any other comp plays at the level that finds its main carry. A player finds a unit at
+    `_LEVELS_ABOVE_COST` levels above its cost, up to `_FAST_LEVEL`. A comp whose carry is cheap
+    and not three-starred has no such level, and takes the one most of its boards end at.
+    """
     levels = Counter(board.level for board in members)
     starred = Counter(unit for board in members for unit in {u.character_id for u in board.units if u.stars >= 3})
     three_stars = [
         unit for unit, count in starred.items() if unit in static.units and count / len(members) >= _THREE_STAR_FLOOR
     ]
+    cost = static.units[carry].cost if carry else 0
     rerolled = [static.units[unit].cost for unit in three_stars if static.units[unit].cost <= _REROLL_COST]
-    usual_level = levels.most_common(1)[0][0]
     if rerolled:
-        style = f"{max(rerolled)}-cost reroll"
+        reroll_cost = cost if carry in three_stars and cost <= _REROLL_COST else max(rerolled)
+        style, roll_level = f"{reroll_cost}-cost reroll", reroll_cost + _LEVELS_ABOVE_COST
     else:
-        style = f"Fast {_FAST_LEVEL}" if usual_level >= _FAST_LEVEL else f"Level {usual_level}"
+        usual_level = levels.most_common(1)[0][0]
+        roll_level = min(cost + _LEVELS_ABOVE_COST if cost > _REROLL_COST else usual_level, _FAST_LEVEL)
+        style = f"Fast {_FAST_LEVEL}" if roll_level == _FAST_LEVEL else f"Level {roll_level}"
     return Tempo(
         tuple((level, count / len(members)) for level, count in sorted(levels.items())),
         tuple(sorted(three_stars, key=lambda unit: (static.units[unit].cost, unit))),
         style,
+        roll_level,
     )
 
 

@@ -158,11 +158,36 @@ better partly because only a winning player reaches it.
 
 ### Comp style
 
-A comp's style is the name players give its tempo. A comp that takes a unit of cost 3 or less to
-three stars on 40% of its boards is a reroll comp, named by the costliest such unit: `2-cost
-reroll`. Any other comp is named by the level most of its boards end at: `Level 8`, or `Fast 9`
-for level 9 and above. The style is a column of the comp list, which sorts by a click on a column
-header and opens sorted by tier. The detail pane marks the three-starred units on their pictures.
+A comp's style is the name players give its tempo, and it comes from what the comp rolls for.
+The level a comp's boards end at is not used, because a winning board levels past the point at
+which its comp was built: a comp carried by 4-cost units is a level 8 comp even when half its
+boards end at level 9.
+
+- A comp that takes a unit of cost 3 or less to three stars on 40% of its boards is a reroll
+  comp: `1-cost reroll`. The cost is the main carry's when the carry is one of those units, and
+  otherwise the costliest of them.
+- Any other comp plays at the level that finds its main carry: `Level 8` for a 4-cost carry and
+  `Fast 9` for a 5-cost one.
+- A comp whose carry is cheap and not three-starred takes the level most of its boards end at.
+
+A player finds a unit four levels above its cost, so a 1-cost reroll comp rolls at level 5 and a
+3-cost one at level 7. The snapshot carries that level as `roll_level`.
+
+The style is a column of the comp list, which sorts by a click on a column header and opens
+sorted by tier. The detail pane marks the three-starred units on their pictures.
+
+### Comp names
+
+A comp is named `<main trait> <main carry>`. The main trait is the comp's largest vertical, a
+tiered trait with four or more units. Without a vertical it is the main carry's largest active
+trait. An earlier rule took the trait closest to its top tier, which named a board of seven
+Elderwood units after a two-unit trait.
+
+Two comps that would share a name are told apart by the trait their two carries share, which
+replaces the carry: `Elderwood Executioners` beside `Elderwood Ezreal`. Comps that still share a
+name each take the costliest core unit the others lack. The carry trait is used only on a clash,
+because a carry's name identifies a comp better than a second trait does. Naming a comp by hand
+arrives with the edits of slice 4.
 
 A key unit lists the units of its item group that cost less than it does, cheapest first, as the
 units that can hold its items.
