@@ -1,0 +1,10 @@
+# Facts about one set that no API states.
+
+static_data = "TFTSet18"
+ranked_queue = 1100
+
+# A match payload carries no patch number, so a patch is the window from its start to the next
+# entry's start. A match that started before the first entry belongs to no patch.
+[[patches]]
+name = "18.7"
+starts = 2026-11-17T00:00:00Z
