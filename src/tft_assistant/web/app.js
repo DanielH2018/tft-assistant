@@ -177,14 +177,35 @@ function keyUnitsHtml(comp) {
       const holders = (group ? group.units : [])
         .filter((id) => unitOf(id).cost < cost)
         .sort((a, b) => unitOf(a).cost - unitOf(b).cost);
+      const pivots = role === "tank" ? [] : pivotsFrom(comp, unit, group);
       return `<div class="key-unit"><div class="role">${esc(role)}</div>${unitTile(unit, "m")}
         <div class="uses">
           <div class="row"><span class="note">builds</span>${build.map(buildItem).join("") || "varies"}</div>
           ${holders.length ? `<div class="row"><span class="note" data-tip="Cheaper units that can hold its items, cheapest first">holders</span>${tiles(holders)}</div>` : ""}
+          ${pivots.length ? `<div class="row"><span class="note" data-tip="Carries of other comps that build the same items. Click one to open its comp.">pivots</span>${pivots.join("")}</div>` : ""}
         </div>
       </div>`;
     })
     .join("");
+}
+
+// The main carries of other comps that share `unit`'s item group: where its items go if the comp is dropped.
+// Each opens the most played comp it carries.
+function pivotsFrom(comp, unit, group) {
+  const carried = new Map();
+  for (const other of [...snap().comps].sort(SORTS.play)) {
+    const carry = other.carries[0];
+    if (other.id !== comp.id && carry && !carried.has(carry)) carried.set(carry, other);
+  }
+  return (group ? group.units : [])
+    .filter((id) => id !== unit && !comp.core.includes(id) && carried.has(id))
+    .sort((a, b) => carried.get(a).avg_placement - carried.get(b).avg_placement)
+    .slice(0, SHOWN_IN_A_GROUP)
+    .map((id) => {
+      const target = carried.get(id);
+      const note = `Carries ${target.name}: average placement ${target.avg_placement.toFixed(2)}, played ${pct(target.share)}`;
+      return `<span class="pivot" data-open="${target.id}">${unitTile(id, "s", { note })}</span>`;
+    });
 }
 
 const SORTS = {
@@ -533,7 +554,12 @@ el("detail").addEventListener("click", (event) => {
   if (!comp || event.target.closest(".info")) return;
   const flex = event.target.closest("[data-flex]");
   const heading = event.target.closest("section > h2");
-  if (heading) {
+  const pivot = event.target.closest("[data-open]");
+  if (pivot) {
+    state.comp = pivot.dataset.open;
+    renderList();
+    document.querySelector("#comps li.selected")?.scrollIntoView({ block: "nearest" });
+  } else if (heading) {
     const title = heading.parentElement.dataset.section;
     if (!folded.delete(title)) folded.add(title);
     localStorage.setItem(FOLDED, JSON.stringify([...folded]));

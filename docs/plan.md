@@ -381,6 +381,12 @@ arrives with the edits of slice 4.
 A key unit lists the units of its item group that cost less than it does, cheapest first, as the
 units that can hold its items.
 
+A carry and a 2nd carry also list their pivots: the main carries of other comps that are in the
+same item group and outside this comp's core. A pivot is where the carry's items go if the comp
+is dropped. The row runs from the best average placement, a hover card names the comp a pivot
+carries, and a click opens that comp. A unit that carries several comps opens the most played
+one. A tank lists none, because a tank's items fit most front lines.
+
 ### Default positions
 
 A match payload records no positions. Until a board is edited by hand, each unit stands in the
