@@ -12,8 +12,8 @@ function unitTile(id, size = "l", options = {}) {
   const unit = unitOf(id);
   const image = unit.icon ? `<img src="${esc(unit.icon)}" alt="" loading="lazy">` : `<span class="blank"></span>`;
   const stars = options.threeStar ? `<b class="stars">★★★</b>` : "";
-  const traits = options.traits ? `<span class="unit-traits">${unit.traits.map((t) => esc(traitName(t))).join("<br>")}</span>` : "";
-  return `<span class="unit ${size} cost${unit.cost}" title="${esc(unit.name)}">${image}${stars}<span class="unit-name">${esc(unit.name)}</span>${traits}</span>`;
+  const traits = unit.traits.map((t) => traitName(t)).join(", ");
+  return `<span class="unit ${size} cost${unit.cost}" title="${esc(unit.name)}${traits ? `: ${esc(traits)}` : ""}">${image}${stars}<span class="unit-name">${esc(unit.name)}</span></span>`;
 }
 
 function itemIcon(id) {
@@ -91,8 +91,8 @@ function boardHtml(comp) {
     });
     return `<div class="line">${hexes.join("")}</div>`;
   });
-  const note = comp.board_is_default ? "Default rows from attack range. Front row is at the top." : "";
-  return `<div><div class="board">${lines.join("")}</div><div class="note">${note}</div></div>`;
+  const note = comp.board_is_default ? "Default rows from attack range. Front row is at the top." : "Front row is at the top.";
+  return `<div class="board" title="${note}">${lines.join("")}</div>`;
 }
 
 const SHOWN_IN_A_GROUP = 9;
@@ -339,7 +339,7 @@ function detailHtml(comp) {
     <header><div class="title"><h1><span class="tier t${comp.tier}">${comp.tier}</span>${esc(comp.name)}</h1>
       <button id="copy-team" title="${esc(teamCode(comp))}">Copy team code</button><span class="note">${teamNote}: core and picked flex</span></div>
       <p class="stats"><b>${esc(comp.style)}</b> · avg <b>${comp.avg_placement.toFixed(2)}</b> · top 4 <b>${pct(comp.top4)}</b> · play <b>${(comp.share * 100).toFixed(1)}%</b> · ${comp.boards.toLocaleString()} boards</p></header>
-    <section><h2>Core</h2><div class="row">${comp.core.map((id) => unitTile(id, "l", { traits: true, threeStar: threeStar(id) })).join("")}</div></section>
+    <section><h2>Core</h2><div class="row">${comp.core.map((id) => unitTile(id, "l", { threeStar: threeStar(id) })).join("")}</div></section>
     <section><h2>Flex</h2><div><div class="row">${packages || `<span class="note">no regular flex units</span>`}</div>
       ${sharedSlots ? `<div class="note">Units in one outline take one slot: a board rarely holds both. An arrow points to the costlier unit, which the cheaper one is played until.</div>` : ""}</div></section>
     <section><h2>Level up</h2><div>${levelUps || `<span class="note">no level above the usual one has enough boards</span>`}</div></section>
@@ -348,7 +348,6 @@ function detailHtml(comp) {
     <div class="band">
       <section><h2>Items</h2><div><div class="row take"><span class="note">components to take first</span>${comp.take.map(itemIcon).join("")}</div>
         <table class="items">${items}</table>
-        <div class="note">Placements beside an item are correlations, not effects.</div>
         ${spare ? `<div class="spare"><div class="note">the components it uses least go into</div>${spare}</div>` : ""}</div></section>
       <section><h2>Positioning</h2>${boardHtml(comp)}</section>
     </div>
@@ -390,6 +389,19 @@ el("divider").addEventListener("pointerup", () => {
 el("divider").addEventListener("dblclick", () => {
   document.body.style.removeProperty("--list-width");
   localStorage.removeItem(LIST_WIDTH);
+  settleScale();
+});
+
+const HIDE_NAMES = "tft-assistant.hide-names";
+const showNames = (shown) => {
+  el("names").checked = shown;
+  document.body.classList.toggle("hide-names", !shown);
+};
+showNames(!localStorage.getItem(HIDE_NAMES));
+el("names").addEventListener("change", (event) => {
+  showNames(event.target.checked);
+  if (event.target.checked) localStorage.removeItem(HIDE_NAMES);
+  else localStorage.setItem(HIDE_NAMES, "1");
   settleScale();
 });
 
