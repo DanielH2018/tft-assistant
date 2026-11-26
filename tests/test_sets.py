@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from tft_assistant.sets import GameSet, Patch
+from tft_assistant.sets import GameSet, Patch, latest_set_number
 
 
 def at(day):
@@ -41,5 +41,6 @@ def test_a_selection_intersects_a_patch_with_a_time_window():
 def test_a_set_file_loads_its_queue_and_a_calendar_of_timezone_aware_starts():
     game_set = GameSet.load(18)
 
+    assert latest_set_number() >= 18
     assert game_set.ranked_queue == 1100
     assert game_set.patch_at(datetime(2026, 11, 20, tzinfo=UTC)) == "18.7"

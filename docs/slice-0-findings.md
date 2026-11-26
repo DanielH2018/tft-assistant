@@ -45,6 +45,41 @@ document. A payload's `character_id`, trait `name` and `itemNames` entries are t
 **The `role` prior for item groups is unavailable in Set 18.** Item groups have to stand on item
 distributions and attack range.
 
+## Deriving comps
+
+Measured on about 10,000 ranked boards of Set 18, part-way through the crawl.
+
+| Method | Groups | Unclassified | Mean core size | Verdict |
+|---|---|---|---|---|
+| Rule: main carry + top trait | 580 | 0% | 4.3 | The 30 largest groups hold 39% of boards. One comp splits across many groups. |
+| Rule: top two traits | 204 | 0% | 3.8 | Cores are loose: several comps share one trait pair. |
+| Density clustering, default cluster selection | 22 | 25% | 5.7 | The largest group holds 10% of boards and has a core of one unit, Sivir. It lumps several comps. |
+| Density clustering on leaf clusters, then merge, then assign | 27 | 19% | 5.1 | One group has a core under 4 units. `comps.find_comps` does this. |
+
+Three steps make the last row:
+
+1. Leaf clusters are small and tight, so no group lumps two comps.
+2. Clusters whose centroids are at least 0.7 alike merge. Two variants of a comp become one comp,
+   and the variant shows as a flex package.
+3. Every board joins the nearest comp it is at least 0.7 like. Without this step 40% of boards
+   stay unclassified.
+
+The two thresholds trade against each other:
+
+| Assignment likeness | Unclassified | Mean core size | Comps with a core under 4 |
+|---|---|---|---|
+| own members only | 40.0% | 5.70 | 1 |
+| 0.7 | 19.1% | 5.11 | 1 |
+| 0.6 | 10.1% | 4.67 | 4 |
+| 0.5 | 3.6% | 4.33 | 7 |
+
+The core threshold, at assignment likeness 0.6: 70% gives a mean core of 6.2 units, 80% gives
+5.4, 85% gives 4.7, 90% gives 3.9.
+
+**Flex packages show what a unit is worth to a comp.** In patch 18.7 the Riftbeast comp holds
+Elder Dragon and Taric together on 47% of its boards. Those boards average 3.19 against 4.26
+for the comp.
+
 ## The trait module against Riot's tally
 
 `traits.count_traits` counts unique units per trait plus emblems. On 2,000 boards its counts
