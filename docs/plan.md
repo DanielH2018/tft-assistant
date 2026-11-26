@@ -226,6 +226,10 @@ A player finds a unit four levels above its cost, so a 1-cost reroll comp rolls 
 The comp list shows the roll level as its Level column, and the detail pane's heading shows the
 style. The list sorts by a click on a column header and opens sorted by tier.
 
+A "names" checkbox beside the filter box shows or hides each unit's name under its picture on
+the comp page, and the browser keeps the choice. A unit's traits are in its tooltip, not under
+its picture.
+
 ### How the page fits a screen
 
 The detail pane never scrolls and leaves no empty band beside its content. Its content is laid
