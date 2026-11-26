@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -85,6 +86,18 @@ class StaticData:
     units: dict[str, Unit]
     traits: dict[str, Trait]
     items: dict[str, Item]
+
+    def finished_items(self, held: Iterable[str]) -> set[str]:
+        """The items among `held` that say how a unit is built: no emblem, no loose component.
+
+        A radiant item counts as its base item.
+        """
+        build = set()
+        for name in held:
+            item = self.items.get(name)
+            if item and not item.emblem_of and not item.is_component:
+                build.add(item.radiant_of or name)
+        return build
 
     @classmethod
     def from_document(cls, source: dict[str, Any], mutator: str) -> StaticData:
