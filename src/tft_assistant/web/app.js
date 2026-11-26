@@ -431,11 +431,14 @@ function move(step) {
 const LIST_WIDTH = "tft-assistant.list-width";
 const LIST_RESTORE = "tft-assistant.list-restore";
 const NARROWEST_LIST = 260;
-// The list needs 707 pixels to show every column. The comp page's least width leaves it that much
-// in a window 1,024 pixels wide.
+// The list is never wider than the width that shows all of its columns, which the stylesheet
+// states. A wider list would only add empty space and take it from the comp page.
+const FULL_LIST = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--full-list"));
+// The comp page's least width leaves the list its full width in a window 1,024 pixels wide.
 const NARROWEST_DETAIL = 300;
 const storedWidth = (key) => (localStorage.getItem(key) ? Number(localStorage.getItem(key)) : "");
-function setListWidth(width) {
+function setListWidth(asked) {
+  const width = asked === "" ? "" : Math.min(asked, FULL_LIST);
   if (width === "") document.body.style.removeProperty("--list-width");
   else document.body.style.setProperty("--list-width", `${width}px`);
   localStorage.setItem(LIST_WIDTH, width);
