@@ -5,9 +5,12 @@ import re
 import time
 from collections import Counter
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
-from tft_assistant.riot import RiotClient, load_key
+from tft_assistant.crawl import crawl
+from tft_assistant.riot import REGION_OF_PLATFORM, RiotClient, load_key
+from tft_assistant.store import Store
 
 _MECHANIC_FIELD = re.compile(r"encounter|portal|unlock|augment", re.IGNORECASE)
 _PLAYER_FIELDS = {"puuid", "riotIdGameName", "riotIdTagline", "participants"}
@@ -68,7 +71,26 @@ def main() -> None:
     commands = parser.add_subparsers(dest="command", required=True)
     probe_args = commands.add_parser("probe", help="report the rate limits and the fields of one real match")
     probe_args.add_argument("--platform", default="na1")
+    crawl_args = commands.add_parser("crawl", help="store the matches of each platform's apex ladder")
+    crawl_args.add_argument("--platform", action="append", choices=sorted(REGION_OF_PLATFORM), dest="platforms")
+    crawl_args.add_argument("--days-back", type=float, default=2.0, help="how far back a match may have started")
+    crawl_args.add_argument("--minutes", type=float, default=60.0, help="time budget per platform")
     args = parser.parse_args()
 
     if args.command == "probe":
         print("\n".join(probe(RiotClient(load_key()), args.platform)))
+    elif args.command == "crawl":
+        client, store = RiotClient(load_key()), Store()
+        since = int(time.time() - args.days_back * 86400)
+        platforms = args.platforms or sorted(REGION_OF_PLATFORM)
+        with ThreadPoolExecutor(len(platforms)) as pool:
+            reports = pool.map(
+                lambda platform: crawl(client, store, platform, since=since, budget_seconds=args.minutes * 60),
+                platforms,
+            )
+            for report in reports:
+                print(report.line())
+        for summary in store.patches():
+            print(f"set {summary.set_number} patch {summary.patch}: {summary.matches} ranked matches")
+        for bucket, limits in sorted(client.limits_seen.items()):
+            print(f"rate limit, {bucket}: {limits}")
