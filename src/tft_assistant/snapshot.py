@@ -15,11 +15,11 @@ from tft_assistant.boards import Board
 from tft_assistant.comp_detail import ItemPick, Swap
 from tft_assistant.comps import Comp, find_comps
 from tft_assistant.item_groups import find_item_groups
-from tft_assistant.positioning import default_board
+from tft_assistant.positioning import usual_row
 from tft_assistant.static_data import StaticData
 from tft_assistant.store import Selection
 
-SCHEMA = 2
+SCHEMA = 3
 
 _TIERS = ((4.10, "S"), (4.35, "A"), (4.60, "B"))
 """A comp's tier is the first whose average placement it does not exceed; the rest are C."""
@@ -29,7 +29,7 @@ def _tier(avg_placement: float) -> str:
     return next((tier for limit, tier in _TIERS if avg_placement <= limit), "C")
 
 
-def _board_units(comp: Comp) -> list[str]:
+def _fielded(comp: Comp) -> list[str]:
     """The comp as usually fielded: its core, then the commonest option of each flex slot, up to its usual level."""
     size = max(comp.tempo.levels, key=lambda level: level[1])[0]
     units = list(comp.core)
@@ -96,7 +96,6 @@ def _swap(swap: Swap) -> dict[str, Any]:
 
 
 def _comp(comp: Comp, name: str, static: StaticData) -> dict[str, Any]:
-    board = default_board(_board_units(comp), comp.carries, static)
     return {
         "id": hashlib.sha1(" ".join(sorted(comp.core)).encode()).hexdigest()[:10],
         "name": name,
@@ -174,8 +173,7 @@ def _comp(comp: Comp, name: str, static: StaticData) -> dict[str, Any]:
             }
             for up in comp.level_ups
         ],
-        "board": [{"unit": unit, "row": row, "column": column} for unit, (row, column) in board.items()],
-        "board_is_default": True,
+        "fielded": _fielded(comp),
         "sections": [],
     }
 
@@ -233,6 +231,7 @@ def build_snapshot(
                 "traits": list(static.units[unit].traits),
                 "icon": static.units[unit].icon,
                 "planner_code": static.units[unit].planner_code,
+                "row": usual_row(static.units[unit]),
             }
             for unit in sorted(units)
         },

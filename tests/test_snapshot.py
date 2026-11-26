@@ -37,7 +37,7 @@ def test_a_comp_is_named_by_trait_and_carry_tiered_by_placement_and_carries_its_
 
 def test_every_unit_item_and_trait_a_comp_names_is_in_the_lookup_tables(snapshot):
     for comp in snapshot["comps"]:
-        units = [*comp["core"], *comp["three_stars"], *(place["unit"] for place in comp["board"])]
+        units = [*comp["core"], *comp["three_stars"], *comp["fielded"]]
         units += [unit for slot in comp["flex"] for package in slot for unit in package["units"]]
         units += [pick["holder"] for pick in comp["items"]]
         units += [shift["unit"] for up in comp["level_ups"] for shift in [*up["adds"], *up["drops"]]]
@@ -49,18 +49,14 @@ def test_every_unit_item_and_trait_a_comp_names_is_in_the_lookup_tables(snapshot
         "traits": ["T"],
         "icon": "https://icons.test/A1.png",
         "planner_code": None,
+        "row": 0,
     }
     assert snapshot["traits"]["T"] == {"name": "Trait", "icon": None, "breakpoints": [2, 4]}
     assert snapshot["items"]["Edge"] == {"name": "Edge", "icon": None, "recipe": ["Sword", "Glove"]}
 
 
-def test_a_comps_default_board_holds_its_core_and_commonest_flex_units_up_to_its_usual_level(snapshot):
-    comp = snapshot["comps"][0]
-    placed = [place["unit"] for place in comp["board"]]
-
-    assert sorted(placed) == sorted([*A_CORE, "X1", "X2"])
-    assert comp["board_is_default"] is True
-    assert len({(place["row"], place["column"]) for place in comp["board"]}) == 8
+def test_a_comp_is_fielded_as_its_core_and_commonest_flex_units_up_to_its_usual_level(snapshot):
+    assert sorted(snapshot["comps"][0]["fielded"]) == sorted([*A_CORE, "X1", "X2"])
 
 
 def names_when_both_comps_read_alpha_a1(boards, static, **b3):
