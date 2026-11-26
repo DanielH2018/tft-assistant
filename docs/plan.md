@@ -236,16 +236,21 @@ its picture.
 
 ### How the page fits a screen
 
-The detail pane never scrolls and leaves no empty band beside its content. Its content is laid
-out at the pane's width divided by a scale, and drawn at that scale, so it always spans the
-pane. A larger scale gives a narrower layout, which wraps more rows and stands taller. The page
-takes the largest scale whose layout still fits the pane's height, between 0.4 and 2.
+The detail content keeps one size. It is laid out at the pane's width and wraps to it, and the
+pane scrolls down when the content is taller. Nothing reaches past the pane's right edge: every
+row wraps, and only a pane too narrow for the widest thing that cannot wrap draws the content
+smaller.
 
-One scale serves every comp of a snapshot, so the content does not change size from comp to
-comp: it is the scale that fits the tallest comp. A comp that still does not fit takes a smaller
-one. Two earlier designs failed. A layout that only reflows cannot promise a fit, because a
-narrower pane wraps rows and grows taller. A layout of fixed width, scaled down, left an empty
-band on the right of any pane wider than the layout.
+The sections stand in two columns once the content is 1,000 pixels wide: Core, Flex, Traits and
+Key units on the left, and Items, Emblems and artifacts, and Level up on the right. Positioning
+has the full width under both. A narrower pane has one column. A click on a section's heading
+folds the section to its heading or opens it again, and the browser keeps the folds.
+
+Two designs that scaled the content to the pane's height were built and dropped on 2026-11-26.
+One laid the content out at a fixed width and scaled it down, which left an empty band beside
+it. The other searched for the largest scale that fit the height, which drew a one-column page
+at 0.78 of full size with half the pane's width unused. The operator's rule is that the height
+may overflow and the width may not.
 
 The list's columns have fixed widths and never move. A list too narrow for all of them drops
 whole columns from the right: Play, Top 4, Avg, Core, then Level. The list opens 660 pixels

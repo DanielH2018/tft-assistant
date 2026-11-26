@@ -171,61 +171,25 @@ const COLUMNS = [
   ["Play", "play", "c-play num"],
 ];
 
-// The detail pane never scrolls and leaves no empty band beside its content. The sheet is laid out
-// at the pane's width divided by a scale and drawn at that scale, so it always spans the pane. A
-// larger scale gives a narrower layout, which wraps more and stands taller, so the largest scale
-// whose layout fits the pane's height fills the pane both ways.
-const BLANK_PICTURE = "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
-const SMALLEST_SCALE = 0.4;
-const LARGEST_SCALE = 2;
-let sheetScale = 1;
-
-function paneSize() {
+// The detail content keeps one size. It is laid out at the pane's width and wraps to it, and the
+// pane scrolls down when the content is taller. Only a pane too narrow for the widest thing that
+// cannot wrap draws the content smaller, so nothing reaches past the pane's right edge.
+function fitWidth() {
+  const sheet = el("sheet");
+  if (!sheet) return;
   const pane = el("detail");
   const padding = getComputedStyle(pane);
-  return [
-    pane.clientWidth - parseFloat(padding.paddingLeft) - parseFloat(padding.paddingRight),
-    pane.clientHeight - parseFloat(padding.paddingTop) - parseFloat(padding.paddingBottom),
-  ];
-}
-
-function layOut(scale) {
-  const sheet = el("sheet");
-  const [width, height] = paneSize();
-  sheet.style.zoom = scale;
-  sheet.style.width = `${width / scale}px`;
-  return sheet.getBoundingClientRect().height <= height && sheet.scrollWidth <= sheet.clientWidth;
-}
-
-function largestScaleThatFits(upper) {
-  if (layOut(upper)) return upper;
-  let [fitting, tooLarge] = [SMALLEST_SCALE, upper];
-  for (let step = 0; step < 8; step += 1) {
-    const middle = (fitting + tooLarge) / 2;
-    if (layOut(middle)) fitting = middle;
-    else tooLarge = middle;
+  const width = pane.clientWidth - parseFloat(padding.paddingLeft) - parseFloat(padding.paddingRight);
+  let scale = 1;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    sheet.style.zoom = scale;
+    sheet.style.width = `${width / scale}px`;
+    if (sheet.scrollWidth <= sheet.clientWidth) break;
+    scale *= sheet.clientWidth / sheet.scrollWidth;
   }
-  layOut(fitting);
-  return fitting;
 }
 
-// One scale serves every comp of a snapshot, so the pane does not change size from comp to comp.
-// It is the scale that fits the tallest comp; a comp that still does not fit takes a smaller one.
-function settleScale() {
-  const comps = snap().comps;
-  if (!comps.length) return;
-  // Every picture has a fixed size, so a blank one measures the same and downloads nothing.
-  const measured = (comp) => detailHtml(comp).replace(/ src="[^"]*"/g, ` src="${BLANK_PICTURE}"`);
-  const heights = comps.map((comp) => {
-    el("detail").innerHTML = measured(comp);
-    layOut(1);
-    return el("sheet").offsetHeight;
-  });
-  el("detail").innerHTML = measured(comps[heights.indexOf(Math.max(...heights))]);
-  sheetScale = largestScaleThatFits(LARGEST_SCALE);
-  renderDetail();
-}
-
+let shownComp = null;
 function renderDetail() {
   const comp = snap().comps.find((candidate) => candidate.id === state.comp);
   if (!comp) {
@@ -233,7 +197,10 @@ function renderDetail() {
     return;
   }
   el("detail").innerHTML = detailHtml(comp);
-  largestScaleThatFits(sheetScale);
+  fitWidth();
+  const shown = `${state.snapshot}:${comp.id}`;
+  if (shown !== shownComp) el("detail").scrollTop = 0;
+  shownComp = shown;
 }
 
 // The flex packages picked for each comp, as "slot.option" keys. A comp nobody has touched starts
@@ -364,17 +331,29 @@ function detailHtml(comp) {
     <header><div class="title"><h1><span class="tier t${comp.tier}">${comp.tier}</span>${esc(comp.name)}</h1>
       <button id="copy-team" title="${esc(teamCode(comp))}">Copy team code</button><span class="note">${teamNote}: core and picked flex</span></div>
       <p class="stats"><b>${esc(comp.style)}</b> · avg <b>${comp.avg_placement.toFixed(2)}</b> · top 4 <b>${pct(comp.top4)}</b> · play <b>${(comp.share * 100).toFixed(1)}%</b> · ${comp.boards.toLocaleString()} boards</p></header>
-    <section><h2>Core</h2><div class="row">${comp.core.map((id) => unitTile(id, "l", { threeStar: threeStar(id) })).join("")}</div></section>
-    <section><h2>Flex</h2><div><div class="row">${packages || `<span class="note">no regular flex units</span>`}</div>
-      ${sharedSlots ? `<div class="note">Units in one outline take one slot: a board rarely holds both. An arrow points to the costlier unit, which the cheaper one is played until.</div>` : ""}</div></section>
-    <section><h2>Level up</h2><div>${levelUps || `<span class="note">no level above the usual one has enough boards</span>`}</div></section>
-    <section><h2>Traits</h2><div class="row">${traits}</div></section>
-    <section><h2>Key units</h2><div>${keyUnitsHtml(comp) || `<span class="note">no unit holds items regularly</span>`}</div></section>
-    <section><h2>Items</h2><div><div class="row take"><span class="note">components to take first</span>${comp.take.map(itemIcon).join("")}</div>
-      <table class="items">${items}</table>
-      ${spare ? `<div class="spare"><div class="note">the components it uses least go into</div>${spare}</div>` : ""}</div></section>
-    ${specials ? `<section><h2>Emblems, artifacts</h2><div>${specials}</div></section>` : ""}
-    <section><h2>Positioning</h2><div>${boardHtml(comp)}</div></section></div>`;
+    <div class="columns">
+      <div>
+        ${section("Core", `<div class="row">${comp.core.map((id) => unitTile(id, "l", { threeStar: threeStar(id) })).join("")}</div>`)}
+        ${section(
+          "Flex",
+          `<div><div class="row">${packages || `<span class="note">no regular flex units</span>`}</div>
+          ${sharedSlots ? `<div class="note">Units in one outline take one slot: a board rarely holds both. An arrow points to the costlier unit, which the cheaper one is played until.</div>` : ""}</div>`,
+        )}
+        ${section("Traits", `<div class="row">${traits}</div>`)}
+        ${section("Key units", `<div>${keyUnitsHtml(comp) || `<span class="note">no unit holds items regularly</span>`}</div>`)}
+      </div>
+      <div>
+        ${section(
+          "Items",
+          `<div><div class="row take"><span class="note">components to take first</span>${comp.take.map(itemIcon).join("")}</div>
+          <table class="items">${items}</table>
+          ${spare ? `<div class="spare"><div class="note">the components it uses least go into</div>${spare}</div>` : ""}</div>`,
+        )}
+        ${specials ? section("Emblems, artifacts", `<div>${specials}</div>`) : ""}
+        ${section("Level up", `<div>${levelUps || `<span class="note">no level above the usual one has enough boards</span>`}</div>`)}
+      </div>
+    </div>
+    ${section("Positioning", `<div>${boardHtml(comp)}</div>`)}</div>`;
 }
 
 function move(step) {
@@ -393,7 +372,7 @@ const NARROWEST_LIST = 260;
 const NARROWEST_DETAIL = 640;
 const setListWidth = (pixels) => document.body.style.setProperty("--list-width", `${pixels}px`);
 if (localStorage.getItem(LIST_WIDTH)) setListWidth(localStorage.getItem(LIST_WIDTH));
-addEventListener("resize", settleScale);
+addEventListener("resize", fitWidth);
 el("divider").addEventListener("pointerdown", (event) => {
   event.target.setPointerCapture(event.pointerId);
   document.body.classList.add("resizing");
@@ -403,16 +382,13 @@ el("divider").addEventListener("pointermove", (event) => {
   const width = Math.round(Math.min(Math.max(event.clientX, NARROWEST_LIST), innerWidth - NARROWEST_DETAIL));
   setListWidth(width);
   localStorage.setItem(LIST_WIDTH, width);
-  if (el("sheet")) largestScaleThatFits(LARGEST_SCALE);
+  fitWidth();
 });
-el("divider").addEventListener("pointerup", () => {
-  document.body.classList.remove("resizing");
-  settleScale();
-});
+el("divider").addEventListener("pointerup", () => document.body.classList.remove("resizing"));
 el("divider").addEventListener("dblclick", () => {
   document.body.style.removeProperty("--list-width");
   localStorage.removeItem(LIST_WIDTH);
-  settleScale();
+  fitWidth();
 });
 
 const HIDE_NAMES = "tft-assistant.hide-names";
@@ -425,14 +401,29 @@ el("names").addEventListener("change", (event) => {
   showNames(event.target.checked);
   if (event.target.checked) localStorage.removeItem(HIDE_NAMES);
   else localStorage.setItem(HIDE_NAMES, "1");
-  settleScale();
+  fitWidth();
 });
+
+// A click on a section's heading folds the section to its heading, or opens it again. The fold
+// belongs to the section, not to one comp, so it holds as the comp changes and after a reload.
+const FOLDED = "tft-assistant.folded-sections";
+const folded = new Set(JSON.parse(localStorage.getItem(FOLDED) || "[]"));
+function section(title, body) {
+  const fold = folded.has(title) ? "folded" : "";
+  return `<section class="${fold}" data-section="${title}"><h2 title="Click to fold or open this section">${title}</h2>${body}</section>`;
+}
 
 el("detail").addEventListener("click", (event) => {
   const comp = snap().comps.find((candidate) => candidate.id === state.comp);
   if (!comp) return;
   const flex = event.target.closest("[data-flex]");
-  if (flex) {
+  const heading = event.target.closest("section > h2");
+  if (heading) {
+    const title = heading.parentElement.dataset.section;
+    if (!folded.delete(title)) folded.add(title);
+    localStorage.setItem(FOLDED, JSON.stringify([...folded]));
+    renderDetail();
+  } else if (flex) {
     togglePick(comp, flex.dataset.flex);
     renderDetail();
   } else if (event.target.closest("#copy-team")) {
@@ -448,7 +439,6 @@ el("selection").innerHTML = SNAPSHOTS.map((s, index) => `<option value="${index}
 el("selection").addEventListener("change", (event) => {
   state.snapshot = Number(event.target.value);
   renderList();
-  settleScale();
 });
 el("head").addEventListener("click", (event) => {
   const column = event.target.closest("button");
@@ -494,8 +484,5 @@ document.addEventListener("keydown", (event) => {
     move(event.key === "ArrowDown" ? 1 : -1);
   }
 });
-if (SNAPSHOTS.length) {
-  renderList();
-  settleScale();
-}
+if (SNAPSHOTS.length) renderList();
 else el("detail").innerHTML = `<p class="empty">No snapshot was built.</p>`;
