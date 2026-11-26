@@ -64,8 +64,9 @@ server reads the page from the same directory. A crawl that fails ends the run, 
 restarts it shows the failure. The page that was built last stays up meanwhile, and its footer
 states the age of its newest match.
 
-CI builds the image on every commit to `main`. A set's patch calendar is part of the image, so
-a new patch reaches a deployment as a new image.
+CI builds and proves the image on every commit and publishes it when a version tag is pushed.
+A deployment follows releases, so it moves when a release is cut and not on every merge. A
+set's patch calendar is part of the image, so a new patch reaches a deployment as a release.
 
 ## Selecting data
 
