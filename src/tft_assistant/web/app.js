@@ -600,4 +600,4 @@ document.addEventListener("keydown", (event) => {
   }
 });
 if (SNAPSHOTS.length) renderList();
-else el("detail").innerHTML = `<p class="empty">No snapshot was built.</p>`;
+else el("detail").innerHTML = `<p class="empty">No snapshot yet. A snapshot needs 1,000 boards of the live patch, and a new store gets them within its first crawl.</p>`;

@@ -11,10 +11,11 @@ import json
 import time
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 import httpx
+
+from tft_assistant.paths import state_path
 
 DOCUMENT_URL = "https://raw.communitydragon.org/{channel}/cdragon/tft/en_us.json"
 PLANNER_URL = (
@@ -22,7 +23,7 @@ PLANNER_URL = (
     "tftchampions-teamplanner.json"
 )
 ICON_BASE = "https://raw.communitydragon.org/latest/game/"
-CACHE_DIR = Path("~/.cache/tft-assistant").expanduser()
+CACHE_DIR = state_path("cache", "~/.cache/tft-assistant")
 _MAX_AGE_SECONDS = 24 * 3600
 
 

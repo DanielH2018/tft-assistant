@@ -51,6 +51,22 @@ Community Dragon ──► static data (units, traits, items, roles, icons)
   and a field Riot adds for a set is available without a second crawl.
 - Edits merge in the browser. The pages stay static, and an edit shows without a rebuild.
 
+### The unattended run
+
+`tft refresh` keeps a deployment current. It builds the page from the matches the store holds,
+then crawls and builds again once a cycle. The first build comes before any crawl, so a
+restarted run has a page within seconds. A crawl that walks the whole ladder before its cycle
+ends waits out the cycle.
+
+The run is one process with one directory. `TFT_STATE_DIR` names the directory, which holds the
+match store, the static-data cache and the built page. The run serves nothing: a static file
+server reads the page from the same directory. A crawl that fails ends the run, and whatever
+restarts it shows the failure. The page that was built last stays up meanwhile, and its footer
+states the age of its newest match.
+
+CI builds the image on every commit to `main`. A set's patch calendar is part of the image, so
+a new patch reaches a deployment as a new image.
+
 ## Selecting data
 
 A `Selection` names a set, a time window, regions and a queue. It is the only way an analysis

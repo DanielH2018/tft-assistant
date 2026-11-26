@@ -15,6 +15,7 @@ from tft_assistant.build import build_site
 from tft_assistant.comps import CompReport, find_comps
 from tft_assistant.crawl import crawl
 from tft_assistant.item_groups import find_item_groups
+from tft_assistant.refresh import refresh
 from tft_assistant.riot import REGION_OF_PLATFORM, RiotClient, load_key
 from tft_assistant.sets import GameSet, latest_set_number
 from tft_assistant.snapshot import build_snapshot
@@ -115,15 +116,63 @@ def comp_lines(report: CompReport, static: StaticData, top: int) -> list[str]:
     return lines
 
 
+def build_page(store: Store, set_number: int, out: Path) -> None:
+    """Analyse each standing selection of a set that has enough boards, and write the page."""
+    game_set = GameSet.load(set_number)
+    static = game_set.roster()
+    now, snapshots = datetime.now(UTC), []
+    for label, selection in game_set.standing_selections(now):
+        found = [board for match in store.matches(selection) for board in boards(match)]
+        if len(found) < MIN_BOARDS:
+            print(f"skipped {label}: {len(found)} boards, and a snapshot needs {MIN_BOARDS}")
+            continue
+        snapshots.append(
+            build_snapshot(label, selection, found, static, built_at=now, newest_match=store.newest(selection))
+        )
+        print(f"built {label}: {len(found)} boards, {len(snapshots[-1]['comps'])} comps")
+    print(f"wrote {build_site(snapshots, out)}")
+
+
+def crawl_platforms(
+    client: RiotClient, store: Store, platforms: list[str] | None, days_back: float, minutes: float
+) -> None:
+    """Crawl each platform's ladder at once, every platform when none is named, and report what the store holds."""
+    since = int(time.time() - days_back * 86400)
+    platforms = platforms or sorted(REGION_OF_PLATFORM)
+    with ThreadPoolExecutor(len(platforms)) as pool:
+        reports = pool.map(
+            lambda platform: crawl(client, store, platform, since=since, budget_seconds=minutes * 60), platforms
+        )
+        for report in reports:
+            print(report.line())
+    for held in store.holdings():
+        print(
+            f"set {held.set_number} queue {held.queue_id}: {held.matches} matches,"
+            f" {held.first:%Y-%m-%d %H:%M} to {held.last:%Y-%m-%d %H:%M} UTC"
+        )
+    for bucket, limits in sorted(client.limits_seen.items()):
+        print(f"rate limit, {bucket}: {limits}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="tft")
     commands = parser.add_subparsers(dest="command", required=True)
     probe_args = commands.add_parser("probe", help="report the rate limits and the fields of one real match")
     probe_args.add_argument("--platform", default="na1")
-    crawl_args = commands.add_parser("crawl", help="store the matches of each platform's apex ladder")
-    crawl_args.add_argument("--platform", action="append", choices=sorted(REGION_OF_PLATFORM), dest="platforms")
-    crawl_args.add_argument("--days-back", type=float, default=2.0, help="how far back a match may have started")
-    crawl_args.add_argument("--minutes", type=float, default=60.0, help="time budget per platform")
+    crawled = argparse.ArgumentParser(add_help=False)
+    crawled.add_argument("--platform", action="append", choices=sorted(REGION_OF_PLATFORM), dest="platforms")
+    crawled.add_argument("--days-back", type=float, default=2.0, help="how far back a match may have started")
+    crawled.add_argument("--minutes", type=float, default=60.0, help="time budget per platform")
+    built = argparse.ArgumentParser(add_help=False)
+    built.add_argument("--set", type=int, dest="set_number", default=latest_set_number())
+    built.add_argument("--out", type=Path, default=Path("site"), help="directory that receives index.html")
+    commands.add_parser("crawl", parents=[crawled], help="store the matches of each platform's apex ladder")
+    commands.add_parser("build", parents=[built], help="analyse the standing selections and write the page")
+    commands.add_parser(
+        "refresh",
+        parents=[crawled, built],
+        help="build the page, then crawl and build again every --minutes, until stopped",
+    )
     selected = argparse.ArgumentParser(add_help=False)
     selected.add_argument("--set", type=int, dest="set_number", default=latest_set_number())
     selected.add_argument("--patch", help="a patch from the set's calendar, such as 18.7")
@@ -137,25 +186,19 @@ def main() -> None:
     commands.add_parser(
         "item-groups", parents=[selected], help="group units by the items they hold in a selection's boards"
     )
-    build_args = commands.add_parser("build", help="analyse the standing selections and write the page")
-    build_args.add_argument("--set", type=int, dest="set_number", default=latest_set_number())
-    build_args.add_argument("--out", type=Path, default=Path("site"), help="directory that receives index.html")
     args = parser.parse_args()
 
     if args.command == "build":
-        game_set = GameSet.load(args.set_number)
-        static = game_set.roster()
-        store, now, snapshots = Store(), datetime.now(UTC), []
-        for label, selection in game_set.standing_selections(now):
-            found = [board for match in store.matches(selection) for board in boards(match)]
-            if len(found) < MIN_BOARDS:
-                print(f"skipped {label}: {len(found)} boards, and a snapshot needs {MIN_BOARDS}")
-                continue
-            snapshots.append(
-                build_snapshot(label, selection, found, static, built_at=now, newest_match=store.newest(selection))
-            )
-            print(f"built {label}: {len(found)} boards, {len(snapshots[-1]['comps'])} comps")
-        print(f"wrote {build_site(snapshots, args.out)}")
+        build_page(Store(), args.set_number, args.out)
+    elif args.command == "crawl":
+        crawl_platforms(RiotClient(load_key()), Store(), args.platforms, args.days_back, args.minutes)
+    elif args.command == "refresh":
+        client, store = RiotClient(load_key()), Store()
+        refresh(
+            lambda: crawl_platforms(client, store, args.platforms, args.days_back, args.minutes),
+            lambda: build_page(store, args.set_number, args.out),
+            cycle_seconds=args.minutes * 60,
+        )
     elif args.command in ("comps", "item-groups"):
         game_set = GameSet.load(args.set_number)
         selection = game_set.selection(
@@ -172,21 +215,3 @@ def main() -> None:
                 print("    " + ", ".join(f"{static.units[u].name} ({static.units[u].cost})" for u in group.units))
     elif args.command == "probe":
         print("\n".join(probe(RiotClient(load_key()), args.platform)))
-    elif args.command == "crawl":
-        client, store = RiotClient(load_key()), Store()
-        since = int(time.time() - args.days_back * 86400)
-        platforms = args.platforms or sorted(REGION_OF_PLATFORM)
-        with ThreadPoolExecutor(len(platforms)) as pool:
-            reports = pool.map(
-                lambda platform: crawl(client, store, platform, since=since, budget_seconds=args.minutes * 60),
-                platforms,
-            )
-            for report in reports:
-                print(report.line())
-        for held in store.holdings():
-            print(
-                f"set {held.set_number} queue {held.queue_id}: {held.matches} matches,"
-                f" {held.first:%Y-%m-%d %H:%M} to {held.last:%Y-%m-%d %H:%M} UTC"
-            )
-        for bucket, limits in sorted(client.limits_seen.items()):
-            print(f"rate limit, {bucket}: {limits}")

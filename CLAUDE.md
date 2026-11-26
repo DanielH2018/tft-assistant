@@ -17,4 +17,9 @@ live API showed, and it overrides any assumption about Riot's payload.
   `src/tft_assistant/data/sets/<n>/`.
 - Riot counts requests per key, and `riot.RateLimiter` counts per process. A second process that
   calls the API while `tft crawl` runs pushes both into 429 responses, so check for a running
-  crawl before starting one.
+  crawl before starting one. A deployment's `tft refresh` crawls all day on its key, so a local
+  crawl on the same key collides with it: develop against the matches the store holds.
+- `.github/workflows/ci.yml` runs the tests on a pull request and builds the image. On `main` it
+  pushes the image. Wait for the pull request's checks before merging: `cc-wait gh-ci`.
+- `TFT_STATE_DIR` moves the match store and the static-data cache into one directory, which is
+  how the image keeps both on its `/data` volume (`paths.state_path`).

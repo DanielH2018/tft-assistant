@@ -23,8 +23,28 @@ uv run tft probe      # one ladder, one match: report the rate limits and payloa
 uv run tft crawl      # store the matches of the NA, EUW and KR apex ladders
 uv run tft comps --patch 18.7          # comps of a patch; --since, --until and --platform narrow it
 uv run tft build --out site            # write site/index.html from the stored matches
+uv run tft refresh --out site          # build, then crawl and build again every hour, until stopped
 uv run pytest
 ```
+
+## Run it unattended
+
+`tft refresh` is the unattended run. It builds the page from the matches the store holds, then
+crawls and builds again once a cycle. A cycle lasts `--minutes`, an hour unless told otherwise.
+
+The image runs it. CI builds `ghcr.io/danielh2018/tft-assistant` on every commit to `main`,
+tagged `latest` and `sha-<commit>`.
+
+```sh
+docker run -e RIOT_API_KEY -v tft-data:/data ghcr.io/danielh2018/tft-assistant
+```
+
+| | |
+|---|---|
+| `/data` | The one directory the run writes: the match store, the static-data cache and the page under `site/`. `TFT_STATE_DIR` names it. |
+| `RIOT_API_KEY` | The key, given at run time. The image holds none. |
+| User | The image runs as user 10001 and works as any other user that can write `/data`. |
+| Serving | The run serves nothing. Any static file server pointed at `/data/site` serves the page. |
 
 ## Riot's terms
 
