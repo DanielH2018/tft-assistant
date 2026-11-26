@@ -8,6 +8,7 @@ from conftest import A_CORE
 from tft_assistant.build import build_site
 from tft_assistant.comp_ids import CompIds
 from tft_assistant.snapshot import SCHEMA, build_snapshot
+from tft_assistant.static_data import Item
 from tft_assistant.store import Selection
 
 NOW = datetime(2026, 12, 3, 12, tzinfo=UTC)
@@ -62,6 +63,23 @@ def test_every_unit_item_and_trait_a_comp_names_is_in_the_lookup_tables(snapshot
     }
     assert snapshot["traits"]["T"] == {"name": "Trait", "icon": None, "breakpoints": [2, 4]}
     assert snapshot["items"]["Edge"] == {"name": "Edge", "icon": None, "recipe": ["Sword", "Glove"]}
+
+
+def test_the_recipes_are_every_item_of_the_components_in_play_built_or_not(planted_boards, planted_static, tmp_path):
+    more_items = dataclasses.replace(
+        planted_static,
+        items=planted_static.items
+        | {
+            "Unbuilt": Item("Unbuilt", "Unbuilt", ("Sword", "Bow"), None, None, False),
+            "Earlier set": Item("Earlier set", "Earlier set", ("Old sword", "Old bow"), None, None, False),
+        },
+    )
+
+    recipes = built(planted_boards, more_items, tmp_path / "ids.json")["recipes"]
+
+    assert recipes["Edge"] == ["Sword", "Glove"]
+    assert recipes["Unbuilt"] == ["Sword", "Bow"]
+    assert "Earlier set" not in recipes
 
 
 def test_a_comp_is_fielded_as_its_core_and_commonest_flex_units_up_to_its_usual_level(snapshot):
