@@ -64,6 +64,14 @@ def test_newest_is_the_start_of_a_selections_latest_match_and_none_without_one(s
     assert store.newest(Selection(20, RANKED)) is None
 
 
+def test_a_selection_with_more_matches_than_a_limit_is_narrowed_to_its_newest(store):
+    every = Selection(19, RANKED)
+
+    assert ids(store, store.capped(every, 2)) == ["KR_1", "NA1_2"]
+    assert store.capped(every, 2).since == at(4)
+    assert store.capped(every, 3) is every
+
+
 def test_missing_names_the_ids_not_stored_and_a_repeated_add_keeps_one_copy(store):
     store.add_match("na1", match("NA1_1"))
 
