@@ -268,8 +268,21 @@ on, and the page sets no native tooltip on its content.
 - An "i" beside a section's heading explains how to read the section. Explanations that stood
   on the page as sentences live there, including the thresholds for "critical" and "needs".
 
-A card does not say what a trait or a unit's ability does. Community Dragon's descriptions are
-templates with variables to fill in, and the snapshot does not carry them.
+A card does not say what a trait or a unit's ability does. The operator asked for both on
+2026-11-26 and then deferred them. What a first look at Set 18's data found:
+
+- **Traits can be filled in from the summary document.** A trait has a `desc` template and one
+  `effects` entry per breakpoint, each with a table of variables. 92 of the 239 variables the
+  templates name sit under a hashed key such as `{2c61751d}`. The key is the 32-bit FNV-1a hash
+  of the variable's lower-cased name, written in hex between braces. Matching by that hash
+  resolves 239 of 239. The n-th `<row>` of a template reads the n-th breakpoint's variables.
+- **Abilities cannot.** The summary gives an ability's name and its template, but its
+  `variables` list is empty for 72 of the 74 Set 18 units. Older sets have the list. The
+  templates name calculated values such as `@MagicDamageCalc1@`, which no list of raw values
+  holds: they come from the spell's calculations and the unit's stats at each star level.
+- **Where the spell data lives is open.** Community Dragon's raw map file
+  (`game/data/maps/shipping/map22/map22.bin.json`, 70 MB) holds a `TftCharacter` record per unit
+  and 638 spell objects, and none under a Set 18 unit's name.
 
 A layout of two fixed columns was built on 2026-11-26 and replaced the same day. It put Level up
 and Flex in columns too narrow to lay their content on one line, and left the rest of each
