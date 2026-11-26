@@ -183,9 +183,16 @@ style. The list sorts by a click on a column header and opens sorted by tier.
 
 ### How the page fits a screen
 
-The detail pane never scrolls. Its content is laid out 1155 pixels wide, which holds every
-section, and is then scaled down to the pane when the pane is smaller. A reflowing layout was
-rejected because it cannot promise a fit: a narrower pane wraps rows and grows taller.
+The detail pane never scrolls and leaves no empty band beside its content. Its content is laid
+out at the pane's width divided by a scale, and drawn at that scale, so it always spans the
+pane. A larger scale gives a narrower layout, which wraps more rows and stands taller. The page
+takes the largest scale whose layout still fits the pane's height, between 0.4 and 2.
+
+One scale serves every comp of a snapshot, so the content does not change size from comp to
+comp: it is the scale that fits the tallest comp. A comp that still does not fit takes a smaller
+one. Two earlier designs failed. A layout that only reflows cannot promise a fit, because a
+narrower pane wraps rows and grows taller. A layout of fixed width, scaled down, left an empty
+band on the right of any pane wider than the layout.
 
 The list's columns have fixed widths and never move. A list too narrow for all of them drops
 whole columns from the right: Play, Top 4, Avg, Core, then Level. The list opens 660 pixels

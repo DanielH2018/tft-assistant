@@ -137,16 +137,59 @@ const COLUMNS = [
   ["Play", "play", "c-play num"],
 ];
 
-// The detail pane never scrolls: its sheet is laid out wide enough for every section, then scaled to the pane.
-function fitDetail() {
-  const sheet = el("sheet");
-  if (!sheet) return;
-  sheet.style.zoom = 1;
+// The detail pane never scrolls and leaves no empty band beside its content. The sheet is laid out
+// at the pane's width divided by a scale and drawn at that scale, so it always spans the pane. A
+// larger scale gives a narrower layout, which wraps more and stands taller, so the largest scale
+// whose layout fits the pane's height fills the pane both ways.
+const BLANK_PICTURE = "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
+const SMALLEST_SCALE = 0.4;
+const LARGEST_SCALE = 2;
+let sheetScale = 1;
+
+function paneSize() {
   const pane = el("detail");
   const padding = getComputedStyle(pane);
-  const width = pane.clientWidth - parseFloat(padding.paddingLeft) - parseFloat(padding.paddingRight);
-  const height = pane.clientHeight - parseFloat(padding.paddingTop) - parseFloat(padding.paddingBottom);
-  sheet.style.zoom = Math.min(1, width / sheet.offsetWidth, height / sheet.offsetHeight);
+  return [
+    pane.clientWidth - parseFloat(padding.paddingLeft) - parseFloat(padding.paddingRight),
+    pane.clientHeight - parseFloat(padding.paddingTop) - parseFloat(padding.paddingBottom),
+  ];
+}
+
+function layOut(scale) {
+  const sheet = el("sheet");
+  const [width, height] = paneSize();
+  sheet.style.zoom = scale;
+  sheet.style.width = `${width / scale}px`;
+  return sheet.getBoundingClientRect().height <= height && sheet.scrollWidth <= sheet.clientWidth;
+}
+
+function largestScaleThatFits(upper) {
+  if (layOut(upper)) return upper;
+  let [fitting, tooLarge] = [SMALLEST_SCALE, upper];
+  for (let step = 0; step < 8; step += 1) {
+    const middle = (fitting + tooLarge) / 2;
+    if (layOut(middle)) fitting = middle;
+    else tooLarge = middle;
+  }
+  layOut(fitting);
+  return fitting;
+}
+
+// One scale serves every comp of a snapshot, so the pane does not change size from comp to comp.
+// It is the scale that fits the tallest comp; a comp that still does not fit takes a smaller one.
+function settleScale() {
+  const comps = snap().comps;
+  if (!comps.length) return;
+  // Every picture has a fixed size, so a blank one measures the same and downloads nothing.
+  const measured = (comp) => detailHtml(comp).replace(/ src="[^"]*"/g, ` src="${BLANK_PICTURE}"`);
+  const heights = comps.map((comp) => {
+    el("detail").innerHTML = measured(comp);
+    layOut(1);
+    return el("sheet").offsetHeight;
+  });
+  el("detail").innerHTML = measured(comps[heights.indexOf(Math.max(...heights))]);
+  sheetScale = largestScaleThatFits(LARGEST_SCALE);
+  renderDetail();
 }
 
 function renderDetail() {
@@ -155,6 +198,11 @@ function renderDetail() {
     el("detail").innerHTML = `<p class="empty">No comp matches.</p>`;
     return;
   }
+  el("detail").innerHTML = detailHtml(comp);
+  largestScaleThatFits(sheetScale);
+}
+
+function detailHtml(comp) {
   const threeStar = (id) => comp.three_stars.includes(id);
   const packageHtml = (p) => `<div class="package">${p.units.map((id) => unitTile(id, "m", { threeStar: threeStar(id) })).join("")}
         <div class="figures"><b>${pct(p.share)}</b> of boards<br>avg ${delta(p.avg_placement, comp.avg_placement)}</div></div>`;
@@ -200,7 +248,7 @@ function renderDetail() {
         <td class="note">avg ${delta(pick.avg_with, comp.avg_placement)} with${pick.avg_without === null ? "" : `, ${pick.avg_without.toFixed(2)} without`}</td></tr>`,
     )
     .join("");
-  el("detail").innerHTML = `<div id="sheet">
+  return `<div id="sheet">
     <header><h1><span class="tier t${comp.tier}">${comp.tier}</span>${esc(comp.name)}</h1>
       <p class="stats"><b>${esc(comp.style)}</b> · avg <b>${comp.avg_placement.toFixed(2)}</b> · top 4 <b>${pct(comp.top4)}</b> · play <b>${(comp.share * 100).toFixed(1)}%</b> · ${comp.boards.toLocaleString()} boards</p></header>
     <section><h2>Core</h2><div class="row">${comp.core.map((id) => unitTile(id, "l", { traits: true, threeStar: threeStar(id) })).join("")}</div></section>
@@ -209,13 +257,12 @@ function renderDetail() {
     <section><h2>Level up</h2><div>${levelUps || `<span class="note">no level above the usual one has enough boards</span>`}</div></section>
     <section><h2>Traits</h2><div class="row">${traits}</div></section>
     <section><h2>Key units</h2><div>${keyUnitsHtml(comp) || `<span class="note">no unit holds items regularly</span>`}</div></section>
-    <section><h2>Items</h2><div class="split">
-      <div><div class="row take"><span class="note">components to take first</span>${comp.take.map(itemIcon).join("")}</div>
+    <div class="band">
+      <section><h2>Items</h2><div><div class="row take"><span class="note">components to take first</span>${comp.take.map(itemIcon).join("")}</div>
         <table class="items">${items}</table>
-        <div class="note">Placements beside an item are correlations, not effects.</div></div>
-      ${boardHtml(comp)}
-    </div></section></div>`;
-  fitDetail();
+        <div class="note">Placements beside an item are correlations, not effects.</div></div></section>
+      <section><h2>Positioning</h2>${boardHtml(comp)}</section>
+    </div></div>`;
 }
 
 function move(step) {
@@ -234,7 +281,7 @@ const NARROWEST_LIST = 260;
 const NARROWEST_DETAIL = 640;
 const setListWidth = (pixels) => document.body.style.setProperty("--list-width", `${pixels}px`);
 if (localStorage.getItem(LIST_WIDTH)) setListWidth(localStorage.getItem(LIST_WIDTH));
-addEventListener("resize", fitDetail);
+addEventListener("resize", settleScale);
 el("divider").addEventListener("pointerdown", (event) => {
   event.target.setPointerCapture(event.pointerId);
   document.body.classList.add("resizing");
@@ -244,19 +291,23 @@ el("divider").addEventListener("pointermove", (event) => {
   const width = Math.round(Math.min(Math.max(event.clientX, NARROWEST_LIST), innerWidth - NARROWEST_DETAIL));
   setListWidth(width);
   localStorage.setItem(LIST_WIDTH, width);
-  fitDetail();
+  if (el("sheet")) largestScaleThatFits(LARGEST_SCALE);
 });
-el("divider").addEventListener("pointerup", () => document.body.classList.remove("resizing"));
+el("divider").addEventListener("pointerup", () => {
+  document.body.classList.remove("resizing");
+  settleScale();
+});
 el("divider").addEventListener("dblclick", () => {
   document.body.style.removeProperty("--list-width");
   localStorage.removeItem(LIST_WIDTH);
-  fitDetail();
+  settleScale();
 });
 
 el("selection").innerHTML = SNAPSHOTS.map((s, index) => `<option value="${index}">${esc(s.label)}</option>`).join("");
 el("selection").addEventListener("change", (event) => {
   state.snapshot = Number(event.target.value);
   renderList();
+  settleScale();
 });
 el("head").addEventListener("click", (event) => {
   const column = event.target.closest("button");
@@ -282,5 +333,8 @@ document.addEventListener("keydown", (event) => {
     move(event.key === "ArrowDown" ? 1 : -1);
   }
 });
-if (SNAPSHOTS.length) renderList();
+if (SNAPSHOTS.length) {
+  renderList();
+  settleScale();
+}
 else el("detail").innerHTML = `<p class="empty">No snapshot was built.</p>`;
