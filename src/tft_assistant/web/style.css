@@ -7,8 +7,9 @@
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
+/* The list opens with every column, 708 pixels, wherever that leaves the comp page 520. */
 body {
-  display: grid; grid-template-columns: var(--list-width, min(708px, 40vw)) 5px 1fr; background: var(--base); color: var(--text);
+  display: grid; grid-template-columns: var(--list-width, clamp(260px, 100vw - 525px, 708px)) 5px 1fr; background: var(--base); color: var(--text);
   font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; overflow: hidden;
 }
 aside {

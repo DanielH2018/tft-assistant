@@ -283,8 +283,10 @@ may overflow and the width may not.
 
 The list's columns have fixed widths and never move. A list too narrow for all of them drops
 whole columns from the right: Play, Win, Top 4, Avg, Core, then Level. Win is the share of a
-comp's boards that place first. The list opens 708 pixels
-wide, or 40% of a narrower window. The border between the list and the detail pane drags; the
+comp's boards that place first. The list opens 708 pixels wide, which shows every column,
+wherever that leaves the comp page 520 pixels. In a narrower window it opens narrower. The
+border between the list and the detail pane drags until the comp page is 300 pixels wide, so
+the list reaches every column in any window 1,024 pixels wide or more. The
 browser keeps the width, and a double-click on the border resets it. The detail pane marks the
 three-starred units on their pictures.
 
