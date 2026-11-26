@@ -353,11 +353,16 @@ function detailHtml(comp) {
     )
     .join("");
   const smallTiles = (swaps) => swaps.map((swap) => unitTile(swap.unit, "s", { note: `On ${pct(swap.share_with)} of boards with it, ${pct(swap.share_without)} without.` })).join("");
+  const onBoards = (special) => `On ${pct(special.share)} of the comp's boards.`;
+  // The snapshot gives the placement of the boards that hold an emblem or artifact. The comp's own
+  // average is the mean of those boards and the rest, weighted by the share, so the rest follows.
+  const placementWithout = (special, comp) =>
+    special.share < 1 ? (comp.avg_placement - special.share * special.avg_placement) / (1 - special.share) : null;
   const specials = comp.specials
     .map(
       (special) => `<div class="special">
-        <span class="what">${itemIcon(special.item)} ${itemName(special.item)} <span class="note">${special.kind}</span></span>
-        <span class="figures" data-tip="On ${pct(special.share)} of boards">avg ${delta(special.avg_placement, comp.avg_placement)}</span>
+        <span class="what" ${tipOf(onBoards(special))}>${itemIcon(special.item, { note: onBoards(special) })} ${itemName(special.item)} <span class="note">${special.kind}</span></span>
+        <span class="figures">${placementGap(special.avg_placement, placementWithout(special, comp))}</span>
         <span class="part"><span class="note">on</span>${unitTile(special.holder, "s")} ${esc(unitOf(special.holder).name)} <span class="note">${pct(special.holder_share)}</span></span>
         ${special.beside.length ? `<span class="part"><span class="note">beside</span>${special.beside.map((item) => itemIcon(item)).join("")}</span>` : ""}
         ${special.adds.length ? `<span class="part"><span class="note">comes in</span>${smallTiles(special.adds)}</span>` : ""}
@@ -400,7 +405,7 @@ function detailHtml(comp) {
         specials
           ? section("Emblems, artifacts", `<div>${specials}</div>`, {
               width: "half",
-              info: "An emblem or artifact on 3% of the comp's boards or more, with how those boards place.\non: the unit that holds it most.\nbeside: items that unit also holds.\ncomes in, goes out: units those boards play more or less often, by 15 points.\nHover a figure or a unit for its shares.",
+              info: "An emblem or artifact on 3% of the comp's boards or more.\navg: how boards with it place against the comp's other boards. Negative is better. A correlation, not an effect.\non: the unit that holds it most.\nbeside: items that unit also holds.\ncomes in, goes out: units those boards play more or less often, by 15 points.\nHover a figure or a unit for its shares.",
             })
           : ""
       }
