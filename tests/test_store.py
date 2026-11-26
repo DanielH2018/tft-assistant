@@ -72,6 +72,13 @@ def test_a_selection_with_more_matches_than_a_limit_is_narrowed_to_its_newest(st
     assert store.capped(every, 3) is every
 
 
+def test_pruning_deletes_the_matches_of_every_set_and_queue_that_started_before_a_moment(store):
+    assert store.prune(at(4)) == 3
+
+    assert ids(store, Selection(19, RANKED)) == ["KR_1", "NA1_2"]
+    assert [(h.set_number, h.queue_id) for h in store.holdings()] == [(19, RANKED)]
+
+
 def test_missing_names_the_ids_not_stored_and_a_repeated_add_keeps_one_copy(store):
     store.add_match("na1", match("NA1_1"))
 
