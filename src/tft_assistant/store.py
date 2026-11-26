@@ -17,7 +17,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-DEFAULT_PATH = Path("~/.local/share/tft-assistant/matches.db").expanduser()
+from tft_assistant.paths import state_path
+
+DEFAULT_PATH = state_path("matches.db", "~/.local/share/tft-assistant/matches.db")
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS matches (
