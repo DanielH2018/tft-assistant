@@ -15,10 +15,10 @@ def test_a_core_that_shares_too_little_with_any_remembered_core_is_another_comp(
     (first,) = ids.assign(19, [("A1", "A2", "A3", "A4", "A5")])
 
     (two_swapped,) = ids.assign(19, [("A1", "A2", "A3", "A6", "A7")])
-    (other_set,) = ids.assign(20, [("A1", "A2", "A3", "A4", "A5")])
+    (one_swapped_in_another_set,) = ids.assign(20, [("A1", "A2", "A3", "A4", "A6")])
 
     assert two_swapped != first
-    assert other_set == first, "a set remembers its own cores, so the same core mints the same id there"
+    assert one_swapped_in_another_set != first
 
 
 def test_two_comps_of_one_analysis_never_take_one_id(tmp_path):
@@ -36,6 +36,6 @@ def test_a_comp_that_drops_out_of_one_analysis_has_its_id_when_it_returns(tmp_pa
     (first,) = ids.assign(19, [("A1", "A2", "A3", "A4", "A5")])
     ids.assign(19, [("B1", "B2", "B3", "B4", "B5")])
 
-    (returned,) = ids.assign(19, [("A1", "A2", "A3", "A4", "A5")])
+    (returned,) = ids.assign(19, [("A1", "A2", "A3", "A4", "A6")])
 
     assert returned == first
