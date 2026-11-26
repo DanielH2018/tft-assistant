@@ -74,6 +74,14 @@ def test_a_unit_takes_its_team_planner_number_and_the_roster_keeps_the_sets_name
     assert static.mutator == "TFTSet99"
 
 
+def test_an_item_is_an_artifact_when_its_api_name_starts_as_the_set_file_says():
+    static = StaticData.from_document(DOCUMENT, "TFTSet99", artifact_prefix="I_St")
+
+    assert static.items["I_Stone"].is_artifact
+    assert not static.items["I_Sword"].is_artifact
+    assert not STATIC.items["I_Stone"].is_artifact
+
+
 def test_an_item_outside_the_set_is_not_in_the_roster():
     assert "I_OtherSet" not in STATIC.items
     assert STATIC.items["I_EmblemHunter"].emblem_of == "T_Hunter"

@@ -161,6 +161,22 @@ a unit whose share rises by 15 points comes in, and one whose share falls by 15 
 is reported once 20 boards and 5% of the comp end there. The placement at a higher level is
 better partly because only a winning player reaches it.
 
+### Emblems and artifacts
+
+A comp lists the emblems and the artifacts its boards hold: up to three emblems, then up to two
+artifacts, commonest first. An item is listed once 20 boards and 3% of the comp hold it. Each
+row gives the unit that most often holds it, the finished items that unit builds beside it, and
+the units that come in and go out: those whose share differs by 15 points between the boards
+with the item and the boards without. A Fae Emblem on Kayle brings Lillia in and pushes Ornn
+out. Each figure is a correlation, because a player who was offered an emblem made other choices
+too.
+
+The static data marks no item as an artifact, so the set file gives the start of an artifact's
+API name. The list's filter box searches item names as well: the items of the item priority, of
+the key units' builds and of this section. A filter that is part of one name, such as
+`fae emblem`, lists the comps with that name; any other filter lists the comps that hold every
+one of its words.
+
 ### Team codes
 
 Each comp has a "Copy team code" button, which copies a code Riot's in-game team planner

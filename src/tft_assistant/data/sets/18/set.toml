@@ -14,6 +14,9 @@ offensive_components = [
     "DA_Component_SparringGloves",
 ]
 
+# The static data marks no item as an artifact. Its artifacts share this start of their API name.
+artifact_prefix = "DA_Artifact_"
+
 # A match payload carries no patch number, so a patch is the window from its start to the next
 # entry's start. A match that started before the first entry belongs to no patch.
 [[patches]]

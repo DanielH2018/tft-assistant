@@ -65,6 +65,7 @@ class Item:
     icon: str | None = None
     is_defensive: bool = False
     """The recipe has a defensive component and no offensive one, as the set file lists them."""
+    is_artifact: bool = False
 
 
 def _icon_url(path: str | None) -> str | None:
@@ -141,12 +142,14 @@ class StaticData:
         defensive_components: Iterable[str] = (),
         offensive_components: Iterable[str] = (),
         planner: Mapping[str, int] | None = None,
+        artifact_prefix: str = "",
     ) -> StaticData:
         """The roster of one game mode of one set, named as in Community Dragon's `setData`.
 
         The document marks no item as defensive, so the caller names the defensive and the
         offensive components. A component in neither list, such as one that gives mana, is neutral.
-        The document holds no team planner numbers either; `planner` gives each unit's.
+        The document holds no team planner numbers either; `planner` gives each unit's. It marks
+        no artifact, so an item whose API name starts with `artifact_prefix` is one.
         """
         defensive, offensive = set(defensive_components), set(offensive_components)
         planner = planner or {}
@@ -196,6 +199,7 @@ class StaticData:
                 item["apiName"] in built_from,
                 _icon_url(item.get("icon")),
                 _is_defensive(item.get("composition") or (), defensive, offensive),
+                bool(artifact_prefix) and item["apiName"].startswith(artifact_prefix),
             )
             for item in records
         }

@@ -35,6 +35,7 @@ class GameSet:
     patches: tuple[Patch, ...]
     defensive_components: tuple[str, ...] = ()
     offensive_components: tuple[str, ...] = ()
+    artifact_prefix: str = ""
 
     @classmethod
     def load(cls, number: int, sets_dir: Path = SETS_DIR) -> GameSet:
@@ -48,6 +49,7 @@ class GameSet:
             tuple(patches),
             tuple(facts.get("defensive_components", ())),
             tuple(facts.get("offensive_components", ())),
+            facts.get("artifact_prefix", ""),
         )
 
     def roster(self) -> StaticData:
@@ -58,6 +60,7 @@ class GameSet:
             self.defensive_components,
             self.offensive_components,
             planner_codes(self.static_data),
+            self.artifact_prefix,
         )
 
     def window(self, patch: str) -> tuple[datetime, datetime | None]:

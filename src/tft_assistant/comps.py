@@ -24,6 +24,7 @@ from tft_assistant.comp_detail import (
     KeyUnit,
     LevelUp,
     SpareComponent,
+    SpecialItem,
     carry_trait,
     components_to_take,
     item_priority,
@@ -31,6 +32,7 @@ from tft_assistant.comp_detail import (
     level_ups,
     main_trait,
     spare_components,
+    special_items,
     tempo,
     typical_traits,
 )
@@ -89,6 +91,8 @@ class Comp:
     """The components to take first, from the item priority."""
     spare: tuple[SpareComponent, ...]
     """The components the comp wants least, with where its boards put them."""
+    specials: tuple[SpecialItem, ...]
+    """The emblems and artifacts its boards hold, with the units each brings in and pushes out."""
     level_ups: tuple[LevelUp, ...]
     key_units: tuple[KeyUnit, ...]
 
@@ -217,6 +221,7 @@ def _comp(members: list[Board], total: int, core_share: float, static: StaticDat
         picks,
         components_to_take(picks, static),
         spare_components(members, static),
+        special_items(members, static),
         level_ups(members, static),
         key,
     )
