@@ -38,6 +38,18 @@ def test_a_selection_intersects_a_patch_with_a_time_window():
     assert SET.selection(patch="19.2", since=at(1)).since == at(16)
 
 
+def test_the_standing_selections_cover_the_live_patch_its_recent_days_the_previous_patch_and_the_set():
+    standing = SET.standing_selections(at(20))
+
+    assert [(label, selection.since, selection.until) for label, selection in standing] == [
+        ("Patch 19.2", at(16), None),
+        ("Patch 19.2, last 3 days", at(17), None),
+        ("Patch 19.2, last 24 hours", at(19), None),
+        ("Patch 19.1", at(2), at(16)),
+        ("Set 19, every stored match", None, None),
+    ]
+
+
 def test_a_set_file_loads_its_queue_and_a_calendar_of_timezone_aware_starts():
     game_set = GameSet.load(18)
 

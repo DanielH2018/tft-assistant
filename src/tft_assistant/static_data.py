@@ -17,6 +17,7 @@ from typing import Any
 import httpx
 
 DOCUMENT_URL = "https://raw.communitydragon.org/{channel}/cdragon/tft/en_us.json"
+ICON_BASE = "https://raw.communitydragon.org/latest/game/"
 CACHE_DIR = Path("~/.cache/tft-assistant").expanduser()
 _MAX_AGE_SECONDS = 24 * 3600
 
@@ -29,6 +30,7 @@ class Unit:
     traits: tuple[str, ...]
     attack_range: float
     role: str | None
+    icon: str | None = None
 
 
 @dataclass(frozen=True)
@@ -43,6 +45,7 @@ class Trait:
     api_name: str
     name: str
     breakpoints: tuple[Breakpoint, ...]
+    icon: str | None = None
 
 
 @dataclass(frozen=True)
@@ -53,6 +56,12 @@ class Item:
     emblem_of: str | None
     radiant_of: str | None
     is_component: bool
+    icon: str | None = None
+
+
+def _icon_url(path: str | None) -> str | None:
+    """Where Community Dragon serves a game asset: the path lower-cased, as a PNG."""
+    return f"{ICON_BASE}{path.lower().removesuffix('.tex')}.png" if path else None
 
 
 def document(channel: str = "latest") -> dict[str, Any]:
@@ -114,6 +123,7 @@ class StaticData:
                     Breakpoint(effect["minUnits"], effect["maxUnits"], effect["style"])
                     for effect in sorted(trait["effects"], key=lambda effect: effect["minUnits"])
                 ),
+                _icon_url(trait.get("icon")),
             )
             for trait in entry["traits"]
         }
@@ -126,6 +136,7 @@ class StaticData:
                 tuple(trait_by_name[name] for name in unit["traits"] if name in trait_by_name),
                 unit["stats"].get("range") or 0.0,
                 unit.get("role"),
+                _icon_url(unit.get("tileIcon") or unit.get("squareIcon")),
             )
             for unit in entry["champions"]
         }
@@ -140,6 +151,7 @@ class StaticData:
                 _emblem_trait(item, trait_by_name),
                 _radiant_base(item, by_name),
                 item["apiName"] in built_from,
+                _icon_url(item.get("icon")),
             )
             for item in records
         }

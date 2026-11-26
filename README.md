@@ -9,9 +9,9 @@ screen.
 
 ## Status
 
-Slice 0, the feasibility spike. The crawl, the match store, the static-data join and the trait
-module exist. [docs/slice-0-findings.md](docs/slice-0-findings.md) records what the spike has
-measured.
+Slice 1, the comps view. `tft build` writes one self-contained page: a comp list beside a detail
+pane with the comp's core, flex packages, traits, item priority and default board.
+[docs/slice-0-findings.md](docs/slice-0-findings.md) records what the feasibility spike measured.
 
 ## Run it
 
@@ -21,6 +21,8 @@ The client reads the key from the `RIOT_API_KEY` environment variable, or from
 ```sh
 uv run tft probe      # one ladder, one match: report the rate limits and payload fields
 uv run tft crawl      # store the matches of the NA, EUW and KR apex ladders
+uv run tft comps --patch 18.7          # comps of a patch; --since, --until and --platform narrow it
+uv run tft build --out site            # write site/index.html from the stored matches
 uv run pytest
 ```
 
