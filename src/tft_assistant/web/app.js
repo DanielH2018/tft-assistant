@@ -71,7 +71,101 @@ function renderFilters() {
   renderList();
 }
 
+// The page has two views of one snapshot. "comps" is the comp list beside one comp's page. "items"
+// is the slam grid beside the item groups. The browser keeps the view across a reload.
+const VIEW = "tft-assistant.view";
+state.view = localStorage.getItem(VIEW) === "items" ? "items" : "comps";
+function setView(view) {
+  state.view = view;
+  localStorage.setItem(VIEW, view);
+  renderList();
+}
+
+// A comp counts toward a slam when its boards place well enough to copy.
+const isStrong = (comp) => comp.tier !== "C";
+
+// Every item a comp's boards build: its item priority, its key units' builds and its emblems.
+function builtBy(comp) {
+  const holders = new Map();
+  for (const key of comp.key_units) for (const note of key.build) holders.set(note.item, key.unit);
+  for (const special of comp.specials) holders.set(special.item, special.holder);
+  for (const pick of comp.items) holders.set(pick.item, pick.holder);
+  return holders;
+}
+
+// The grid has a row and a column for each component, and the item two components build stands
+// where they cross. The number on an item is how many strong comps build it. An item a third of
+// them build is marked safe: it fits whichever of them the game turns into.
+function slamGridHtml() {
+  const s = snap();
+  const strong = s.comps.filter(isStrong).sort(SORTS.play);
+  const users = new Map();
+  for (const comp of strong) {
+    for (const [item, holder] of builtBy(comp)) users.set(item, [...(users.get(item) || []), [comp, holder]]);
+  }
+  const made = new Map(Object.entries(s.recipes || {}).map(([item, parts]) => [[...parts].sort().join("+"), item]));
+  const name = (id) => (s.items[id] || { name: id }).name;
+  const components = [...new Set(Object.values(s.recipes || {}).flat())].sort((a, b) => name(a).localeCompare(name(b)));
+  const cell = (first, second) => {
+    const item = made.get([first, second].sort().join("+"));
+    if (!item) return `<td></td>`;
+    const built = users.get(item) || [];
+    const tone = built.length >= strong.length / 3 ? "safe" : built.length ? "" : "unused";
+    const lines = built.slice(0, 8).map(([comp, holder]) => `${comp.name} → ${unitOf(holder).name}`);
+    const note = built.length
+      ? `Built by ${built.length} of ${strong.length} comps of tier B or better:\n${lines.join("\n")}${built.length > 8 ? "\n…" : ""}\nClick to list them.`
+      : "No comp of tier B or better builds it.";
+    return `<td class="slam ${tone}" data-item="${esc(name(item))}">${itemIcon(item, { note })}<b>${built.length || ""}</b></td>`;
+  };
+  const head = `<tr><th></th>${components.map((id) => `<th>${itemIcon(id)}</th>`).join("")}</tr>`;
+  const rows = components.map(
+    (row, at) => `<tr><th>${itemIcon(row)}</th>${components.map((column, across) => (across < at ? `<td></td>` : cell(row, column))).join("")}</tr>`,
+  );
+  return `<table class="slams">${head}${rows.join("")}</table>`;
+}
+
+// Each group lists the items its units build and the units, cheapest first. A unit that is a comp's
+// main carry is outlined, and a click on it opens the most played comp it carries.
+function itemGroupsHtml() {
+  const s = snap();
+  const carried = new Map();
+  for (const comp of [...s.comps].sort(SORTS.play)) {
+    if (comp.carries[0] && !carried.has(comp.carries[0])) carried.set(comp.carries[0], comp);
+  }
+  const unit = (id) => {
+    const comp = carried.get(id);
+    if (!comp) return unitTile(id, "m");
+    const note = `Carries ${comp.name}: average placement ${comp.avg_placement.toFixed(2)}, played ${pct(comp.share)}. Click to open it.`;
+    return `<span class="carrier" data-open="${comp.id}">${unitTile(id, "m", { note })}</span>`;
+  };
+  const groups = s.item_groups.map(
+    (group) => `<div class="group">
+      <div class="group-items">${group.items.map((item) => itemIcon(item)).join("")}</div>
+      <div class="group-units">${group.units.map(unit).join("")}</div>
+    </div>`,
+  );
+  const info = "Units in one group build alike on real boards, so they can hold each other's items.\nA group lists the items its units hold most, then its units from the cheapest.\nAn outlined unit is a comp's main carry.";
+  return `<div id="sheet"><header><h1>${MAXIMIZE} Item groups <span class="info" tabindex="0" ${tipOf(info)}>i</span></h1></header>
+    ${groups.join("") || `<p class="empty">No unit has enough itemised boards to group.</p>`}</div>`;
+}
+
+function renderItems() {
+  showTip(null);
+  el("slams").innerHTML = slamGridHtml();
+  el("detail").innerHTML = itemGroupsHtml();
+  fitWidth();
+}
+
 function renderList() {
+  document.body.dataset.view = state.view;
+  for (const tab of el("tabs").children) tab.classList.toggle("on", tab.dataset.view === state.view);
+  const s = snap();
+  const age = s.newest_match ? `newest match ${hoursAgo(s.newest_match)}` : "no matches";
+  el("health").textContent = `${s.boards.toLocaleString()} boards · ${pct(s.unclassified)} unclassified · ${age}`;
+  if (state.view === "items") {
+    renderItems();
+    return;
+  }
   const comps = visibleComps();
   if (!comps.some((comp) => comp.id === state.comp)) state.comp = comps.length ? comps[0].id : null;
   el("head").innerHTML = COLUMNS.map(([label, sort, column]) => {
@@ -92,9 +186,6 @@ function renderList() {
       </li>`,
     )
     .join("");
-  const s = snap();
-  const age = s.newest_match ? `newest match ${hoursAgo(s.newest_match)}` : "no matches";
-  el("health").textContent = `${s.boards.toLocaleString()} boards · ${pct(s.unclassified)} unclassified · ${age}`;
   renderDetail();
 }
 
@@ -557,7 +648,7 @@ el("detail").addEventListener("click", (event) => {
   const pivot = event.target.closest("[data-open]");
   if (pivot) {
     state.comp = pivot.dataset.open;
-    renderList();
+    setView("comps");
     document.querySelector("#comps li.selected")?.scrollIntoView({ block: "nearest" });
   } else if (heading) {
     const title = heading.parentElement.dataset.section;
@@ -619,8 +710,22 @@ el("comps").addEventListener("click", (event) => {
     renderList();
   }
 });
+el("tabs").addEventListener("click", (event) => {
+  const tab = event.target.closest("[data-view]");
+  if (tab) setView(tab.dataset.view);
+});
+// A click on a slam lists the comps that build it: the comps view, filtered by the item's name.
+el("slams").addEventListener("click", (event) => {
+  const slam = event.target.closest("[data-item]");
+  if (!slam) return;
+  state.filters = [slam.dataset.item];
+  el("filter").value = state.filter = "";
+  state.view = "comps";
+  localStorage.setItem(VIEW, "comps");
+  renderFilters();
+});
 document.addEventListener("keydown", (event) => {
-  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+  if (state.view === "comps" && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
     event.preventDefault();
     move(event.key === "ArrowDown" ? 1 : -1);
   }

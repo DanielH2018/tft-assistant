@@ -81,6 +81,22 @@ def _names(comps: Sequence[Comp], static: StaticData) -> list[str]:
     return names
 
 
+def _recipes(static: StaticData, built: set[str]) -> dict[str, list[str]]:
+    """The two components of every item a player can build, whether or not a comp builds it.
+
+    The static data also holds the recipes of earlier sets, under other component names. The
+    components in play are the ones the `built` items are made of, and a recipe counts when both
+    of its components are among them.
+    """
+    every = {
+        name: list(item.components)
+        for name, item in sorted(static.items.items())
+        if len(item.components) == 2 and not item.radiant_of
+    }
+    in_play = {part for name in built & set(every) for part in every[name]}
+    return {name: parts for name, parts in every.items() if set(parts) <= in_play}
+
+
 def _pick(pick: ItemPick) -> dict[str, Any]:
     return {
         "item": pick.item,
@@ -213,6 +229,8 @@ def build_snapshot(
     items |= {item for comp in comps for spare in comp["spare"] for item in [spare["component"], *spare["uses"]]}
     items |= {special["item"] for special in specials} | {item for special in specials for item in special["beside"]}
     items |= {note["item"] for comp in comps for key in comp["key_units"] for note in key["build"]}
+    recipes = _recipes(static, items)
+    items |= set(recipes) | {part for parts in recipes.values() for part in parts}
     traits = {trait["trait"] for comp in comps for trait in comp["traits"]}
     traits |= {trait for unit in units for trait in static.units[unit].traits}
 
@@ -232,6 +250,7 @@ def build_snapshot(
         "unclassified": report.unclassified,
         "comps": comps,
         "item_groups": [{"items": list(group.items), "units": list(group.units)} for group in groups],
+        "recipes": recipes,
         "units": {
             unit: {
                 "name": static.units[unit].name,

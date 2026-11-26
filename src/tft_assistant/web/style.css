@@ -70,6 +70,36 @@ aside {
 .num { text-align: right; font-variant-numeric: tabular-nums; color: var(--subtext); }
 #health { margin: 0; padding: 8px 10px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--surface0); }
 
+#tabs { display: flex; gap: 2px; padding: 8px 10px 0; border-bottom: 1px solid var(--surface0); }
+#tabs button {
+  font: inherit; font-weight: 600; color: var(--subtext); background: none; border: 0; border-bottom: 2px solid transparent;
+  padding: 4px 12px 6px; cursor: pointer;
+}
+#tabs button:hover { color: var(--text); }
+#tabs button.on { color: var(--text); border-bottom-color: var(--mauve); }
+/* Each view shows its own half of the side panel. The filter box and the list belong to the comps. */
+body[data-view="items"] :is(#filters, #head, #comps), body[data-view="comps"] #slams { display: none; }
+#slams { flex: 1; overflow: auto; padding: 4px 10px 10px; }
+.slams { border-collapse: separate; border-spacing: 3px; }
+.slams th, .slams td { width: 44px; height: 44px; padding: 0; text-align: center; }
+.slams .item-icon { width: 32px; height: 32px; }
+.slams th .item-icon { width: 26px; height: 26px; opacity: 0.85; }
+.slam { position: relative; cursor: pointer; border: 1px solid var(--surface0); border-radius: 6px; }
+.slam:hover { border-color: var(--surface2); }
+.slam b {
+  position: absolute; right: 1px; bottom: 0; min-width: 14px; padding: 0 2px; border-radius: 4px 0 4px 0;
+  font-size: 11px; line-height: 14px; background: var(--crust); color: var(--text);
+}
+.slam b:empty { display: none; }
+.slam.safe { border-color: var(--green); }
+.slam.safe b { background: var(--green); color: var(--crust); }
+.slam.unused .item-icon { opacity: 0.3; }
+.group { display: flex; gap: 14px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--surface0); }
+.group-items { display: flex; gap: 3px; flex: none; width: 150px; padding-top: 5px; }
+.group-units { display: flex; flex-wrap: wrap; gap: 6px 2px; min-width: 0; }
+.carrier { cursor: pointer; }
+.carrier img { outline: 2px solid var(--mauve); outline-offset: 1px; }
+
 .tier { display: inline-block; width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 4px; font-weight: 700; color: var(--crust); }
 .tS { background: var(--red); } .tA { background: var(--peach); } .tB { background: var(--yellow); } .tC { background: var(--grey); }
 

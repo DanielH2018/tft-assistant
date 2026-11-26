@@ -183,6 +183,27 @@ condition                   an augment or an encounter
 3. Pivots are other carries in the same group. A holder chain is the cheaper units of a carry's
    group in cost order. A safe slam is an item that many strong cores use.
 
+### The Items tab
+
+The side panel has two tabs, and the browser keeps the open one across a reload. *Comps* is the
+list beside one comp's page. *Items* puts the slam grid in the side panel and the item groups
+in the pane beside it.
+
+The slam grid has a row and a column for each component, and the item two components build
+stands where they cross. The snapshot's `recipes` field lists every item of the components in
+play, whether or not a comp builds it. The static data also holds earlier sets' recipes under
+other component names, so the components in play are the ones the comps' own items are made of.
+The number on an item is how many comps of tier B or better build it, counted from each comp's
+item priority, its key units' builds and its emblems. An item a third of those comps build is
+outlined as safe. An item none builds is dimmed. A hover card names the comps and the unit that
+holds the item in each, and a click opens the comps tab filtered by the item.
+
+Each item group is one row: the items its units hold most, then its units from the cheapest. A
+unit that is a comp's main carry is outlined, and a click opens the most played comp it carries.
+
+With the list hidden, the comp page has the whole window and the tabs are out of reach until
+the list is back.
+
 ### What the data supports
 
 | Want | From final boards |

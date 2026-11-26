@@ -8,6 +8,10 @@
 </head>
 <body>
 <aside>
+  <nav id="tabs">
+    <button data-view="comps" title="The comps, and one comp's page">Comps</button>
+    <button data-view="items" title="Which items are safe to build early, and which units build alike">Items</button>
+  </nav>
   <div class="bar">
     <select id="selection" title="Which matches the page shows"></select>
     <div id="filters" title="Enter keeps a filter and starts another. Backspace in the empty box removes the last one.">
@@ -17,6 +21,7 @@
   </div>
   <div id="head" class="comp-row"></div>
   <ol id="comps"></ol>
+  <div id="slams"></div>
   <p id="health"></p>
 </aside>
 <div id="divider" title="Drag to resize the list, or to the left edge to hide it. Double-click to reset it."></div>
