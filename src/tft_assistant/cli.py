@@ -12,6 +12,7 @@ from typing import Any
 
 from tft_assistant.boards import boards
 from tft_assistant.build import build_site
+from tft_assistant.comp_ids import CompIds
 from tft_assistant.comps import CompReport, find_comps
 from tft_assistant.crawl import crawl
 from tft_assistant.item_groups import find_item_groups
@@ -142,7 +143,9 @@ def build_page(store: Store, set_number: int, out: Path) -> None:
             continue
         built[selection] = label
         snapshots.append(
-            build_snapshot(label, selection, found, static, built_at=now, newest_match=store.newest(selection))
+            build_snapshot(
+                label, selection, found, static, built_at=now, newest_match=store.newest(selection), ids=CompIds()
+            )
         )
         print(f"built {label}: {len(found)} boards, {len(snapshots[-1]['comps'])} comps")
     print(f"wrote {build_site(snapshots, out)}")

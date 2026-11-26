@@ -1,4 +1,4 @@
-"""Where the tool keeps what it writes: the match store and the static-data cache."""
+"""Where the tool keeps what it writes: the match store, the comp ids and the static-data cache."""
 
 from __future__ import annotations
 

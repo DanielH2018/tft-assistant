@@ -6,19 +6,28 @@ import pytest
 from conftest import A_CORE
 
 from tft_assistant.build import build_site
+from tft_assistant.comp_ids import CompIds
 from tft_assistant.snapshot import SCHEMA, build_snapshot
 from tft_assistant.store import Selection
 
 NOW = datetime(2026, 12, 3, 12, tzinfo=UTC)
 
 
-def built(boards, static):
-    return build_snapshot("Patch 19.1", Selection(19, 1100, since=NOW), boards, static, built_at=NOW, newest_match=NOW)
+def built(boards, static, ids_file):
+    return build_snapshot(
+        "Patch 19.1",
+        Selection(19, 1100, since=NOW),
+        boards,
+        static,
+        built_at=NOW,
+        newest_match=NOW,
+        ids=CompIds(ids_file),
+    )
 
 
 @pytest.fixture(scope="module")
-def snapshot(planted_boards, planted_static):
-    return built(planted_boards, planted_static)
+def snapshot(planted_boards, planted_static, tmp_path_factory):
+    return built(planted_boards, planted_static, tmp_path_factory.mktemp("ids") / "comp-ids.json")
 
 
 def test_a_snapshot_states_its_selection_and_its_sample(snapshot):
@@ -59,22 +68,28 @@ def test_a_comp_is_fielded_as_its_core_and_commonest_flex_units_up_to_its_usual_
     assert sorted(snapshot["comps"][0]["fielded"]) == sorted([*A_CORE, "X1", "X2"])
 
 
-def names_when_both_comps_read_alpha_a1(boards, static, **b3):
+def names_when_both_comps_read_alpha_a1(boards, static, ids_file, **b3):
     same_names = dataclasses.replace(
         static,
         traits=static.traits | {"T_B": dataclasses.replace(static.traits["T_B"], name="Alpha")},
         units=static.units
         | {"B1": dataclasses.replace(static.units["B1"], name="A1"), "B3": dataclasses.replace(static.units["B3"], **b3)},
     )
-    return [comp["name"] for comp in built(boards, same_names)["comps"]]
+    return [comp["name"] for comp in built(boards, same_names, ids_file)["comps"]]
 
 
-def test_comps_that_would_share_a_name_are_told_apart_by_the_trait_their_carries_share(planted_boards, planted_static):
-    assert names_when_both_comps_read_alpha_a1(planted_boards, planted_static) == ["Alpha A1", "Alpha Hunters"]
+def test_comps_that_would_share_a_name_are_told_apart_by_the_trait_their_carries_share(
+    planted_boards, planted_static, tmp_path
+):
+    names = names_when_both_comps_read_alpha_a1(planted_boards, planted_static, tmp_path / "ids.json")
+
+    assert names == ["Alpha A1", "Alpha Hunters"]
 
 
-def test_comps_whose_carries_share_no_active_trait_are_told_apart_by_a_core_unit(planted_boards, planted_static):
-    names = names_when_both_comps_read_alpha_a1(planted_boards, planted_static, traits=("T",))
+def test_comps_whose_carries_share_no_active_trait_are_told_apart_by_a_core_unit(
+    planted_boards, planted_static, tmp_path
+):
+    names = names_when_both_comps_read_alpha_a1(planted_boards, planted_static, tmp_path / "ids.json", traits=("T",))
 
     assert names == ["Alpha A1 · A2", "Alpha A1 · B2"]
 

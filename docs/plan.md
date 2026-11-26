@@ -165,8 +165,13 @@ condition                   an augment or an encounter
    cheapest option first, with an arrow to a costlier option, which is what the cheaper one is
    played until. The comparison needs 10 boards expected to hold both, so two rare packages that
    never met stay apart. A comp's default board takes the commonest option of each slot.
-5. Each run matches its cores to the previous run's cores by overlap, so a comp keeps its ID, its
-   name and its edits.
+5. Each analysis matches its cores to the cores a file remembers, by overlap, so a comp keeps its
+   id from run to run and has one id in every snapshot of a page (`comp_ids.py`). Two cores are
+   one comp when they share at least 60% of the units either has: a core of five that swaps one
+   unit keeps its id, and one that swaps two does not. The file is `comp-ids.json` beside the
+   match store, with one table per set. A comp's name is derived again in each snapshot, so one
+   id can read under two names in two selections. On 108,760 stored boards the patch snapshot
+   and the 3-day snapshot share 24 of 26 ids; ids made from the core alone shared 17.
 6. The page shows the share of boards that fit no cluster.
 
 ### How item groups are derived
