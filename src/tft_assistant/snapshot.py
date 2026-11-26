@@ -6,13 +6,13 @@ between them. A change that removes or renames a field raises `SCHEMA`.
 
 from __future__ import annotations
 
-import hashlib
 from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
 from tft_assistant.boards import Board
 from tft_assistant.comp_detail import ItemPick, Swap
+from tft_assistant.comp_ids import CompIds
 from tft_assistant.comps import Comp, find_comps
 from tft_assistant.item_groups import find_item_groups
 from tft_assistant.positioning import usual_row
@@ -95,9 +95,9 @@ def _swap(swap: Swap) -> dict[str, Any]:
     return {"unit": swap.unit, "share_with": swap.share_with, "share_without": swap.share_without}
 
 
-def _comp(comp: Comp, name: str, static: StaticData) -> dict[str, Any]:
+def _comp(comp: Comp, comp_id: str, name: str, static: StaticData) -> dict[str, Any]:
     return {
-        "id": hashlib.sha1(" ".join(sorted(comp.core)).encode()).hexdigest()[:10],
+        "id": comp_id,
         "name": name,
         "tier": _tier(comp.avg_placement),
         "boards": comp.boards,
@@ -186,11 +186,19 @@ def build_snapshot(
     *,
     built_at: datetime,
     newest_match: datetime | None,
+    ids: CompIds,
 ) -> dict[str, Any]:
-    """Analyse the boards of one selection into the document the page reads."""
+    """Analyse the boards of one selection into the document the page reads.
+
+    A comp takes the id `ids` remembers for it, so it has one id in every snapshot it is in.
+    """
     report = find_comps(boards, static)
     groups = find_item_groups(boards, static)
-    comps = [_comp(comp, name, static) for comp, name in zip(report.comps, _names(report.comps, static))]
+    comp_ids = ids.assign(selection.set_number, [comp.core for comp in report.comps])
+    comps = [
+        _comp(comp, comp_id, name, static)
+        for comp, comp_id, name in zip(report.comps, comp_ids, _names(report.comps, static))
+    ]
 
     units = {unit for comp in comps for unit in [*comp["core"], *comp["three_stars"]]}
     units |= {unit for comp in comps for slot in comp["flex"] for package in slot for unit in package["units"]}
