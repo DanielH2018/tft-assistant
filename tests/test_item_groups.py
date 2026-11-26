@@ -67,4 +67,4 @@ def test_a_unit_with_too_few_builds_joins_no_group():
     boards = [board(("Tank4", TANK), ("Tank1", TANK), ("Mage5", MAGE), ("Mage2", MAGE)) for _ in range(3)]
     boards.append(board(("Rare", MAGE)))
 
-    assert all("Rare" not in units for units, _ in groups_of(boards))
+    assert [units for units, _ in groups_of(boards)] == [("Mage2", "Mage5"), ("Tank1", "Tank4")]
