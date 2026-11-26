@@ -285,7 +285,15 @@ The list's columns have fixed widths and never move. A list too narrow for all o
 whole columns from the right: Play, Win, Top 4, Avg, Core, then Level. Win is the share of a
 comp's boards that place first. The list opens 708 pixels
 wide, or 40% of a narrower window. The border between the list and the detail pane drags; the
-browser keeps the width, and a double-click on the border resets it. The detail pane marks the three-starred units on their pictures.
+browser keeps the width, and a double-click on the border resets it. The detail pane marks the
+three-starred units on their pictures.
+
+A button in the comp page's top left corner maximizes the page: the list goes to no width and
+the page has the whole window. The button then restores the width the list had. A drag of the
+border past the middle of the narrowest list, 130 pixels, maximizes the page too, and a drag
+back out brings the list back. The button's face follows the list's width, so it reads the same
+after a click and after a drag. The arrow keys still move through the list while it is hidden,
+and the browser keeps a maximized page across a reload.
 
 ### Comp names
 
