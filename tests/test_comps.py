@@ -2,7 +2,7 @@ import pytest
 from conftest import A_CORE, B_CORE
 
 from tft_assistant.boards import Board, BoardUnit
-from tft_assistant.comp_detail import CompTrait, ItemPick, build_notes, level_ups
+from tft_assistant.comp_detail import CompTrait, ItemPick, build_notes, level_ups, tempo
 from tft_assistant.comps import find_comps
 
 
@@ -49,6 +49,16 @@ def test_tempo_gives_the_final_levels_and_the_units_usually_taken_to_three_stars
     assert comp_a.tempo.levels == ((8, 0.6), (9, 0.4))
     assert comp_a.tempo.three_stars == ("A2",)
     assert comp_b.tempo.three_stars == ()
+
+
+def test_a_comps_style_is_the_cost_it_rerolls_for_or_else_the_level_it_usually_ends_at(report, planted_static):
+    comp_a, comp_b = report.comps
+    costly_three_star = [
+        Board("NA1_1", 4, 8, 30, (BoardUnit("Dummy", 3, ()), BoardUnit("A1", 2, ())), {}) for _ in range(10)
+    ]
+
+    assert (comp_a.tempo.style, comp_b.tempo.style) == ("2-cost reroll", "Fast 9")
+    assert tempo(costly_three_star, planted_static).style == "Level 8"
 
 
 def test_item_priority_orders_item_and_holder_pairs_and_compares_placement_with_and_without(report):

@@ -97,6 +97,7 @@ def _comp(comp: Comp, static: StaticData) -> dict[str, Any]:
         ],
         "levels": [[level, share] for level, share in comp.tempo.levels],
         "three_stars": list(comp.tempo.three_stars),
+        "style": comp.tempo.style,
         "items": [
             {
                 "item": pick.item,

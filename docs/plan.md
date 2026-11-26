@@ -156,6 +156,17 @@ a unit whose share rises by 15 points comes in, and one whose share falls by 15 
 is reported once 20 boards and 5% of the comp end there. The placement at a higher level is
 better partly because only a winning player reaches it.
 
+### Comp style
+
+A comp's style is the name players give its tempo. A comp that takes a unit of cost 3 or less to
+three stars on 40% of its boards is a reroll comp, named by the costliest such unit: `2-cost
+reroll`. Any other comp is named by the level most of its boards end at: `Level 8`, or `Fast 9`
+for level 9 and above. The style is a column of the comp list, which sorts by a click on a column
+header and opens sorted by tier. The detail pane marks the three-starred units on their pictures.
+
+A key unit lists the units of its item group that cost less than it does, cheapest first, as the
+units that can hold its items.
+
 ### Default positions
 
 A match payload records no positions. Until a board is edited by hand, `positioning.default_board`
