@@ -360,13 +360,11 @@ function detailHtml(comp) {
     <section><h2>Level up</h2><div>${levelUps || `<span class="note">no level above the usual one has enough boards</span>`}</div></section>
     <section><h2>Traits</h2><div class="row">${traits}</div></section>
     <section><h2>Key units</h2><div>${keyUnitsHtml(comp) || `<span class="note">no unit holds items regularly</span>`}</div></section>
-    <div class="band">
-      <section><h2>Items</h2><div><div class="row take"><span class="note">components to take first</span>${comp.take.map(itemIcon).join("")}</div>
-        <table class="items">${items}</table>
-        ${spare ? `<div class="spare"><div class="note">the components it uses least go into</div>${spare}</div>` : ""}</div></section>
-      <section><h2>Positioning</h2>${boardHtml(comp)}</section>
-    </div>
-    ${specials ? `<section><h2>Emblems, artifacts</h2><div>${specials}</div></section>` : ""}</div>`;
+    <section><h2>Items</h2><div><div class="row take"><span class="note">components to take first</span>${comp.take.map(itemIcon).join("")}</div>
+      <table class="items">${items}</table>
+      ${spare ? `<div class="spare"><div class="note">the components it uses least go into</div>${spare}</div>` : ""}</div></section>
+    ${specials ? `<section><h2>Emblems, artifacts</h2><div>${specials}</div></section>` : ""}
+    <section><h2>Positioning</h2><div>${boardHtml(comp)}</div></section></div>`;
 }
 
 function move(step) {

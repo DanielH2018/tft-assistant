@@ -273,7 +273,8 @@ units that can hold its items.
 A match payload records no positions. Until a board is edited by hand, `positioning.default_board`
 puts each unit in the row it usually takes: the row of its attack range, or of its role where the
 range is missing. Tanks stand central in the front row, and carries take a back corner. A
-snapshot marks such a board `board_is_default`, and a saved board replaces it.
+snapshot marks such a board `board_is_default`, and a saved board replaces it. The board is the
+comp page's last section, Positioning, at full width under the others.
 
 ### Assistance for the manual parts
 
