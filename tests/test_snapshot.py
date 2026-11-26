@@ -43,7 +43,13 @@ def test_every_unit_item_and_trait_a_comp_names_is_in_the_lookup_tables(snapshot
         units += [shift["unit"] for up in comp["level_ups"] for shift in [*up["adds"], *up["drops"]]]
         assert set(units) <= set(snapshot["units"])
         assert {pick["item"] for pick in comp["items"]} <= set(snapshot["items"])
-    assert snapshot["units"]["A1"] == {"name": "A1", "cost": 2, "traits": ["T"], "icon": "https://icons.test/A1.png"}
+    assert snapshot["units"]["A1"] == {
+        "name": "A1",
+        "cost": 2,
+        "traits": ["T"],
+        "icon": "https://icons.test/A1.png",
+        "planner_code": None,
+    }
     assert snapshot["traits"]["T"]["name"] == "Trait"
 
 

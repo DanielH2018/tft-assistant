@@ -52,8 +52,8 @@ def test_the_standing_selections_cover_the_live_patch_its_recent_days_the_previo
 
 
 @pytest.mark.skipif(
-    not (CACHE_DIR / "cdragon-latest.json").exists(),
-    reason="needs Community Dragon's document in the cache; any command that loads static data fetches it",
+    not all((CACHE_DIR / name).exists() for name in ("cdragon-latest.json", "cdragon-planner-latest.json")),
+    reason="needs Community Dragon's files in the cache; any command that loads static data fetches them",
 )
 def test_a_sets_roster_knows_its_defensive_items_from_the_components_the_set_file_names():
     game_set = GameSet.load(18)

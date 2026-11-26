@@ -37,6 +37,7 @@ DOCUMENT = {
     ],
 }
 
+SET = DOCUMENT["setData"][0]
 STATIC = StaticData.from_document(DOCUMENT, "TFTSet99")
 
 
@@ -60,6 +61,17 @@ def test_an_emblem_adds_its_trait_to_a_holder_that_lacks_it_and_not_to_one_that_
 
     assert with_emblems["Hunter"] == (2, 1, 4)
     assert with_emblems["Primal"] == (2, 1, None)
+
+
+def test_a_unit_takes_its_team_planner_number_and_the_roster_keeps_the_sets_name():
+    variant = {"apiName": "U_Sivir_Primal", "name": "Sivir (Primal)", "cost": 4, "traits": ["Primal"], "stats": {}}
+    with_variant = {**DOCUMENT, "setData": [{**SET, "champions": [*SET["champions"], variant]}]}
+
+    static = StaticData.from_document(with_variant, "TFTSet99", planner={"U_Sivir": 1015})
+
+    assert (static.units["U_Sivir"].planner_code, static.units["U_Ashe"].planner_code) == (1015, None)
+    assert static.units["U_Sivir_Primal"].planner_code == 1015
+    assert static.mutator == "TFTSet99"
 
 
 def test_an_item_outside_the_set_is_not_in_the_roster():

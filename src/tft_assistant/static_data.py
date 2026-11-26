@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import time
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -17,6 +17,10 @@ from typing import Any
 import httpx
 
 DOCUMENT_URL = "https://raw.communitydragon.org/{channel}/cdragon/tft/en_us.json"
+PLANNER_URL = (
+    "https://raw.communitydragon.org/{channel}/plugins/rcp-be-lol-game-data/global/default/v1/"
+    "tftchampions-teamplanner.json"
+)
 ICON_BASE = "https://raw.communitydragon.org/latest/game/"
 CACHE_DIR = Path("~/.cache/tft-assistant").expanduser()
 _MAX_AGE_SECONDS = 24 * 3600
@@ -31,6 +35,8 @@ class Unit:
     attack_range: float
     role: str | None
     icon: str | None = None
+    planner_code: int | None = None
+    """The unit's number in Riot's team planner, which a team code is made of."""
 
 
 @dataclass(frozen=True)
@@ -66,15 +72,26 @@ def _icon_url(path: str | None) -> str | None:
     return f"{ICON_BASE}{path.lower().removesuffix('.tex')}.png" if path else None
 
 
-def document(channel: str = "latest") -> dict[str, Any]:
-    """Community Dragon's TFT document, downloaded at most once a day."""
-    cached = CACHE_DIR / f"cdragon-{channel}.json"
+def _daily(url: str, cache_name: str) -> Any:
+    """A JSON file from Community Dragon, downloaded at most once a day."""
+    cached = CACHE_DIR / cache_name
     if not cached.exists() or time.time() - cached.stat().st_mtime > _MAX_AGE_SECONDS:
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        response = httpx.get(DOCUMENT_URL.format(channel=channel), timeout=120.0, follow_redirects=True)
+        response = httpx.get(url, timeout=120.0, follow_redirects=True)
         response.raise_for_status()
         cached.write_bytes(response.content)
     return json.loads(cached.read_bytes())
+
+
+def document(channel: str = "latest") -> dict[str, Any]:
+    """Community Dragon's TFT document."""
+    return _daily(DOCUMENT_URL.format(channel=channel), f"cdragon-{channel}.json")
+
+
+def planner_codes(mutator: str, channel: str = "latest") -> dict[str, int]:
+    """The number Riot's team planner gives each unit of one set; empty for a set the file lacks."""
+    table = _daily(PLANNER_URL.format(channel=channel), f"cdragon-planner-{channel}.json")
+    return {entry["character_id"]: entry["team_planner_code"] for entry in table.get(mutator, [])}
 
 
 def _emblem_trait(item: dict[str, Any], trait_by_name: dict[str, str]) -> str | None:
@@ -101,6 +118,8 @@ class StaticData:
     units: dict[str, Unit]
     traits: dict[str, Trait]
     items: dict[str, Item]
+    mutator: str = ""
+    """The set's name in Riot's data, which a team code ends with."""
 
     def finished_items(self, held: Iterable[str]) -> set[str]:
         """The items among `held` that say how a unit is built: no emblem, no loose component.
@@ -121,13 +140,16 @@ class StaticData:
         mutator: str,
         defensive_components: Iterable[str] = (),
         offensive_components: Iterable[str] = (),
+        planner: Mapping[str, int] | None = None,
     ) -> StaticData:
         """The roster of one game mode of one set, named as in Community Dragon's `setData`.
 
         The document marks no item as defensive, so the caller names the defensive and the
         offensive components. A component in neither list, such as one that gives mana, is neutral.
+        The document holds no team planner numbers either; `planner` gives each unit's.
         """
         defensive, offensive = set(defensive_components), set(offensive_components)
+        planner = planner or {}
         found = [entry for entry in source["setData"] if entry["mutator"] == mutator]
         if not found:
             raise KeyError(f"no {mutator!r} in the document; it has {sorted(e['mutator'] for e in source['setData'])}")
@@ -145,6 +167,9 @@ class StaticData:
             for trait in entry["traits"]
         }
         trait_by_name = {trait.name: trait.api_name for trait in traits.values()}
+        # The planner lists one unit where the roster has a variant of it per origin, named
+        # "Unit (Origin)". A variant takes the number of the unit it is a variant of.
+        planner_by_name = {unit["name"]: planner[unit["apiName"]] for unit in entry["champions"] if unit["apiName"] in planner}
         units = {
             unit["apiName"]: Unit(
                 unit["apiName"],
@@ -154,6 +179,7 @@ class StaticData:
                 unit["stats"].get("range") or 0.0,
                 unit.get("role"),
                 _icon_url(unit.get("tileIcon") or unit.get("squareIcon")),
+                planner.get(unit["apiName"], planner_by_name.get((unit["name"] or "").split(" (")[0])),
             )
             for unit in entry["champions"]
         }
@@ -173,4 +199,4 @@ class StaticData:
             )
             for item in records
         }
-        return cls(units, traits, items)
+        return cls(units, traits, items, mutator)
