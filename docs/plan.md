@@ -143,6 +143,14 @@ the set file names the defensive and the offensive components, and an item is de
 recipe has a defensive component and no offensive one. Counting an item with one defensive
 component as defensive labelled a carry holding Edge of Night and Quicksilver as a tank.
 
+Each key unit carries build notes from the comp's own boards. An item is critical when 70% of
+the unit's builds hold it, or when 40% do and builds without it place 0.4 worse. An item needs a
+partner when it places 0.5 better beside that item than apart from it, and by 0.25 more than the
+partner helps without it. A fixed template such as "a mana item, a damage item and an amplifier"
+was rejected, because it does not always hold; the data decides. Only builds of the unit's usual
+size are compared: a build holding both of two items is otherwise a more finished build than one
+holding either, which made nearly every item appear to need a partner.
+
 A level-up compares the comp's boards that end one level above with the boards one level below:
 a unit whose share rises by 15 points comes in, and one whose share falls by 15 goes out. A level
 is reported once 20 boards and 5% of the comp end there. The placement at a higher level is

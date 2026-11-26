@@ -23,6 +23,15 @@ _LEVEL_UNITS = 4
 _KEY_ITEMS = 1.5
 _TANK_ITEMS = 0.75
 _TANK_SHARE = 0.6
+_NOTE_SHARE = 0.10
+_NOTE_ITEMS = 5
+_NOTE_BUILDS = 20
+_CRITICAL_SHARE = 0.70
+_CRITICAL_GAP = 0.40
+_CRITICAL_GAP_SHARE = 0.40
+_PAIR_GAP = 0.50
+_PAIR_EXTRA = 0.25
+_PAIRINGS = 1
 
 
 @dataclass(frozen=True)
@@ -133,9 +142,103 @@ CARRY, SECOND_CARRY, TANK = "carry", "second carry", "tank"
 
 
 @dataclass(frozen=True)
+class Pairing:
+    """An item does better beside `partner` than apart from it, by more than the partner helps alone."""
+
+    partner: str
+    avg_together: float
+    avg_apart: float
+
+
+@dataclass(frozen=True)
+class BuildItem:
+    item: str
+    share: float
+    """The share of the unit's builds in this comp that hold the item."""
+    avg_with: float
+    avg_without: float | None
+    critical: bool
+    """Most builds have it, or it is a common item whose absence goes with a clearly worse placement."""
+    needs: tuple[Pairing, ...]
+
+
+@dataclass(frozen=True)
 class KeyUnit:
     unit: str
     role: str
+    build: tuple[BuildItem, ...] = ()
+
+
+def _mean(placements: Sequence[int]) -> float:
+    return sum(placements) / len(placements)
+
+
+def build_notes(members: Sequence[Board], unit: str, static: StaticData) -> tuple[BuildItem, ...]:
+    """The items one unit builds in a comp, most common first, with what the comp's boards say of each.
+
+    A build is a board on which the unit holds its usual number of finished items, two or more.
+    Builds of one size are compared with each other, because a build holding both of two items is
+    otherwise a more finished build than one holding either, and places better for that reason.
+
+    Every figure is a correlation between a build and its board's placement. A comparison is made
+    only when each side of it has `_NOTE_BUILDS` builds, so a small comp yields few notes.
+    """
+    itemised = []
+    for board in members:
+        held: set[str] = set()
+        for placed in board.units:
+            if placed.character_id == unit:
+                held |= static.finished_items(placed.items)
+        if len(held) >= 2:
+            itemised.append((held, board.placement))
+    if not itemised:
+        return ()
+    usual_size = Counter(len(held) for held, _ in itemised).most_common(1)[0][0]
+    builds = [(held, placement) for held, placement in itemised if len(held) == usual_size]
+
+    def placements(*, having: Sequence[str] = (), lacking: Sequence[str] = ()) -> list[int]:
+        return [
+            placement
+            for held, placement in builds
+            if all(item in held for item in having) and not any(item in held for item in lacking)
+        ]
+
+    def compared(first: list[int], second: list[int]) -> bool:
+        return len(first) >= _NOTE_BUILDS and len(second) >= _NOTE_BUILDS
+
+    counts = Counter(item for held, _ in builds for item in held)
+    common = [item for item, count in counts.most_common() if count / len(builds) >= _NOTE_SHARE]
+    notes = []
+    for item in common[:_NOTE_ITEMS]:
+        with_item, without_item = placements(having=[item]), placements(lacking=[item])
+        share = counts[item] / len(builds)
+        worse_without = (
+            share >= _CRITICAL_GAP_SHARE
+            and compared(with_item, without_item)
+            and _mean(without_item) - _mean(with_item) >= _CRITICAL_GAP
+        )
+        needs = []
+        for partner in common:
+            together, apart = placements(having=[item, partner]), placements(having=[item], lacking=[partner])
+            alone, neither = placements(having=[partner], lacking=[item]), placements(lacking=[item, partner])
+            if partner == item or not compared(together, apart) or not compared(alone, neither):
+                continue
+            gain = _mean(apart) - _mean(together)
+            partner_alone_helps = _mean(neither) - _mean(alone)
+            if gain >= _PAIR_GAP and gain - partner_alone_helps >= _PAIR_EXTRA:
+                needs.append((gain, Pairing(partner, _mean(together), _mean(apart))))
+        needs.sort(key=lambda found: (-found[0], found[1].partner))
+        notes.append(
+            BuildItem(
+                item,
+                share,
+                _mean(with_item),
+                _mean(without_item) if without_item else None,
+                share >= _CRITICAL_SHARE or worse_without,
+                tuple(pairing for _, pairing in needs[:_PAIRINGS]),
+            )
+        )
+    return tuple(notes)
 
 
 def key_units(members: Sequence[Board], static: StaticData) -> tuple[KeyUnit, ...]:
@@ -160,8 +263,8 @@ def key_units(members: Sequence[Board], static: StaticData) -> tuple[KeyUnit, ..
 
     tanks = [unit for unit in itemised(_TANK_ITEMS) if defensive[unit] / held[unit] >= _TANK_SHARE]
     carries = [unit for unit in itemised(_KEY_ITEMS) if unit not in tanks]
-    key = [KeyUnit(unit, role) for unit, role in zip(carries, (CARRY, SECOND_CARRY))]
-    return tuple(key + [KeyUnit(unit, TANK) for unit in tanks[:1]])
+    roles = [*zip(carries, (CARRY, SECOND_CARRY)), *((unit, TANK) for unit in tanks[:1])]
+    return tuple(KeyUnit(unit, role, build_notes(members, unit, static)) for unit, role in roles)
 
 
 @dataclass(frozen=True)
