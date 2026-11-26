@@ -22,12 +22,6 @@ function itemIcon(id) {
 }
 const itemName = (id) => esc((snap().items[id] || { name: id }).name);
 
-// A reroll style names a unit cost, so it also says the level the comp rolls at.
-function styleHtml(comp) {
-  const level = comp.style.includes(String(comp.roll_level)) ? "" : ` <span class="note">Lv ${comp.roll_level}</span>`;
-  return `${esc(comp.style)}${level}`;
-}
-
 function matches(comp, words) {
   if (!words.length) return true;
   const units = [...comp.core, ...comp.flex.flat().flatMap((p) => p.units)].map((id) => unitOf(id).name);
@@ -45,21 +39,20 @@ function visibleComps() {
 function renderList() {
   const comps = visibleComps();
   if (!comps.some((comp) => comp.id === state.comp)) state.comp = comps.length ? comps[0].id : null;
-  el("head").innerHTML = COLUMNS.map(([label, sort, numeric]) => {
-    const sorted = sort === state.sort ? "sorted" : "";
-    const cell = `class="${numeric ? "num" : ""} ${sorted}"`;
+  el("head").innerHTML = COLUMNS.map(([label, sort, column]) => {
+    const cell = `class="${column} ${sort === state.sort ? "sorted" : ""}"`;
     return sort ? `<button data-sort="${sort}" ${cell}>${label}</button>` : `<span ${cell}>${label}</span>`;
   }).join("");
   el("comps").innerHTML = comps
     .map(
       (comp) => `<li data-id="${comp.id}" class="comp-row ${comp.id === state.comp ? "selected" : ""}">
-        <span class="tier t${comp.tier}">${comp.tier}</span>
-        <span class="name">${esc(comp.name)}</span>
-        <span class="style">${styleHtml(comp)}</span>
-        <span class="mini">${comp.core.map((id) => unitTile(id, "s")).join("")}</span>
-        <span class="num">${comp.avg_placement.toFixed(2)}</span>
-        <span class="num">${pct(comp.top4)}</span>
-        <span class="num">${(comp.share * 100).toFixed(1)}%</span>
+        <span class="c-tier"><span class="tier t${comp.tier}">${comp.tier}</span></span>
+        <span class="c-name">${esc(comp.name)}</span>
+        <span class="c-level">${comp.roll_level}</span>
+        <span class="c-core">${comp.core.map((id) => unitTile(id, "s")).join("")}</span>
+        <span class="c-avg num">${comp.avg_placement.toFixed(2)}</span>
+        <span class="c-top4 num">${pct(comp.top4)}</span>
+        <span class="c-play num">${(comp.share * 100).toFixed(1)}%</span>
       </li>`,
     )
     .join("");
@@ -117,8 +110,10 @@ function keyUnitsHtml(comp) {
         .filter((id) => unitOf(id).cost < cost)
         .sort((a, b) => unitOf(a).cost - unitOf(b).cost);
       return `<div class="key-unit"><div class="role">${esc(role)}</div>${unitTile(unit, "m")}
-        <div><div class="note">builds here</div><div class="row">${build.map(buildItem).join("") || "varies"}</div></div>
-        ${holders.length ? `<div class="holders"><div class="note">can hold its items, cheapest first</div><div class="row">${tiles(holders)}</div></div>` : ""}
+        <div class="uses">
+          <div class="row"><span class="note">builds</span>${build.map(buildItem).join("") || "varies"}</div>
+          ${holders.length ? `<div class="row"><span class="note" title="Cheaper units that can hold its items, cheapest first">holders</span>${tiles(holders)}</div>` : ""}
+        </div>
       </div>`;
     })
     .join("");
@@ -129,17 +124,30 @@ const SORTS = {
   avg: (a, b) => a.avg_placement - b.avg_placement,
   top4: (a, b) => b.top4 - a.top4,
   name: (a, b) => a.name.localeCompare(b.name),
-  style: (a, b) => a.roll_level - b.roll_level || a.style.localeCompare(b.style) || a.avg_placement - b.avg_placement,
+  level: (a, b) => a.roll_level - b.roll_level || a.avg_placement - b.avg_placement,
 };
+// The stylesheet gives each column a fixed width and hides columns from the right as the list narrows.
 const COLUMNS = [
-  ["Tier", "avg"],
-  ["Comp", "name"],
-  ["Style", "style"],
-  ["Core", null],
-  ["Avg", "avg", true],
-  ["Top 4", "top4", true],
-  ["Play", "play", true],
+  ["Tier", "avg", "c-tier"],
+  ["Comp", "name", "c-name"],
+  ["Level", "level", "c-level"],
+  ["Core", null, "c-core"],
+  ["Avg", "avg", "c-avg num"],
+  ["Top 4", "top4", "c-top4 num"],
+  ["Play", "play", "c-play num"],
 ];
+
+// The detail pane never scrolls: its sheet is laid out wide enough for every section, then scaled to the pane.
+function fitDetail() {
+  const sheet = el("sheet");
+  if (!sheet) return;
+  sheet.style.zoom = 1;
+  const pane = el("detail");
+  const padding = getComputedStyle(pane);
+  const width = pane.clientWidth - parseFloat(padding.paddingLeft) - parseFloat(padding.paddingRight);
+  const height = pane.clientHeight - parseFloat(padding.paddingTop) - parseFloat(padding.paddingBottom);
+  sheet.style.zoom = Math.min(1, width / sheet.offsetWidth, height / sheet.offsetHeight);
+}
 
 function renderDetail() {
   const comp = snap().comps.find((candidate) => candidate.id === state.comp);
@@ -192,9 +200,9 @@ function renderDetail() {
         <td class="note">avg ${delta(pick.avg_with, comp.avg_placement)} with${pick.avg_without === null ? "" : `, ${pick.avg_without.toFixed(2)} without`}</td></tr>`,
     )
     .join("");
-  el("detail").innerHTML = `
+  el("detail").innerHTML = `<div id="sheet">
     <header><h1><span class="tier t${comp.tier}">${comp.tier}</span>${esc(comp.name)}</h1>
-      <p class="stats"><b>${styleHtml(comp)}</b> · avg <b>${comp.avg_placement.toFixed(2)}</b> · top 4 <b>${pct(comp.top4)}</b> · play <b>${(comp.share * 100).toFixed(1)}%</b> · ${comp.boards.toLocaleString()} boards</p></header>
+      <p class="stats"><b>${esc(comp.style)}</b> · avg <b>${comp.avg_placement.toFixed(2)}</b> · top 4 <b>${pct(comp.top4)}</b> · play <b>${(comp.share * 100).toFixed(1)}%</b> · ${comp.boards.toLocaleString()} boards</p></header>
     <section><h2>Core</h2><div class="row">${comp.core.map((id) => unitTile(id, "l", { traits: true, threeStar: threeStar(id) })).join("")}</div></section>
     <section><h2>Flex</h2><div><div class="row">${packages || `<span class="note">no regular flex units</span>`}</div>
       ${sharedSlots ? `<div class="note">Units in one outline take one slot: a board rarely holds both. An arrow points to the costlier unit, which the cheaper one is played until.</div>` : ""}</div></section>
@@ -206,7 +214,8 @@ function renderDetail() {
         <table class="items">${items}</table>
         <div class="note">Placements beside an item are correlations, not effects.</div></div>
       ${boardHtml(comp)}
-    </div></section>`;
+    </div></section></div>`;
+  fitDetail();
 }
 
 function move(step) {
@@ -221,10 +230,11 @@ function move(step) {
 }
 
 const LIST_WIDTH = "tft-assistant.list-width";
-const NARROWEST_LIST = 520;
+const NARROWEST_LIST = 260;
 const NARROWEST_DETAIL = 640;
 const setListWidth = (pixels) => document.body.style.setProperty("--list-width", `${pixels}px`);
 if (localStorage.getItem(LIST_WIDTH)) setListWidth(localStorage.getItem(LIST_WIDTH));
+addEventListener("resize", fitDetail);
 el("divider").addEventListener("pointerdown", (event) => {
   event.target.setPointerCapture(event.pointerId);
   document.body.classList.add("resizing");
@@ -234,11 +244,13 @@ el("divider").addEventListener("pointermove", (event) => {
   const width = Math.round(Math.min(Math.max(event.clientX, NARROWEST_LIST), innerWidth - NARROWEST_DETAIL));
   setListWidth(width);
   localStorage.setItem(LIST_WIDTH, width);
+  fitDetail();
 });
 el("divider").addEventListener("pointerup", () => document.body.classList.remove("resizing"));
 el("divider").addEventListener("dblclick", () => {
   document.body.style.removeProperty("--list-width");
   localStorage.removeItem(LIST_WIDTH);
+  fitDetail();
 });
 
 el("selection").innerHTML = SNAPSHOTS.map((s, index) => `<option value="${index}">${esc(s.label)}</option>`).join("");
