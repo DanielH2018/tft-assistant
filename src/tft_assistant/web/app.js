@@ -13,7 +13,8 @@ function unitTile(id, size = "l", options = {}) {
   const image = unit.icon ? `<img src="${esc(unit.icon)}" alt="" loading="lazy">` : `<span class="blank"></span>`;
   const stars = options.threeStar ? `<b class="stars">★★★</b>` : "";
   const traits = unit.traits.map((t) => traitName(t)).join(", ");
-  return `<span class="unit ${size} cost${unit.cost}" title="${esc(unit.name)}${traits ? `: ${esc(traits)}` : ""}">${image}${stars}<span class="unit-name">${esc(unit.name)}</span></span>`;
+  const title = options.title || `${unit.name}${traits ? `: ${traits}` : ""}`;
+  return `<span class="unit ${size} cost${unit.cost}" title="${esc(title)}">${image}${stars}<span class="unit-name">${esc(unit.name)}</span></span>`;
 }
 
 function itemIcon(id) {
@@ -76,6 +77,7 @@ function renderList() {
         <span class="c-core">${comp.core.map((id) => unitTile(id, "s")).join("")}</span>
         <span class="c-avg num">${comp.avg_placement.toFixed(2)}</span>
         <span class="c-top4 num">${pct(comp.top4)}</span>
+        <span class="c-win num">${pct(comp.win_rate)}</span>
         <span class="c-play num">${(comp.share * 100).toFixed(1)}%</span>
       </li>`,
     )
@@ -157,6 +159,7 @@ const SORTS = {
   play: (a, b) => b.share - a.share,
   avg: (a, b) => a.avg_placement - b.avg_placement,
   top4: (a, b) => b.top4 - a.top4,
+  win: (a, b) => b.win_rate - a.win_rate,
   name: (a, b) => a.name.localeCompare(b.name),
   level: (a, b) => a.roll_level - b.roll_level || a.avg_placement - b.avg_placement,
 };
@@ -168,6 +171,7 @@ const COLUMNS = [
   ["Core", null, "c-core"],
   ["Avg", "avg", "c-avg num"],
   ["Top 4", "top4", "c-top4 num"],
+  ["Win", "win", "c-win num"],
   ["Play", "play", "c-play num"],
 ];
 
@@ -276,12 +280,11 @@ function detailHtml(comp) {
   const team = teamUnits(comp);
   const teamNote = team.length > TEAM_PLACES ? `the first ${TEAM_PLACES} of ${team.length} units` : `${team.length} units`;
   const sharedSlots = comp.flex.some((options) => options.length > 1);
-  const shift = (s) =>
-    `<span class="shift">${unitTile(s.unit, "m")}<span class="figures">${pct(s.share)}<br><span class="note">was ${pct(s.share_below)}</span></span></span>`;
+  const shift = (s) => unitTile(s.unit, "m", { title: `${unitOf(s.unit).name}: on ${pct(s.share)} of boards at this level, ${pct(s.share_below)} a level below` });
   const levelUps = comp.level_ups
     .map(
       (up) => `<div class="level-up">
-        <div class="figures"><b>Level ${up.level}</b><br>${pct(up.share)} of boards<br>avg ${delta(up.avg_placement, comp.avg_placement)}</div>
+        <b title="${pct(up.share)} of boards, avg ${up.avg_placement.toFixed(2)}">Level ${up.level}</b>
         ${up.adds.length ? `<div><div class="note">comes in</div><div class="row">${up.adds.map(shift).join("")}</div></div>` : ""}
         ${up.drops.length ? `<div><div class="note">goes out</div><div class="row">${up.drops.map(shift).join("")}</div></div>` : ""}
       </div>`,
@@ -306,20 +309,15 @@ function detailHtml(comp) {
     .join("");
   const spare = comp.spare
     .map(
-      (found) => `<div class="row">${itemIcon(found.component)}<span class="joint">→</span>${found.uses
-        .map(
-          (use) =>
-            `<span class="use" title="${itemName(use.item)}: on ${pct(use.share)} of boards, avg ${use.avg_with.toFixed(2)}">${itemIcon(use.item)} ${itemName(use.item)} on ${esc(unitOf(use.holder).name)} <span class="note">${pct(use.share)}</span></span>`,
-        )
-        .join("")}</div>`,
+      (found) => `<div class="row">${itemIcon(found.component)}<span class="joint">→</span>${found.uses.map((item) => `<span class="use">${itemIcon(item)} ${itemName(item)}</span>`).join("")}</div>`,
     )
     .join("");
-  const smallTiles = (swaps) => swaps.map((swap) => `<span title="${esc(unitOf(swap.unit).name)}: on ${pct(swap.share_with)} of boards with it, ${pct(swap.share_without)} without">${unitTile(swap.unit, "s")}</span>`).join("");
+  const smallTiles = (swaps) => swaps.map((swap) => unitTile(swap.unit, "s", { title: `${unitOf(swap.unit).name}: on ${pct(swap.share_with)} of boards with it, ${pct(swap.share_without)} without` })).join("");
   const specials = comp.specials
     .map(
       (special) => `<div class="special">
         <span class="what">${itemIcon(special.item)} ${itemName(special.item)} <span class="note">${special.kind}</span></span>
-        <span class="figures"><b>${pct(special.share)}</b> of boards · avg ${delta(special.avg_placement, comp.avg_placement)}</span>
+        <span class="figures" title="On ${pct(special.share)} of boards">avg ${delta(special.avg_placement, comp.avg_placement)}</span>
         <span class="part"><span class="note">on</span>${unitTile(special.holder, "s")} ${esc(unitOf(special.holder).name)} <span class="note">${pct(special.holder_share)}</span></span>
         ${special.beside.length ? `<span class="part"><span class="note">beside</span>${special.beside.map(itemIcon).join("")}</span>` : ""}
         ${special.adds.length ? `<span class="part"><span class="note">comes in</span>${smallTiles(special.adds)}</span>` : ""}
@@ -330,28 +328,27 @@ function detailHtml(comp) {
   return `<div id="sheet">
     <header><div class="title"><h1><span class="tier t${comp.tier}">${comp.tier}</span>${esc(comp.name)}</h1>
       <button id="copy-team" title="${esc(teamCode(comp))}">Copy team code</button><span class="note">${teamNote}: core and picked flex</span></div>
-      <p class="stats"><b>${esc(comp.style)}</b> · avg <b>${comp.avg_placement.toFixed(2)}</b> · top 4 <b>${pct(comp.top4)}</b> · play <b>${(comp.share * 100).toFixed(1)}%</b> · ${comp.boards.toLocaleString()} boards</p></header>
-    <div class="columns">
-      <div>
-        ${section("Core", `<div class="row">${comp.core.map((id) => unitTile(id, "l", { threeStar: threeStar(id) })).join("")}</div>`)}
-        ${section(
-          "Flex",
-          `<div><div class="row">${packages || `<span class="note">no regular flex units</span>`}</div>
-          ${sharedSlots ? `<div class="note">Units in one outline take one slot: a board rarely holds both. An arrow points to the costlier unit, which the cheaper one is played until.</div>` : ""}</div>`,
-        )}
-        ${section("Traits", `<div class="row">${traits}</div>`)}
-        ${section("Key units", `<div>${keyUnitsHtml(comp) || `<span class="note">no unit holds items regularly</span>`}</div>`)}
-      </div>
-      <div>
-        ${section(
-          "Items",
-          `<div><div class="row take"><span class="note">components to take first</span>${comp.take.map(itemIcon).join("")}</div>
-          <table class="items">${items}</table>
-          ${spare ? `<div class="spare"><div class="note">the components it uses least go into</div>${spare}</div>` : ""}</div>`,
-        )}
-        ${specials ? section("Emblems, artifacts", `<div>${specials}</div>`) : ""}
-        ${section("Level up", `<div>${levelUps || `<span class="note">no level above the usual one has enough boards</span>`}</div>`)}
-      </div>
+      <p class="stats"><b>${esc(comp.style)}</b> · avg <b>${comp.avg_placement.toFixed(2)}</b> · top 4 <b>${pct(comp.top4)}</b> · win <b>${pct(comp.win_rate)}</b> · play <b>${(comp.share * 100).toFixed(1)}%</b> · ${comp.boards.toLocaleString()} boards</p></header>
+    <div class="flow">
+      ${section("Core", `<div class="row">${comp.core.map((id) => unitTile(id, "l", { threeStar: threeStar(id) })).join("")}</div>`)}
+      ${section("Traits", `<div class="row">${traits}</div>`, "wraps")}
+      ${section(
+        "Flex",
+        `<div><div class="row">${packages || `<span class="note">no regular flex units</span>`}</div>
+        ${sharedSlots ? `<div class="note fills">Units in one outline take one slot: a board rarely holds both. An arrow points to the costlier unit, which the cheaper one is played until.</div>` : ""}</div>`,
+      )}
+      ${section("Level up", `<div class="levels">${levelUps || `<span class="note">no level above the usual one has enough boards</span>`}</div>`)}
+    </div>
+    <div class="flow">
+      ${section("Key units", `<div>${keyUnitsHtml(comp) || `<span class="note">no unit holds items regularly</span>`}</div>`, "half")}
+      ${section(
+        "Items",
+        `<div><div class="row take"><span class="note">Priority</span>${comp.take.map(itemIcon).join("")}</div>
+        <table class="items">${items}</table>
+        ${spare ? `<div class="spare"><div class="note">the components it uses least go into</div>${spare}</div>` : ""}</div>`,
+        "half",
+      )}
+      ${specials ? section("Emblems, artifacts", `<div>${specials}</div>`, "half") : ""}
     </div>
     ${section("Positioning", `<div>${boardHtml(comp)}</div>`)}</div>`;
 }
@@ -408,9 +405,12 @@ el("names").addEventListener("change", (event) => {
 // belongs to the section, not to one comp, so it holds as the comp changes and after a reload.
 const FOLDED = "tft-assistant.folded-sections";
 const folded = new Set(JSON.parse(localStorage.getItem(FOLDED) || "[]"));
-function section(title, body) {
+// `width` says how a section shares a row with its neighbours. A section takes the width of its
+// content laid on one line. "wraps" and "half" mark a section whose content wraps, so its content
+// has no width of its own: it asks for a fixed width and takes what is left of the row.
+function section(title, body, width = "") {
   const fold = folded.has(title) ? "folded" : "";
-  return `<section class="${fold}" data-section="${title}"><h2 title="Click to fold or open this section">${title}</h2>${body}</section>`;
+  return `<section class="${width} ${fold}" data-section="${title}"><h2 title="Click to fold or open this section">${title}</h2>${body}</section>`;
 }
 
 el("detail").addEventListener("click", (event) => {

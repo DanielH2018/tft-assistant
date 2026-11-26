@@ -35,6 +35,7 @@ def test_a_comp_reports_its_share_placement_carry_and_main_trait(report):
     assert (comp_a.boards, comp_a.share) == (100, 0.5)
     assert comp_a.avg_placement == pytest.approx(3.6)
     assert (comp_a.top4, comp_b.top4) == (0.6, 1.0)
+    assert (comp_a.win_rate, comp_b.win_rate) == (0.1, 0.0)
     assert (comp_a.carries, comp_a.main_trait) == (("A1",), "T_A")
 
 
@@ -120,12 +121,8 @@ def test_the_two_components_a_comp_uses_least_list_the_items_its_boards_build_wi
     comp_a, comp_b = report.comps
 
     assert comp_b.spare == (
-        SpareComponent("Belt", share=pytest.approx(1 / 12), uses=(ItemPick("Cape", "B2", 1.0, 4.0, None),)),
-        SpareComponent(
-            "Bow",
-            share=pytest.approx(2 / 12),
-            uses=(ItemPick("Whisper", "B1", 1.0, 4.0, None), ItemPick("Whisper", "B3", 1.0, 4.0, None)),
-        ),
+        SpareComponent("Belt", share=pytest.approx(1 / 12), uses=("Cape",)),
+        SpareComponent("Bow", share=pytest.approx(2 / 12), uses=("Whisper",)),
     )
     assert [(spare.component, spare.share) for spare in comp_a.spare] == [("Bow", 0.1875), ("Sword", 0.3125)]
 
@@ -169,7 +166,7 @@ def test_a_level_above_the_usual_one_lists_the_units_that_come_in_and_the_units_
 def test_key_units_are_the_carry_the_second_carry_and_the_tank_whose_build_is_mostly_defensive(report):
     comp_a, comp_b = report.comps
 
-    assert [(key.unit, key.role) for key in comp_b.key_units] == [("B1", "carry"), ("B3", "second carry"), ("B2", "tank")]
+    assert [(key.unit, key.role) for key in comp_b.key_units] == [("B1", "carry"), ("B3", "2nd carry"), ("B2", "tank")]
     assert comp_b.carries == ("B1", "B3")
     assert [(key.unit, key.role) for key in comp_a.key_units] == [("A1", "carry")]
 

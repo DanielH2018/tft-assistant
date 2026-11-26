@@ -84,7 +84,7 @@ comp core                   units present in nearly every board of a cluster
   │                         share of boards holding it, placement with and without
   ├─ item priority          ordered (item → holder) pairs, plus components to take
   ├─ carries ──► item group
-  ├─ key units              carry, second carry and tank, each with its build and item group
+  ├─ key units              carry, 2nd carry and tank, each with its build and item group
   ├─ tempo                  final-level and star-level distribution
   ├─ level-ups              per level above the usual one: units that come in, units that go out
   ├─ early plan             derived proposal + edits
@@ -197,10 +197,10 @@ saved boards of slice 5.
 
 ### Least-used components
 
-The Items section ends with the two components a comp uses least and where its boards put
-them: the (item, holder) pairs built with each on 5% of the comp's boards, most common first. A
-comp that uses few Rods shows Crownguard on its tank. A component's use is counted over the
-recipes of every finished item on the comp's boards.
+The Items section ends with the two components a comp uses least and the items its boards
+build with each: the two most built, of those the boards hold 0.05 times per board or more. A
+comp that uses few Rods shows Crownguard. The section names no holder. A component's use is
+counted over the recipes of every finished item on the comp's boards.
 
 A share threshold for "unwanted" was tried and dropped. A comp's finished boards use every
 component, at shares between 6% and 25% on patch 18.7, so half the even share marked nothing in
@@ -241,10 +241,22 @@ pane scrolls down when the content is taller. Nothing reaches past the pane's ri
 row wraps, and only a pane too narrow for the widest thing that cannot wrap draws the content
 smaller.
 
-The sections stand in two columns once the content is 1,000 pixels wide: Core, Flex, Traits and
-Key units on the left, and Items, Emblems and artifacts, and Level up on the right. Positioning
-has the full width under both. A narrower pane has one column. A click on a section's heading
-folds the section to its heading or opens it again, and the browser keeps the folds.
+Sections share a row while their widths fit it, then start the next row. A section is as wide as
+its content laid on one line, so a section with little content leaves room for its neighbour,
+and one with a lot takes a row and wraps inside it. Three kinds of section wrap by nature and
+ask for a fixed width instead: Traits asks for 300 pixels, and Key units, Items, and Emblems
+and artifacts ask for 480 each. The rows form in two groups, so Key units always starts a row:
+Core, Traits, Flex and Level up, then Key units, Items, and Emblems and artifacts. Positioning
+has the full width under them. A click on a section's heading folds the section to its heading
+or opens it again, and the browser keeps the folds.
+
+Figures the operator does not read during a game are in tooltips, not on the page: a level's
+share of boards and placement, a unit's share at a level, and an emblem's or artifact's share
+of boards.
+
+A layout of two fixed columns was built on 2026-11-26 and replaced the same day. It put Level up
+and Flex in columns too narrow to lay their content on one line, and left the rest of each
+column empty.
 
 Two designs that scaled the content to the pane's height were built and dropped on 2026-11-26.
 One laid the content out at a fixed width and scaled it down, which left an empty band beside
@@ -253,7 +265,8 @@ at 0.78 of full size with half the pane's width unused. The operator's rule is t
 may overflow and the width may not.
 
 The list's columns have fixed widths and never move. A list too narrow for all of them drops
-whole columns from the right: Play, Top 4, Avg, Core, then Level. The list opens 660 pixels
+whole columns from the right: Play, Win, Top 4, Avg, Core, then Level. Win is the share of a
+comp's boards that place first. The list opens 708 pixels
 wide, or 40% of a narrower window. The border between the list and the detail pane drags; the
 browser keeps the width, and a double-click on the border resets it. The detail pane marks the three-starred units on their pictures.
 

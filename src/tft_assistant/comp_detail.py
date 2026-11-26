@@ -217,7 +217,7 @@ class SpareComponent:
     component: str
     share: float
     """The component's share of all the components in the comp's finished items."""
-    uses: tuple[ItemPick, ...]
+    uses: tuple[str, ...]
 
 
 def spare_components(members: Sequence[Board], static: StaticData) -> tuple[SpareComponent, ...]:
@@ -225,31 +225,30 @@ def spare_components(members: Sequence[Board], static: StaticData) -> tuple[Spar
 
     A component's use is counted over the recipes of every finished item on the comp's boards.
     A comp's boards use every component at some rate, so no share marks one as unwanted: the
-    `_SPARE_COMPONENTS` least used are listed. Each carries the (item, holder) pairs built with
-    it on `_SPARE_USE_FLOOR` of the boards. A component with no such pair is passed over, which
-    drops one that only a rare item uses.
+    `_SPARE_COMPONENTS` least used are listed. Each carries the items built with it, the most
+    built first, that the boards hold `_SPARE_USE_FLOOR` times per board or more. A component
+    with no such item is passed over, which drops one that only a rare item uses.
     """
-    holdings = _Holdings(members, static)
+    built: Counter[str] = Counter()
+    for (item, _), count in _Holdings(members, static).held.items():
+        built[item] += count
     used: Counter[str] = Counter()
-    for (item, _), count in holdings.held.items():
+    for item, count in built.items():
         for component in static.items[item].components:
             used[component] += count
     spare: list[SpareComponent] = []
     for component, count in sorted(used.items(), key=lambda entry: (entry[1], entry[0])):
-        built = [
-            pair
-            for pair, held in holdings.held.most_common()
-            if component in static.items[pair[0]].components
-            and pair[1] in static.units
-            and held / len(members) >= _SPARE_USE_FLOOR
+        uses = [
+            item
+            for item, held in built.most_common()
+            if component in static.items[item].components and held / len(members) >= _SPARE_USE_FLOOR
         ]
-        if built and len(spare) < _SPARE_COMPONENTS:
-            uses = tuple(holdings.pick(*pair) for pair in built[:_SPARE_USES])
-            spare.append(SpareComponent(component, count / used.total(), uses))
+        if uses and len(spare) < _SPARE_COMPONENTS:
+            spare.append(SpareComponent(component, count / used.total(), tuple(uses[:_SPARE_USES])))
     return tuple(spare)
 
 
-CARRY, SECOND_CARRY, TANK = "carry", "second carry", "tank"
+CARRY, SECOND_CARRY, TANK = "carry", "2nd carry", "tank"
 
 
 @dataclass(frozen=True)
