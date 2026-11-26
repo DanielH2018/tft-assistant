@@ -50,6 +50,8 @@ class Item:
     name: str
     components: tuple[str, ...]
     emblem_of: str | None
+    radiant_of: str | None
+    is_component: bool
 
 
 def document(channel: str = "latest") -> dict[str, Any]:
@@ -71,6 +73,11 @@ def _emblem_trait(item: dict[str, Any], trait_by_name: dict[str, str]) -> str | 
     if len(excluded) == 1:
         return excluded[0]
     return trait_by_name.get(name.removesuffix(" Emblem"))
+
+
+def _radiant_base(item: dict[str, Any], by_name: dict[str | None, str]) -> str | None:
+    name = item.get("name") or ""
+    return by_name.get(name.removeprefix("Radiant ")) if name.startswith("Radiant ") else None
 
 
 @dataclass(frozen=True)
@@ -109,15 +116,18 @@ class StaticData:
             )
             for unit in entry["champions"]
         }
-        in_set = set(entry["items"])
+        records = [item for item in source["items"] if item["apiName"] in set(entry["items"])]
+        by_name = {item.get("name"): item["apiName"] for item in records}
+        built_from = {part for item in records for part in item.get("composition") or ()}
         items = {
             item["apiName"]: Item(
                 item["apiName"],
                 item.get("name") or item["apiName"],
                 tuple(item.get("composition") or ()),
                 _emblem_trait(item, trait_by_name),
+                _radiant_base(item, by_name),
+                item["apiName"] in built_from,
             )
-            for item in source["items"]
-            if item["apiName"] in in_set
+            for item in records
         }
         return cls(units, traits, items)
