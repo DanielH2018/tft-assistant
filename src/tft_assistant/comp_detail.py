@@ -20,6 +20,9 @@ _PICK_FLOOR = 0.20
 _PICKS_PER_HOLDER = 3
 _PICKS = 8
 _COMPONENTS = 3
+_SPARE_COMPONENTS = 2
+_SPARE_USES = 2
+_SPARE_USE_FLOOR = 0.05
 _LEVEL_BOARDS = 20
 _LEVEL_SHARE = 0.05
 _LEVEL_SHIFT = 0.15
@@ -149,46 +152,94 @@ def tempo(members: Sequence[Board], carry: str | None, static: StaticData) -> Te
     )
 
 
+class _Holdings:
+    """How often each unit holds each finished item on a comp's boards, and how those boards place."""
+
+    def __init__(self, members: Sequence[Board], static: StaticData) -> None:
+        self.boards = len(members)
+        self._present: Counter[str] = Counter()
+        self._present_places: Counter[str] = Counter()
+        self.held: Counter[tuple[str, str]] = Counter()
+        self._held_places: Counter[tuple[str, str]] = Counter()
+        for board in members:
+            builds: dict[str, set[str]] = {}
+            for unit in board.units:
+                builds.setdefault(unit.character_id, set()).update(static.finished_items(unit.items))
+            for holder, build in builds.items():
+                self._present[holder] += 1
+                self._present_places[holder] += board.placement
+                for item in build:
+                    self.held[item, holder] += 1
+                    self._held_places[item, holder] += board.placement
+
+    def pick(self, item: str, holder: str) -> ItemPick:
+        count, places = self.held[item, holder], self._held_places[item, holder]
+        lacking = self._present[holder] - count
+        return ItemPick(
+            item,
+            holder,
+            count / self.boards,
+            places / count,
+            (self._present_places[holder] - places) / lacking if lacking else None,
+        )
+
+
 def item_priority(members: Sequence[Board], static: StaticData) -> tuple[ItemPick, ...]:
     """The (item, holder) pairs the comp builds most, most common first.
 
     The placements beside each pair are correlations: a board that completed three items on its
     carry was usually ahead for other reasons too.
     """
-    present: Counter[str] = Counter()
-    present_places: Counter[str] = Counter()
-    holding: Counter[tuple[str, str]] = Counter()
-    holding_places: Counter[tuple[str, str]] = Counter()
-    for board in members:
-        builds: dict[str, set[str]] = {}
-        for unit in board.units:
-            builds.setdefault(unit.character_id, set()).update(static.finished_items(unit.items))
-        for holder, build in builds.items():
-            present[holder] += 1
-            present_places[holder] += board.placement
-            for item in build:
-                holding[item, holder] += 1
-                holding_places[item, holder] += board.placement
-
+    holdings = _Holdings(members, static)
     picks: list[ItemPick] = []
     per_holder: Counter[str] = Counter()
-    for (item, holder), count in holding.most_common():
+    for (item, holder), count in holdings.held.most_common():
         if count / len(members) < _PICK_FLOOR or len(picks) == _PICKS:
             break
         if per_holder[holder] == _PICKS_PER_HOLDER:
             continue
         per_holder[holder] += 1
-        lacking = present[holder] - count
-        picks.append(
-            ItemPick(
-                item,
-                holder,
-                count / len(members),
-                holding_places[item, holder] / count,
-                (present_places[holder] - holding_places[item, holder]) / lacking if lacking else None,
-            )
-        )
+        picks.append(holdings.pick(item, holder))
     return tuple(picks)
+
+
+@dataclass(frozen=True)
+class SpareComponent:
+    """One of the components a comp uses least, and the items its boards most often put it into."""
+
+    component: str
+    share: float
+    """The component's share of all the components in the comp's finished items."""
+    uses: tuple[ItemPick, ...]
+
+
+def spare_components(members: Sequence[Board], static: StaticData) -> tuple[SpareComponent, ...]:
+    """Where a comp puts the components it uses least, least used first.
+
+    A component's use is counted over the recipes of every finished item on the comp's boards.
+    A comp's boards use every component at some rate, so no share marks one as unwanted: the
+    `_SPARE_COMPONENTS` least used are listed. Each carries the (item, holder) pairs built with
+    it on `_SPARE_USE_FLOOR` of the boards. A component with no such pair is passed over, which
+    drops one that only a rare item uses.
+    """
+    holdings = _Holdings(members, static)
+    used: Counter[str] = Counter()
+    for (item, _), count in holdings.held.items():
+        for component in static.items[item].components:
+            used[component] += count
+    spare: list[SpareComponent] = []
+    for component, count in sorted(used.items(), key=lambda entry: (entry[1], entry[0])):
+        built = [
+            pair
+            for pair, held in holdings.held.most_common()
+            if component in static.items[pair[0]].components
+            and pair[1] in static.units
+            and held / len(members) >= _SPARE_USE_FLOOR
+        ]
+        if built and len(spare) < _SPARE_COMPONENTS:
+            uses = tuple(holdings.pick(*pair) for pair in built[:_SPARE_USES])
+            spare.append(SpareComponent(component, count / used.total(), uses))
+    return tuple(spare)
 
 
 CARRY, SECOND_CARRY, TANK = "carry", "second carry", "tank"

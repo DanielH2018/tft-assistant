@@ -4,7 +4,7 @@ import pytest
 from conftest import A_CORE, B_CORE
 
 from tft_assistant.boards import Board, BoardUnit
-from tft_assistant.comp_detail import CompTrait, ItemPick, build_notes, level_ups, main_trait, tempo
+from tft_assistant.comp_detail import CompTrait, ItemPick, SpareComponent, build_notes, level_ups, main_trait, tempo
 from tft_assistant.comps import FlexPackage, FlexSlot, find_comps
 
 
@@ -102,6 +102,20 @@ def test_item_priority_orders_item_and_holder_pairs_and_compares_placement_with_
 
 def test_components_to_take_come_from_the_recipes_of_the_item_priority(report):
     assert report.comps[0].take == ("Glove", "Sword", "Bow")
+
+
+def test_the_two_components_a_comp_uses_least_list_the_items_its_boards_build_with_them(report):
+    comp_a, comp_b = report.comps
+
+    assert comp_b.spare == (
+        SpareComponent("Belt", share=pytest.approx(1 / 12), uses=(ItemPick("Cape", "B2", 1.0, 4.0, None),)),
+        SpareComponent(
+            "Bow",
+            share=pytest.approx(2 / 12),
+            uses=(ItemPick("Whisper", "B1", 1.0, 4.0, None), ItemPick("Whisper", "B3", 1.0, 4.0, None)),
+        ),
+    )
+    assert [(spare.component, spare.share) for spare in comp_a.spare] == [("Bow", 0.1875), ("Sword", 0.3125)]
 
 
 def test_a_level_above_the_usual_one_lists_the_units_that_come_in_and_the_units_that_go_out(report):
