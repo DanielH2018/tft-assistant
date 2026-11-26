@@ -243,12 +243,13 @@ smaller.
 
 Sections share a row while their widths fit it, then start the next row. A section is as wide as
 its content laid on one line, so a section with little content leaves room for its neighbour,
-and one with a lot takes a row and wraps inside it. Three kinds of section wrap by nature and
-ask for a fixed width instead: Traits asks for 300 pixels, and Key units, Items, and Emblems
+and one with a lot takes a row and wraps inside it. Four sections wrap by nature and ask for a
+fixed width instead: Traits asks for 300 pixels, and Key units, Items, and Emblems
 and artifacts ask for 480 each. The rows form in two groups, so Key units always starts a row:
 Core, Traits, Flex and Level up, then Key units, Items, and Emblems and artifacts. Positioning
 has the full width under them. A click on a section's heading folds the section to its heading
-or opens it again, and the browser keeps the folds.
+or opens it again, and the browser keeps the folds. A folded section keeps a row to itself, so
+a fold changes the page's height and moves no other section sideways.
 
 Figures the operator does not read during a game are in tooltips, not on the page: a level's
 share of boards and placement, a unit's share at a level, and an emblem's or artifact's share
