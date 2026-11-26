@@ -1,5 +1,5 @@
 const SNAPSHOTS = JSON.parse(document.getElementById("snapshots").textContent);
-const state = { snapshot: 0, comp: null, filter: "", sort: "play" };
+const state = { snapshot: 0, comp: null, filter: "", sort: "avg" };
 const el = (id) => document.getElementById(id);
 const esc = (text) =>
   String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -25,7 +25,7 @@ const itemName = (id) => esc((snap().items[id] || { name: id }).name);
 function matches(comp, words) {
   if (!words.length) return true;
   const units = [...comp.core, ...comp.packages.flatMap((p) => p.units)].map((id) => unitOf(id).name);
-  const text = [comp.name, ...units, ...comp.traits.map((t) => traitName(t.trait))].join(" ").toLowerCase();
+  const text = [comp.name, comp.style, ...units, ...comp.traits.map((t) => traitName(t.trait))].join(" ").toLowerCase();
   return words.every((word) => text.includes(word));
 }
 
@@ -39,13 +39,20 @@ function visibleComps() {
 function renderList() {
   const comps = visibleComps();
   if (!comps.some((comp) => comp.id === state.comp)) state.comp = comps.length ? comps[0].id : null;
+  el("head").innerHTML = COLUMNS.map(([label, sort, numeric]) => {
+    const sorted = sort === state.sort ? "sorted" : "";
+    const cell = `class="${numeric ? "num" : ""} ${sorted}"`;
+    return sort ? `<button data-sort="${sort}" ${cell}>${label}</button>` : `<span ${cell}>${label}</span>`;
+  }).join("");
   el("comps").innerHTML = comps
     .map(
-      (comp) => `<li data-id="${comp.id}" class="${comp.id === state.comp ? "selected" : ""}">
+      (comp) => `<li data-id="${comp.id}" class="comp-row ${comp.id === state.comp ? "selected" : ""}">
         <span class="tier t${comp.tier}">${comp.tier}</span>
         <span class="name">${esc(comp.name)}</span>
+        <span class="style">${esc(comp.style)}</span>
         <span class="mini">${comp.core.map((id) => unitTile(id, "s")).join("")}</span>
         <span class="num">${comp.avg_placement.toFixed(2)}</span>
+        <span class="num">${pct(comp.top4)}</span>
         <span class="num">${(comp.share * 100).toFixed(1)}%</span>
       </li>`,
     )
@@ -84,7 +91,7 @@ const SHOWN_IN_A_GROUP = 9;
 const ITEM_ROWS = 6;
 
 function keyUnitsHtml(comp) {
-  const tiles = (ids) => ids.slice(0, SHOWN_IN_A_GROUP).map((id) => unitTile(id, "s")).join("") || "none";
+  const tiles = (ids) => ids.slice(0, SHOWN_IN_A_GROUP).map((id) => unitTile(id, "s")).join("");
   const buildItem = (note) => {
     const needs = note.needs
       .map(
@@ -100,13 +107,12 @@ function keyUnitsHtml(comp) {
     .map(({ unit, role, build }) => {
       const group = snap().item_groups.find((g) => g.units.includes(unit));
       const cost = unitOf(unit).cost;
-      const others = group ? group.units.filter((id) => id !== unit) : [];
-      const holders = others.filter((id) => unitOf(id).cost < cost);
-      const pivots = others.filter((id) => unitOf(id).cost >= cost);
+      const holders = (group ? group.units : [])
+        .filter((id) => unitOf(id).cost < cost)
+        .sort((a, b) => unitOf(a).cost - unitOf(b).cost);
       return `<div class="key-unit"><div class="role">${esc(role)}</div>${unitTile(unit, "m")}
         <div><div class="note">builds here</div><div class="row">${build.map(buildItem).join("") || "varies"}</div></div>
-        <div><div class="note">holders, cheapest first</div><div class="row">${tiles(holders)}</div></div>
-        <div><div class="note">can take its items</div><div class="row">${tiles(pivots)}</div></div>
+        ${holders.length ? `<div class="holders"><div class="note">can hold its items, cheapest first</div><div class="row">${tiles(holders)}</div></div>` : ""}
       </div>`;
     })
     .join("");
@@ -114,10 +120,20 @@ function keyUnitsHtml(comp) {
 
 const SORTS = {
   play: (a, b) => b.share - a.share,
-  tier: (a, b) => a.avg_placement - b.avg_placement,
+  avg: (a, b) => a.avg_placement - b.avg_placement,
   top4: (a, b) => b.top4 - a.top4,
   name: (a, b) => a.name.localeCompare(b.name),
+  style: (a, b) => a.style.localeCompare(b.style) || a.avg_placement - b.avg_placement,
 };
+const COLUMNS = [
+  ["Tier", "avg"],
+  ["Comp", "name"],
+  ["Style", "style"],
+  ["Core", null],
+  ["Avg", "avg", true],
+  ["Top 4", "top4", true],
+  ["Play", "play", true],
+];
 
 function renderDetail() {
   const comp = snap().comps.find((candidate) => candidate.id === state.comp);
@@ -125,13 +141,10 @@ function renderDetail() {
     el("detail").innerHTML = `<p class="empty">No comp matches.</p>`;
     return;
   }
-  const levels = comp.levels.filter(([, share]) => share >= 0.05).map(([level, share]) => `level ${level} <b>${pct(share)}</b>`);
-  const reroll = comp.three_stars.length
-    ? `<div class="row"><span class="note">usually three-starred</span>${comp.three_stars.map((id) => unitTile(id, "s", { threeStar: true })).join("")}</div>`
-    : "";
+  const threeStar = (id) => comp.three_stars.includes(id);
   const packages = comp.packages
     .map(
-      (p) => `<div class="package">${p.units.map((id) => unitTile(id, "m")).join("")}
+      (p) => `<div class="package">${p.units.map((id) => unitTile(id, "m", { threeStar: threeStar(id) })).join("")}
         <div class="figures"><b>${pct(p.share)}</b> of boards<br>avg ${delta(p.avg_placement, comp.avg_placement)}</div></div>`,
     )
     .join("");
@@ -164,10 +177,9 @@ function renderDetail() {
     )
     .join("");
   el("detail").innerHTML = `
-    <h1><span class="tier t${comp.tier}">${comp.tier}</span>${esc(comp.name)}</h1>
-    <p class="stats">avg <b>${comp.avg_placement.toFixed(2)}</b> · top 4 <b>${pct(comp.top4)}</b> · play <b>${(comp.share * 100).toFixed(1)}%</b> · ${comp.boards.toLocaleString()} boards</p>
-    <section><h2>Tempo</h2><div><div class="stats" style="margin:0">${levels.join(" · ")}</div>${reroll}</div></section>
-    <section><h2>Core</h2><div class="row">${comp.core.map((id) => unitTile(id, "l", { traits: true })).join("")}</div></section>
+    <header><h1><span class="tier t${comp.tier}">${comp.tier}</span>${esc(comp.name)}</h1>
+      <p class="stats"><b>${esc(comp.style)}</b> · avg <b>${comp.avg_placement.toFixed(2)}</b> · top 4 <b>${pct(comp.top4)}</b> · play <b>${(comp.share * 100).toFixed(1)}%</b> · ${comp.boards.toLocaleString()} boards</p></header>
+    <section><h2>Core</h2><div class="row">${comp.core.map((id) => unitTile(id, "l", { traits: true, threeStar: threeStar(id) })).join("")}</div></section>
     <section><h2>Flex</h2><div class="row">${packages || `<span class="note">no regular flex units</span>`}</div></section>
     <section><h2>Level up</h2><div>${levelUps || `<span class="note">no level above the usual one has enough boards</span>`}
       ${levelUps ? `<div class="note">Shares compare each level with the one below. A higher level places better partly because only a winning player reaches it.</div>` : ""}</div></section>
@@ -198,9 +210,12 @@ el("selection").addEventListener("change", (event) => {
   state.snapshot = Number(event.target.value);
   renderList();
 });
-el("sort").addEventListener("change", (event) => {
-  state.sort = event.target.value;
-  renderList();
+el("head").addEventListener("click", (event) => {
+  const column = event.target.closest("button");
+  if (column) {
+    state.sort = column.dataset.sort;
+    renderList();
+  }
 });
 el("filter").addEventListener("input", (event) => {
   state.filter = event.target.value;

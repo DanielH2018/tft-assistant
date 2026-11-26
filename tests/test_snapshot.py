@@ -28,8 +28,10 @@ def test_a_snapshot_states_its_selection_and_its_sample(snapshot):
     assert snapshot == json.loads(json.dumps(snapshot))
 
 
-def test_a_comp_is_named_by_trait_and_carry_and_tiered_by_placement(snapshot):
-    assert [(comp["name"], comp["tier"]) for comp in snapshot["comps"]] == [("Alpha A1", "S"), ("Beta B1", "S")]
+def test_a_comp_is_named_by_trait_and_carry_tiered_by_placement_and_carries_its_style(snapshot):
+    named = [(comp["name"], comp["tier"], comp["style"]) for comp in snapshot["comps"]]
+
+    assert named == [("Alpha A1", "S", "2-cost reroll"), ("Beta B1", "S", "Fast 9")]
     assert snapshot["comps"][0]["id"] != snapshot["comps"][1]["id"]
 
 

@@ -12,6 +12,8 @@ from tft_assistant.static_data import StaticData
 
 _TRAIT_FLOOR = 0.50
 _THREE_STAR_FLOOR = 0.40
+_REROLL_COST = 3
+_FAST_LEVEL = 9
 _PICK_FLOOR = 0.20
 _PICKS_PER_HOLDER = 3
 _PICKS = 8
@@ -51,6 +53,8 @@ class Tempo:
     """The share of boards that end at each player level, lowest level first."""
     three_stars: tuple[str, ...]
     """Units the comp usually takes to three stars, which marks a reroll comp."""
+    style: str
+    """What players call the tempo: the unit cost the comp rerolls for, or the level it ends at."""
 
 
 @dataclass(frozen=True)
@@ -90,9 +94,16 @@ def tempo(members: Sequence[Board], static: StaticData) -> Tempo:
     three_stars = [
         unit for unit, count in starred.items() if unit in static.units and count / len(members) >= _THREE_STAR_FLOOR
     ]
+    rerolled = [static.units[unit].cost for unit in three_stars if static.units[unit].cost <= _REROLL_COST]
+    usual_level = levels.most_common(1)[0][0]
+    if rerolled:
+        style = f"{max(rerolled)}-cost reroll"
+    else:
+        style = f"Fast {_FAST_LEVEL}" if usual_level >= _FAST_LEVEL else f"Level {usual_level}"
     return Tempo(
         tuple((level, count / len(members)) for level, count in sorted(levels.items())),
         tuple(sorted(three_stars, key=lambda unit: (static.units[unit].cost, unit))),
+        style,
     )
 
 
