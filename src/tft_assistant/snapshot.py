@@ -237,12 +237,20 @@ def build_snapshot(
             for unit in sorted(units)
         },
         "items": {
-            item: {"name": static.items[item].name, "icon": static.items[item].icon}
+            item: {
+                "name": static.items[item].name,
+                "icon": static.items[item].icon,
+                "recipe": [static.items[part].name if part in static.items else part for part in static.items[item].components],
+            }
             for item in sorted(items)
             if item in static.items
         },
         "traits": {
-            trait: {"name": static.traits[trait].name, "icon": static.traits[trait].icon}
+            trait: {
+                "name": static.traits[trait].name,
+                "icon": static.traits[trait].icon,
+                "breakpoints": [breakpoint.min_units for breakpoint in static.traits[trait].breakpoints],
+            }
             for trait in sorted(traits)
             if trait in static.traits
         },

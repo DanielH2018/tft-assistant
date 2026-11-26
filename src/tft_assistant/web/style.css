@@ -82,8 +82,17 @@ main { padding: 16px 22px 16px 10px; overflow-x: hidden; overflow-y: auto; scrol
 .flow > section.half { flex-basis: 480px; }
 /* A folded section keeps a row to itself, so folding one does not move its neighbours onto its row. */
 .flow > section.folded { flex: 0 0 100%; }
-/* A sentence fills the width its section has and adds nothing to the width the section asks for. */
-.fills { contain: inline-size; }
+section > h2 .last { white-space: nowrap; }
+.info {
+  display: inline-block; width: 13px; height: 13px; margin-left: 5px; border: 1px solid var(--muted); border-radius: 50%;
+  font: italic 700 9px/11px Georgia, serif; text-align: center; text-transform: none; letter-spacing: 0; cursor: help; vertical-align: 1px;
+}
+.info:hover, .info:focus { color: var(--text); border-color: var(--text); outline: none; }
+#tip {
+  display: none; position: fixed; z-index: 10; max-width: 360px; padding: 8px 10px; background: var(--crust);
+  border: 1px solid var(--surface2); border-radius: 6px; font-size: 12.5px; line-height: 1.45; color: var(--text);
+  white-space: pre-line; pointer-events: none;
+}
 main h1 { font-size: 22px; margin: 0; display: flex; align-items: center; gap: 10px; }
 main header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 20px; margin-bottom: 10px; }
 .stats { color: var(--subtext); margin: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }

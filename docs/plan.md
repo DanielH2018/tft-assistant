@@ -251,9 +251,25 @@ has the full width under them. A click on a section's heading folds the section 
 or opens it again, and the browser keeps the folds. A folded section keeps a row to itself, so
 a fold changes the page's height and moves no other section sideways.
 
-Figures the operator does not read during a game are in tooltips, not on the page: a level's
+Figures the operator does not read during a game are in hover cards, not on the page: a level's
 share of boards and placement, a unit's share at a level, and an emblem's or artifact's share
 of boards.
+
+### Hover cards
+
+One box is the hover card of the whole page. It shows at once, under the thing the pointer is
+on, and the page sets no native tooltip on its content.
+
+- A unit's card names the unit, its cost and its traits, then what that place on the page says
+  about it, such as its share of boards at a level.
+- A trait's card gives the count on a usual board, the tier, the trait's breakpoints, and the
+  comp's core units that have the trait.
+- An item's card names the item and the components it is built from.
+- An "i" beside a section's heading explains how to read the section. Explanations that stood
+  on the page as sentences live there, including the thresholds for "critical" and "needs".
+
+A card does not say what a trait or a unit's ability does. Community Dragon's descriptions are
+templates with variables to fill in, and the snapshot does not carry them.
 
 A layout of two fixed columns was built on 2026-11-26 and replaced the same day. It put Level up
 and Flex in columns too narrow to lay their content on one line, and left the rest of each
