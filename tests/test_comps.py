@@ -2,7 +2,7 @@ import pytest
 from conftest import A_CORE, B_CORE
 
 from tft_assistant.boards import Board, BoardUnit
-from tft_assistant.comp_detail import CompTrait, ItemPick, level_ups
+from tft_assistant.comp_detail import CompTrait, ItemPick, build_notes, level_ups
 from tft_assistant.comps import find_comps
 
 
@@ -79,6 +79,66 @@ def test_key_units_are_the_carry_the_second_carry_and_the_tank_whose_build_is_mo
     assert [(key.unit, key.role) for key in comp_b.key_units] == [("B1", "carry"), ("B3", "second carry"), ("B2", "tank")]
     assert comp_b.carries == ("B1", "B3")
     assert [(key.unit, key.role) for key in comp_a.key_units] == [("A1", "carry")]
+
+
+def unit_builds(*builds):
+    """Boards on which U holds the given items, as (items, placement, how many boards)."""
+    return [
+        Board("NA1_1", placement, 9, 30, (BoardUnit("U", 2, tuple(items)),), {})
+        for items, placement, count in builds
+        for _ in range(count)
+    ]
+
+
+def test_an_item_is_critical_when_most_builds_have_it_or_a_common_item_is_clearly_missed(planted_static):
+    members = unit_builds(
+        (["Edge", "Plate"], 3, 30),
+        (["Edge", "Whisper"], 3, 30),
+        (["Stone", "Cape"], 6, 20),
+    )
+
+    notes = {note.item: note for note in build_notes(members, "U", planted_static)}
+
+    assert (notes["Edge"].share, notes["Edge"].critical) == (0.75, True)
+    assert (notes["Plate"].share, notes["Plate"].critical) == (0.375, False)
+    assert (notes["Stone"].avg_with, notes["Stone"].avg_without, notes["Stone"].critical) == (6.0, 3.0, False)
+    assert notes["Whisper"].critical is False
+
+    missed = unit_builds((["Edge", "Plate"], 2, 40), (["Whisper", "Plate"], 6, 30), (["Whisper", "Stone"], 6, 30))
+    edge = next(note for note in build_notes(missed, "U", planted_static) if note.item == "Edge")
+    assert (edge.share, edge.avg_without, edge.critical) == (0.4, 6.0, True)
+
+
+def test_an_item_needs_a_partner_when_it_places_better_beside_it_than_the_partner_explains_alone(planted_static):
+    members = unit_builds(
+        (["Edge", "Whisper"], 2, 30),
+        (["Edge", "Plate"], 6, 30),
+        (["Whisper", "Plate"], 4, 30),
+        (["Plate", "Stone"], 4, 30),
+    )
+
+    notes = {note.item: note for note in build_notes(members, "U", planted_static)}
+
+    assert [(pair.partner, pair.avg_together, pair.avg_apart) for pair in notes["Edge"].needs] == [("Whisper", 2.0, 6.0)]
+    assert [pair.partner for pair in notes["Whisper"].needs] == ["Edge"]
+    assert notes["Plate"].needs == () and notes["Stone"].needs == ()
+
+
+def test_only_builds_of_the_units_usual_size_are_compared(planted_static):
+    members = unit_builds((["Edge", "Whisper", "Plate"], 2, 30), (["Edge", "Whisper"], 8, 10))
+
+    notes = {note.item: note for note in build_notes(members, "U", planted_static)}
+
+    assert (notes["Plate"].share, notes["Edge"].avg_with) == (1.0, 2.0)
+
+
+def test_a_comparison_with_too_few_builds_on_one_side_yields_no_note(planted_static):
+    members = unit_builds((["Edge", "Whisper"], 2, 30), (["Edge", "Plate"], 6, 5), (["Whisper", "Plate"], 4, 30))
+
+    notes = {note.item: note for note in build_notes(members, "U", planted_static)}
+
+    assert notes["Edge"].needs == ()
+    assert build_notes(unit_builds((["Edge"], 2, 30)), "U", planted_static) == ()
 
 
 def test_a_level_that_too_few_boards_reach_is_not_reported(planted_static):

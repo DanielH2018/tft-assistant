@@ -81,20 +81,30 @@ function boardHtml(comp) {
 }
 
 const SHOWN_IN_A_GROUP = 9;
+const ITEM_ROWS = 6;
 
 function keyUnitsHtml(comp) {
   const tiles = (ids) => ids.slice(0, SHOWN_IN_A_GROUP).map((id) => unitTile(id, "s")).join("") || "none";
+  const buildItem = (note) => {
+    const needs = note.needs
+      .map(
+        (pair) =>
+          `<span class="needs" title="${pair.avg_together.toFixed(2)} together, ${pair.avg_apart.toFixed(2)} apart">needs ${itemIcon(pair.item)}</span>`,
+      )
+      .join("");
+    const without = note.avg_without === null ? "every build has it" : `${note.avg_without.toFixed(2)} without`;
+    return `<span class="build-item ${note.critical ? "critical" : ""}" title="${itemName(note.item)}: avg ${note.avg_with.toFixed(2)} with, ${without}">
+      ${itemIcon(note.item)}<span class="figures">${pct(note.share)}${note.critical ? `<br><b>critical</b>` : ""}</span>${needs}</span>`;
+  };
   return comp.key_units
-    .map(({ unit, role }) => {
+    .map(({ unit, role, build }) => {
       const group = snap().item_groups.find((g) => g.units.includes(unit));
       const cost = unitOf(unit).cost;
       const others = group ? group.units.filter((id) => id !== unit) : [];
       const holders = others.filter((id) => unitOf(id).cost < cost);
       const pivots = others.filter((id) => unitOf(id).cost >= cost);
-      const build = comp.items.filter((pick) => pick.holder === unit).map((pick) => itemIcon(pick.item));
       return `<div class="key-unit"><div class="role">${esc(role)}</div>${unitTile(unit, "m")}
-        <div><div class="note">builds here</div><div class="row">${build.join("") || "varies"}</div></div>
-        <div><div class="note">builds like</div><div class="row">${group ? group.items.map(itemIcon).join("") : "no group"}</div></div>
+        <div><div class="note">builds here</div><div class="row">${build.map(buildItem).join("") || "varies"}</div></div>
         <div><div class="note">holders, cheapest first</div><div class="row">${tiles(holders)}</div></div>
         <div><div class="note">can take its items</div><div class="row">${tiles(pivots)}</div></div>
       </div>`;
@@ -146,6 +156,7 @@ function renderDetail() {
     })
     .join("");
   const items = comp.items
+    .slice(0, ITEM_ROWS)
     .map(
       (pick, index) => `<tr><td class="rank">${index + 1}</td><td>${itemIcon(pick.item)} ${itemName(pick.item)}</td>
         <td>→ ${esc(unitOf(pick.holder).name)}</td><td>${pct(pick.share)}</td>
@@ -161,7 +172,8 @@ function renderDetail() {
     <section><h2>Level up</h2><div>${levelUps || `<span class="note">no level above the usual one has enough boards</span>`}
       ${levelUps ? `<div class="note">Shares compare each level with the one below. A higher level places better partly because only a winning player reaches it.</div>` : ""}</div></section>
     <section><h2>Traits</h2><div class="row">${traits}</div></section>
-    <section><h2>Key units</h2><div>${keyUnitsHtml(comp) || `<span class="note">no unit holds items regularly</span>`}</div></section>
+    <section><h2>Key units</h2><div>${keyUnitsHtml(comp) || `<span class="note">no unit holds items regularly</span>`}
+      <div class="note">Critical: in 70% of the unit's builds here, or in 40% and builds without it place 0.4 worse. Needs: the item places 0.5 better beside that one than apart. Correlations, from builds of one size.</div></div></section>
     <section><h2>Items</h2><div class="split">
       <div><div class="row take"><span class="note">components to take first</span>${comp.take.map(itemIcon).join("")}</div>
         <table class="items">${items}</table>

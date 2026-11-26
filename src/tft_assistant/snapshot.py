@@ -66,7 +66,27 @@ def _comp(comp: Comp, static: StaticData) -> dict[str, Any]:
         "top4": comp.top4,
         "core": list(comp.core),
         "carries": list(comp.carries),
-        "key_units": [{"unit": key.unit, "role": key.role} for key in comp.key_units],
+        "key_units": [
+            {
+                "unit": key.unit,
+                "role": key.role,
+                "build": [
+                    {
+                        "item": note.item,
+                        "share": note.share,
+                        "avg_with": note.avg_with,
+                        "avg_without": note.avg_without,
+                        "critical": note.critical,
+                        "needs": [
+                            {"item": pair.partner, "avg_together": pair.avg_together, "avg_apart": pair.avg_apart}
+                            for pair in note.needs
+                        ],
+                    }
+                    for note in key.build
+                ],
+            }
+            for key in comp.key_units
+        ],
         "packages": [
             {"units": list(package.units), "share": package.share, "avg_placement": package.avg_placement}
             for package in comp.packages
@@ -126,6 +146,7 @@ def build_snapshot(
     units |= {key["unit"] for comp in comps for key in comp["key_units"]}
     items = {pick["item"] for comp in comps for pick in comp["items"]} | {i for g in groups for i in g.items}
     items |= {item for comp in comps for item in comp["take"]}
+    items |= {note["item"] for comp in comps for key in comp["key_units"] for note in key["build"]}
     traits = {trait["trait"] for comp in comps for trait in comp["traits"]}
     traits |= {trait for unit in units for trait in static.units[unit].traits}
 
