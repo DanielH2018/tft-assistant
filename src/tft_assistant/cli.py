@@ -12,6 +12,7 @@ from typing import Any
 from tft_assistant.boards import boards
 from tft_assistant.comps import CompReport, find_comps
 from tft_assistant.crawl import crawl
+from tft_assistant.item_groups import find_item_groups
 from tft_assistant.riot import REGION_OF_PLATFORM, RiotClient, load_key
 from tft_assistant.sets import GameSet, latest_set_number
 from tft_assistant.static_data import StaticData, document
@@ -103,23 +104,35 @@ def main() -> None:
     crawl_args.add_argument("--platform", action="append", choices=sorted(REGION_OF_PLATFORM), dest="platforms")
     crawl_args.add_argument("--days-back", type=float, default=2.0, help="how far back a match may have started")
     crawl_args.add_argument("--minutes", type=float, default=60.0, help="time budget per platform")
-    comps_args = commands.add_parser("comps", help="derive comps from the stored ranked boards of a selection")
-    comps_args.add_argument("--set", type=int, dest="set_number", default=latest_set_number())
-    comps_args.add_argument("--patch", help="a patch from the set's calendar, such as 18.7")
-    comps_args.add_argument("--since", type=_moment, help="ISO date or time, UTC unless it carries an offset")
-    comps_args.add_argument("--until", type=_moment)
-    comps_args.add_argument("--platform", action="append", choices=sorted(REGION_OF_PLATFORM), dest="platforms")
+    selected = argparse.ArgumentParser(add_help=False)
+    selected.add_argument("--set", type=int, dest="set_number", default=latest_set_number())
+    selected.add_argument("--patch", help="a patch from the set's calendar, such as 18.7")
+    selected.add_argument("--since", type=_moment, help="ISO date or time, UTC unless it carries an offset")
+    selected.add_argument("--until", type=_moment)
+    selected.add_argument("--platform", action="append", choices=sorted(REGION_OF_PLATFORM), dest="platforms")
+    comps_args = commands.add_parser(
+        "comps", parents=[selected], help="derive comps from the stored ranked boards of a selection"
+    )
     comps_args.add_argument("--top", type=int, default=25, help="how many comps to print")
+    commands.add_parser(
+        "item-groups", parents=[selected], help="group units by the items they hold in a selection's boards"
+    )
     args = parser.parse_args()
 
-    if args.command == "comps":
+    if args.command in ("comps", "item-groups"):
         game_set = GameSet.load(args.set_number)
         selection = game_set.selection(
             patch=args.patch, since=args.since, until=args.until, platforms=tuple(args.platforms or ())
         )
         static = StaticData.from_document(document(), game_set.static_data)
         found = [board for match in Store().matches(selection) for board in boards(match)]
-        print("\n".join(comp_lines(find_comps(found, static), static, args.top)))
+        if args.command == "comps":
+            print("\n".join(comp_lines(find_comps(found, static), static, args.top)))
+        else:
+            print(f"{len(found)} boards")
+            for group in find_item_groups(found, static):
+                print("items: " + ", ".join(static.items[item].name for item in group.items))
+                print("    " + ", ".join(f"{static.units[u].name} ({static.units[u].cost})" for u in group.units))
     elif args.command == "probe":
         print("\n".join(probe(RiotClient(load_key()), args.platform)))
     elif args.command == "crawl":

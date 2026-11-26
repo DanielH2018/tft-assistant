@@ -80,6 +80,28 @@ The core threshold, at assignment likeness 0.6: 70% gives a mean core of 6.2 uni
 Elder Dragon and Taric together on 47% of its boards. Those boards average 3.19 against 4.26
 for the comp.
 
+## Item groups
+
+Measured on 16,208 ranked boards of Set 18.
+
+`item_groups.find_item_groups` gives each unit the rate at which it holds each finished item,
+over boards where it holds two or more, and groups units whose rates are alike. At a cosine
+distance of 0.45 it finds 9 groups, and at 0.6 it finds 6. The five largest:
+
+| Items held most | Units, cheapest first |
+|---|---|
+| Gargoyle Stoneplate, Warmog's Armor, Spirit Visage | Leona, Ornn, Rakan … Sett, Amumu, Maokai. Every one has attack range 1. |
+| Jeweled Gauntlet, Spear of Shojin, Void Staff, Blue Buff | Karma, Pebbles, Veigar, LeBlanc, Teemo, Cassiopeia, Ahri, Morgana, Soraka, Zyra, Alune, Ivern, Lux |
+| Infinity Edge, Last Whisper, Spear of Shojin, Deathblade | Cinderling, Varus, Gromp, Yunara, Kog'Maw, Ezreal, Sivir, Ashe, Elder Dragon |
+| Guinsoo's Rageblade, Hextech Gunblade, Kraken's Fury | Xayah, Caitlyn, Kayle, Azir, Mama Beak, Tristana, Aphelios, Draven |
+| Thief's Gloves, Edge of Night, Hand of Justice, Bloodthirster | Murkwolf, Diana, Gnar, Kennen |
+
+**Cheap units hold items often enough to place.** The plan expected final boards to show few
+holders, because players sell them. Every playable unit but one has at least 30 boards with a
+two-item build, and 1-cost units have between 107 and 1,093. A group read in cost order is
+therefore a holder chain from data, and the static `role`, which Set 18 leaves null, is not
+needed.
+
 ## The trait module against Riot's tally
 
 `traits.count_traits` counts unique units per trait plus emblems. On 2,000 boards its counts
