@@ -1,5 +1,5 @@
 const SNAPSHOTS = JSON.parse(document.getElementById("snapshots").textContent);
-const state = { snapshot: 0, comp: null, filter: "" };
+const state = { snapshot: 0, comp: null, filter: "", sort: "play" };
 const el = (id) => document.getElementById(id);
 const esc = (text) =>
   String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -31,7 +31,9 @@ function matches(comp, words) {
 
 function visibleComps() {
   const words = state.filter.toLowerCase().split(/\s+/).filter(Boolean);
-  return snap().comps.filter((comp) => matches(comp, words));
+  return snap()
+    .comps.filter((comp) => matches(comp, words))
+    .sort(SORTS[state.sort]);
 }
 
 function renderList() {
@@ -78,23 +80,34 @@ function boardHtml(comp) {
   return `<div><div class="board">${lines.join("")}</div><div class="note">${note}</div></div>`;
 }
 
-function groupHtml(comp) {
-  return comp.carries
-    .map((carry) => {
-      const group = snap().item_groups.find((g) => g.units.includes(carry));
-      if (!group) return "";
-      const cost = unitOf(carry).cost;
-      const others = group.units.filter((id) => id !== carry);
+const SHOWN_IN_A_GROUP = 9;
+
+function keyUnitsHtml(comp) {
+  const tiles = (ids) => ids.slice(0, SHOWN_IN_A_GROUP).map((id) => unitTile(id, "s")).join("") || "none";
+  return comp.key_units
+    .map(({ unit, role }) => {
+      const group = snap().item_groups.find((g) => g.units.includes(unit));
+      const cost = unitOf(unit).cost;
+      const others = group ? group.units.filter((id) => id !== unit) : [];
       const holders = others.filter((id) => unitOf(id).cost < cost);
       const pivots = others.filter((id) => unitOf(id).cost >= cost);
-      return `<div class="row">${unitTile(carry, "m")}
-        <div><div class="note">builds like</div><div class="row">${group.items.map(itemIcon).join("")}</div></div>
-        <div><div class="note">holders, cheapest first</div><div class="row">${holders.map((id) => unitTile(id, "s")).join("") || "none"}</div></div>
-        <div><div class="note">pivots</div><div class="row">${pivots.map((id) => unitTile(id, "s")).join("") || "none"}</div></div>
+      const build = comp.items.filter((pick) => pick.holder === unit).map((pick) => itemIcon(pick.item));
+      return `<div class="key-unit"><div class="role">${esc(role)}</div>${unitTile(unit, "m")}
+        <div><div class="note">builds here</div><div class="row">${build.join("") || "varies"}</div></div>
+        <div><div class="note">builds like</div><div class="row">${group ? group.items.map(itemIcon).join("") : "no group"}</div></div>
+        <div><div class="note">holders, cheapest first</div><div class="row">${tiles(holders)}</div></div>
+        <div><div class="note">can take its items</div><div class="row">${tiles(pivots)}</div></div>
       </div>`;
     })
     .join("");
 }
+
+const SORTS = {
+  play: (a, b) => b.share - a.share,
+  tier: (a, b) => a.avg_placement - b.avg_placement,
+  top4: (a, b) => b.top4 - a.top4,
+  name: (a, b) => a.name.localeCompare(b.name),
+};
 
 function renderDetail() {
   const comp = snap().comps.find((candidate) => candidate.id === state.comp);
@@ -110,6 +123,17 @@ function renderDetail() {
     .map(
       (p) => `<div class="package">${p.units.map((id) => unitTile(id, "m")).join("")}
         <div class="figures"><b>${pct(p.share)}</b> of boards<br>avg ${delta(p.avg_placement, comp.avg_placement)}</div></div>`,
+    )
+    .join("");
+  const shift = (s) =>
+    `<span class="shift">${unitTile(s.unit, "m")}<span class="figures">${pct(s.share)}<br><span class="note">was ${pct(s.share_below)}</span></span></span>`;
+  const levelUps = comp.level_ups
+    .map(
+      (up) => `<div class="level-up">
+        <div class="figures"><b>Level ${up.level}</b><br>${pct(up.share)} of boards<br>avg ${delta(up.avg_placement, comp.avg_placement)}</div>
+        <div><div class="note">comes in</div><div class="row">${up.adds.map(shift).join("") || "nothing regular"}</div></div>
+        <div><div class="note">goes out</div><div class="row">${up.drops.map(shift).join("") || "nothing regular"}</div></div>
+      </div>`,
     )
     .join("");
   const tiered = comp.traits.filter((t) => t.tiers > 1);
@@ -134,14 +158,16 @@ function renderDetail() {
     <section><h2>Tempo</h2><div><div class="stats" style="margin:0">${levels.join(" · ")}</div>${reroll}</div></section>
     <section><h2>Core</h2><div class="row">${comp.core.map((id) => unitTile(id, "l", { traits: true })).join("")}</div></section>
     <section><h2>Flex</h2><div class="row">${packages || `<span class="note">no regular flex units</span>`}</div></section>
+    <section><h2>Level up</h2><div>${levelUps || `<span class="note">no level above the usual one has enough boards</span>`}
+      ${levelUps ? `<div class="note">Shares compare each level with the one below. A higher level places better partly because only a winning player reaches it.</div>` : ""}</div></section>
     <section><h2>Traits</h2><div class="row">${traits}</div></section>
+    <section><h2>Key units</h2><div>${keyUnitsHtml(comp) || `<span class="note">no unit holds items regularly</span>`}</div></section>
     <section><h2>Items</h2><div class="split">
-      <div><table class="items">${items}</table>
-        <div class="row" style="margin-top:6px"><span class="note">take first</span>${comp.take.map(itemIcon).join("")}</div>
+      <div><div class="row take"><span class="note">components to take first</span>${comp.take.map(itemIcon).join("")}</div>
+        <table class="items">${items}</table>
         <div class="note">Placements beside an item are correlations, not effects.</div></div>
       ${boardHtml(comp)}
-    </div></section>
-    <section><h2>Carries</h2><div>${groupHtml(comp) || `<span class="note">no carry with an item group</span>`}</div></section>`;
+    </div></section>`;
 }
 
 function move(step) {
@@ -158,6 +184,10 @@ function move(step) {
 el("selection").innerHTML = SNAPSHOTS.map((s, index) => `<option value="${index}">${esc(s.label)}</option>`).join("");
 el("selection").addEventListener("change", (event) => {
   state.snapshot = Number(event.target.value);
+  renderList();
+});
+el("sort").addEventListener("change", (event) => {
+  state.sort = event.target.value;
   renderList();
 });
 el("filter").addEventListener("input", (event) => {

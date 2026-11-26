@@ -20,8 +20,13 @@ from tft_assistant.comp_detail import (
     CompTrait,
     ItemPick,
     Tempo,
+    TANK,
+    KeyUnit,
+    LevelUp,
     components_to_take,
     item_priority,
+    key_units,
+    level_ups,
     tempo,
     typical_traits,
 )
@@ -62,6 +67,8 @@ class Comp:
     item_priority: tuple[ItemPick, ...]
     take: tuple[str, ...]
     """The components to take first, from the item priority."""
+    level_ups: tuple[LevelUp, ...]
+    key_units: tuple[KeyUnit, ...]
 
 
 @dataclass(frozen=True)
@@ -141,12 +148,8 @@ def _comp(members: list[Board], total: int, core_share: float, static: StaticDat
     core = [unit for unit, count in seen.items() if count / len(members) >= core_share]
     core.sort(key=lambda unit: (-static.units[unit].cost, unit))
 
-    items_held = Counter()
-    for board in members:
-        for unit in board.units:
-            if unit.character_id in seen:
-                items_held[unit.character_id] += len(unit.items)
-    carries = [unit for unit, _ in items_held.most_common() if items_held[unit] / len(members) >= 2.0][:2]
+    key = key_units(members, static)
+    carries = [unit.unit for unit in key if unit.role != TANK]
 
     reached = Counter()
     for board in members:
@@ -168,6 +171,8 @@ def _comp(members: list[Board], total: int, core_share: float, static: StaticDat
         tempo(members, static),
         picks,
         components_to_take(picks, static),
+        level_ups(members, static),
+        key,
     )
 
 

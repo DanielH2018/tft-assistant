@@ -24,10 +24,13 @@ DOCUMENT = {
                 {"apiName": "U_Vi", "name": "Vi", "cost": 3, "traits": ["Primal"], "stats": {"range": 1}},
                 {"apiName": "U_Dummy", "name": "Target Dummy", "cost": 8, "traits": [], "stats": {}},
             ],
-            "items": ["I_EmblemHunter", "I_Sword"],
+            "items": ["I_EmblemHunter", "I_Sword", "I_Stone", "I_Blade", "I_Vow"],
         }
     ],
     "items": [
+        {"apiName": "I_Vow", "name": "Vow", "composition": ["I_Vest", "I_Tear"]},
+        {"apiName": "I_Stone", "name": "Stoneplate", "composition": ["I_Vest", "I_Sword"]},
+        {"apiName": "I_Blade", "name": "Blade", "composition": ["I_Sword", "I_Sword"]},
         {"apiName": "I_EmblemHunter", "name": "Hunter Emblem", "composition": ["I_Pan", "I_Sword"]},
         {"apiName": "I_Sword", "name": "B.F. Sword", "composition": []},
         {"apiName": "I_OtherSet", "name": "Primal Emblem", "composition": []},
@@ -62,6 +65,18 @@ def test_an_emblem_adds_its_trait_to_a_holder_that_lacks_it_and_not_to_one_that_
 def test_an_item_outside_the_set_is_not_in_the_roster():
     assert "I_OtherSet" not in STATIC.items
     assert STATIC.items["I_EmblemHunter"].emblem_of == "T_Hunter"
+
+
+def test_an_item_is_defensive_when_its_recipe_has_a_defensive_component_and_no_offensive_one():
+    static = StaticData.from_document(
+        DOCUMENT, "TFTSet99", defensive_components=["I_Vest"], offensive_components=["I_Sword"]
+    )
+
+    assert static.items["I_Vow"].is_defensive
+    assert not static.items["I_Stone"].is_defensive
+    assert not static.items["I_Blade"].is_defensive
+    assert not static.items["I_Sword"].is_defensive
+    assert not STATIC.items["I_Vow"].is_defensive
 
 
 def test_an_unknown_game_mode_names_the_ones_the_document_has():

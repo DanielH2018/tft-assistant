@@ -18,7 +18,7 @@ from tft_assistant.item_groups import find_item_groups
 from tft_assistant.riot import REGION_OF_PLATFORM, RiotClient, load_key
 from tft_assistant.sets import GameSet, latest_set_number
 from tft_assistant.snapshot import build_snapshot
-from tft_assistant.static_data import StaticData, document
+from tft_assistant.static_data import StaticData
 from tft_assistant.store import Store
 
 MIN_BOARDS = 1000
@@ -143,7 +143,7 @@ def main() -> None:
 
     if args.command == "build":
         game_set = GameSet.load(args.set_number)
-        static = StaticData.from_document(document(), game_set.static_data)
+        static = game_set.roster()
         store, now, snapshots = Store(), datetime.now(UTC), []
         for label, selection in game_set.standing_selections(now):
             found = [board for match in store.matches(selection) for board in boards(match)]
@@ -160,7 +160,7 @@ def main() -> None:
         selection = game_set.selection(
             patch=args.patch, since=args.since, until=args.until, platforms=tuple(args.platforms or ())
         )
-        static = StaticData.from_document(document(), game_set.static_data)
+        static = game_set.roster()
         found = [board for match in Store().matches(selection) for board in boards(match)]
         if args.command == "comps":
             print("\n".join(comp_lines(find_comps(found, static), static, args.top)))

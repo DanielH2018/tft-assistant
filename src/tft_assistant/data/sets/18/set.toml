@@ -3,6 +3,17 @@
 static_data = "TFTSet18"
 ranked_queue = 1100
 
+# The static data marks no item as defensive. An item counts as defensive when its recipe has a
+# defensive component and no offensive one, and a unit whose build is mostly such items is a
+# comp's tank. A component in neither list is neutral.
+defensive_components = ["DA_Component_ChainVest", "DA_Component_NegatronCloak", "DA_Component_GiantsBelt"]
+offensive_components = [
+    "DA_Component_BFSword",
+    "DA_Component_RecurveBow",
+    "DA_Component_NeedlesslyLargeRod",
+    "DA_Component_SparringGloves",
+]
+
 # A match payload carries no patch number, so a patch is the window from its start to the next
 # entry's start. A match that started before the first entry belongs to no patch.
 [[patches]]

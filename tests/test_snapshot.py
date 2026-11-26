@@ -38,6 +38,7 @@ def test_every_unit_item_and_trait_a_comp_names_is_in_the_lookup_tables(snapshot
         units = [*comp["core"], *comp["three_stars"], *(place["unit"] for place in comp["board"])]
         units += [unit for package in comp["packages"] for unit in package["units"]]
         units += [pick["holder"] for pick in comp["items"]]
+        units += [shift["unit"] for up in comp["level_ups"] for shift in [*up["adds"], *up["drops"]]]
         assert set(units) <= set(snapshot["units"])
         assert {pick["item"] for pick in comp["items"]} <= set(snapshot["items"])
     assert snapshot["units"]["A1"] == {"name": "A1", "cost": 2, "traits": ["T"], "icon": "https://icons.test/A1.png"}
@@ -48,9 +49,9 @@ def test_a_comps_default_board_holds_its_core_and_commonest_flex_units_up_to_its
     comp = snapshot["comps"][0]
     placed = [place["unit"] for place in comp["board"]]
 
-    assert sorted(placed) == sorted([*A_CORE, "X1", "X2", "Y1"])
+    assert sorted(placed) == sorted([*A_CORE, "X1", "X2"])
     assert comp["board_is_default"] is True
-    assert len({(place["row"], place["column"]) for place in comp["board"]}) == 9
+    assert len({(place["row"], place["column"]) for place in comp["board"]}) == 8
 
 
 def test_comps_that_would_share_a_name_are_told_apart_by_a_core_unit(planted_boards, planted_static):

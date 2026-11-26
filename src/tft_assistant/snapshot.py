@@ -66,6 +66,7 @@ def _comp(comp: Comp, static: StaticData) -> dict[str, Any]:
         "top4": comp.top4,
         "core": list(comp.core),
         "carries": list(comp.carries),
+        "key_units": [{"unit": key.unit, "role": key.role} for key in comp.key_units],
         "packages": [
             {"units": list(package.units), "share": package.share, "avg_placement": package.avg_placement}
             for package in comp.packages
@@ -87,6 +88,16 @@ def _comp(comp: Comp, static: StaticData) -> dict[str, Any]:
             for pick in comp.item_priority
         ],
         "take": list(comp.take),
+        "level_ups": [
+            {
+                "level": up.level,
+                "share": up.share,
+                "avg_placement": up.avg_placement,
+                "adds": [{"unit": s.unit, "share": s.share, "share_below": s.share_below} for s in up.adds],
+                "drops": [{"unit": s.unit, "share": s.share, "share_below": s.share_below} for s in up.drops],
+            }
+            for up in comp.level_ups
+        ],
         "board": [{"unit": unit, "row": row, "column": column} for unit, (row, column) in board.items()],
         "board_is_default": True,
         "sections": [],
@@ -111,6 +122,8 @@ def build_snapshot(
     units = {unit for comp in comps for unit in [*comp["core"], *comp["three_stars"]]}
     units |= {unit for comp in comps for package in comp["packages"] for unit in package["units"]}
     units |= {pick["holder"] for comp in comps for pick in comp["items"]} | {u for g in groups for u in g.units}
+    units |= {s["unit"] for comp in comps for up in comp["level_ups"] for s in [*up["adds"], *up["drops"]]}
+    units |= {key["unit"] for comp in comps for key in comp["key_units"]}
     items = {pick["item"] for comp in comps for pick in comp["items"]} | {i for g in groups for i in g.items}
     items |= {item for comp in comps for item in comp["take"]}
     traits = {trait["trait"] for comp in comps for trait in comp["traits"]}
