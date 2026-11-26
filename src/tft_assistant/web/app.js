@@ -170,8 +170,8 @@ function renderDetail() {
     .map(
       (up) => `<div class="level-up">
         <div class="figures"><b>Level ${up.level}</b><br>${pct(up.share)} of boards<br>avg ${delta(up.avg_placement, comp.avg_placement)}</div>
-        <div><div class="note">comes in</div><div class="row">${up.adds.map(shift).join("") || "nothing regular"}</div></div>
-        <div><div class="note">goes out</div><div class="row">${up.drops.map(shift).join("") || "nothing regular"}</div></div>
+        ${up.adds.length ? `<div><div class="note">comes in</div><div class="row">${up.adds.map(shift).join("")}</div></div>` : ""}
+        ${up.drops.length ? `<div><div class="note">goes out</div><div class="row">${up.drops.map(shift).join("")}</div></div>` : ""}
       </div>`,
     )
     .join("");
@@ -200,8 +200,7 @@ function renderDetail() {
       ${sharedSlots ? `<div class="note">Units in one outline take one slot: a board rarely holds both. An arrow points to the costlier unit, which the cheaper one is played until.</div>` : ""}</div></section>
     <section><h2>Level up</h2><div>${levelUps || `<span class="note">no level above the usual one has enough boards</span>`}</div></section>
     <section><h2>Traits</h2><div class="row">${traits}</div></section>
-    <section><h2>Key units</h2><div>${keyUnitsHtml(comp) || `<span class="note">no unit holds items regularly</span>`}
-      <div class="note">Critical: in 70% of the unit's builds here, or in 40% and builds without it place 0.4 worse. Needs: the item places 0.5 better beside that one than apart. Correlations, from builds of one size.</div></div></section>
+    <section><h2>Key units</h2><div>${keyUnitsHtml(comp) || `<span class="note">no unit holds items regularly</span>`}</div></section>
     <section><h2>Items</h2><div class="split">
       <div><div class="row take"><span class="note">components to take first</span>${comp.take.map(itemIcon).join("")}</div>
         <table class="items">${items}</table>
@@ -220,6 +219,27 @@ function move(step) {
     document.querySelector("#comps li.selected")?.scrollIntoView({ block: "nearest" });
   }
 }
+
+const LIST_WIDTH = "tft-assistant.list-width";
+const NARROWEST_LIST = 520;
+const NARROWEST_DETAIL = 640;
+const setListWidth = (pixels) => document.body.style.setProperty("--list-width", `${pixels}px`);
+if (localStorage.getItem(LIST_WIDTH)) setListWidth(localStorage.getItem(LIST_WIDTH));
+el("divider").addEventListener("pointerdown", (event) => {
+  event.target.setPointerCapture(event.pointerId);
+  document.body.classList.add("resizing");
+});
+el("divider").addEventListener("pointermove", (event) => {
+  if (!document.body.classList.contains("resizing")) return;
+  const width = Math.round(Math.min(Math.max(event.clientX, NARROWEST_LIST), innerWidth - NARROWEST_DETAIL));
+  setListWidth(width);
+  localStorage.setItem(LIST_WIDTH, width);
+});
+el("divider").addEventListener("pointerup", () => document.body.classList.remove("resizing"));
+el("divider").addEventListener("dblclick", () => {
+  document.body.style.removeProperty("--list-width");
+  localStorage.removeItem(LIST_WIDTH);
+});
 
 el("selection").innerHTML = SNAPSHOTS.map((s, index) => `<option value="${index}">${esc(s.label)}</option>`).join("");
 el("selection").addEventListener("change", (event) => {
