@@ -426,7 +426,9 @@ function move(step) {
 const LIST_WIDTH = "tft-assistant.list-width";
 const LIST_RESTORE = "tft-assistant.list-restore";
 const NARROWEST_LIST = 260;
-const NARROWEST_DETAIL = 640;
+// The list needs 707 pixels to show every column. The comp page's least width leaves it that much
+// in a window 1,024 pixels wide.
+const NARROWEST_DETAIL = 300;
 const storedWidth = (key) => (localStorage.getItem(key) ? Number(localStorage.getItem(key)) : "");
 function setListWidth(width) {
   if (width === "") document.body.style.removeProperty("--list-width");
