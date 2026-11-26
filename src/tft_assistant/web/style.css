@@ -80,7 +80,8 @@ main { padding: 16px 22px 16px 10px; overflow-x: hidden; overflow-y: auto; scrol
 .flow > section { flex: 1 1 auto; min-width: 0; max-width: 100%; }
 .flow > section.wraps { flex: 8 1 300px; }
 .flow > section.half { flex-basis: 480px; }
-.flow > section.folded { flex: 0 0 auto; }
+/* A folded section keeps a row to itself, so folding one does not move its neighbours onto its row. */
+.flow > section.folded { flex: 0 0 100%; }
 /* A sentence fills the width its section has and adds nothing to the width the section asks for. */
 .fills { contain: inline-size; }
 main h1 { font-size: 22px; margin: 0; display: flex; align-items: center; gap: 10px; }
