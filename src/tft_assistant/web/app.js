@@ -118,18 +118,39 @@ function placementGap(withIt, withoutIt) {
   return `<span data-tip="Average placement ${withIt.toFixed(2)} with it, ${withoutIt.toFixed(2)} without">avg <span class="${tone}">${sign}${Math.abs(gap).toFixed(2)}</span></span>`;
 }
 
+// Where each unit stands on a board nobody has positioned by hand, as "row,column" → unit. A match
+// records no positions, so each unit takes its usual row: row 0 is the front. A row lines up its
+// carries first and then its costliest units. The back row fills from a corner, so a carry stands
+// in it, and the other rows fill from the centre, so a tank stands there. A row with more units
+// than columns passes the extras to the next row inward.
+const ROWS = 4;
+const CENTRE_OUT = [3, 2, 4, 1, 5, 0, 6];
+const CORNER_IN = [0, 1, 2, 3, 4, 5, 6];
+function standing(units, carries) {
+  const rows = Array.from({ length: ROWS }, () => []);
+  for (const id of units) rows[unitOf(id).row ?? ROWS - 1].push(id);
+  const rank = (id) => [carries.includes(id) ? 0 : 1, -unitOf(id).cost];
+  const placed = {};
+  for (const row of [0, ROWS - 1, 1, ROWS - 2]) {
+    const line = rows[row].sort((a, b) => rank(a)[0] - rank(b)[0] || rank(a)[1] - rank(b)[1] || (a < b ? -1 : 1));
+    rows[row < ROWS / 2 ? row + 1 : row - 1].push(...line.slice(CORNER_IN.length));
+    const columns = row === ROWS - 1 ? CORNER_IN : CENTRE_OUT;
+    line.slice(0, columns.length).forEach((id, place) => (placed[`${row},${columns[place]}`] = id));
+  }
+  return placed;
+}
+
 function boardHtml(comp) {
-  const at = Object.fromEntries(comp.board.map((place) => [`${place.row},${place.column}`, place.unit]));
+  const at = standing(teamUnits(comp), comp.carries);
   const lines = [0, 1, 2, 3].map((row) => {
-    const hexes = [0, 1, 2, 3, 4, 5, 6].map((column) => {
+    const hexes = CORNER_IN.map((column) => {
       const id = at[`${row},${column}`];
       const unit = id && unitOf(id);
       return `<span class="hex" ${id ? unitTip(id) : ""}>${unit && unit.icon ? `<img src="${esc(unit.icon)}" alt="">` : ""}</span>`;
     });
     return `<div class="line">${hexes.join("")}</div>`;
   });
-  const note = comp.board_is_default ? "Default rows from attack range. Front row is at the top." : "Front row is at the top.";
-  return `<div class="board" data-tip="${note}">${lines.join("")}</div>`;
+  return `<div class="board" ${tipOf("The core and the picked flex units, each in the row of its attack range. The front row is at the top.")}>${lines.join("")}</div>`;
 }
 
 const SHOWN_IN_A_GROUP = 9;
@@ -220,12 +241,12 @@ function renderDetail() {
 }
 
 // The flex packages picked for each comp, as "slot.option" keys. A comp nobody has touched starts
-// with the packages its default board holds.
+// with the packages it is usually fielded with.
 const pickedByComp = new Map();
 function pickedFlex(comp) {
   const key = `${state.snapshot}:${comp.id}`;
   if (!pickedByComp.has(key)) {
-    const placed = new Set(comp.board.map((place) => place.unit));
+    const placed = new Set(comp.fielded);
     const picked = new Set();
     comp.flex.forEach((options, slot) =>
       options.forEach((p, option) => p.units.every((id) => placed.has(id)) && picked.add(`${slot}.${option}`)),

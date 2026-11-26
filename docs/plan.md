@@ -313,11 +313,17 @@ units that can hold its items.
 
 ### Default positions
 
-A match payload records no positions. Until a board is edited by hand, `positioning.default_board`
-puts each unit in the row it usually takes: the row of its attack range, or of its role where the
-range is missing. Tanks stand central in the front row, and carries take a back corner. A
-snapshot marks such a board `board_is_default`, and a saved board replaces it. The board is the
-comp page's last section, Positioning, at full width under the others.
+A match payload records no positions. Until a board is edited by hand, each unit stands in the
+row it usually takes: the row of its attack range, or of its role where the range is missing.
+Tanks stand central in the front row, and carries take a back corner. The board is the comp
+page's last section, Positioning, at full width under the others.
+
+The board holds the comp's core and the flex units picked on the page, so it changes with a
+pick. That splits the work in two. `positioning.usual_row` gives each unit its row, and the
+snapshot's unit table carries it. The page's `standing` places the units within the rows,
+because only the page knows which flex units are picked. A comp's `fielded` units are the picks
+a page opens with: its core, then the commonest option of each flex slot, up to its usual
+level. A saved board (slice 5) replaces the derived one.
 
 ### Assistance for the manual parts
 
