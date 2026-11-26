@@ -18,7 +18,7 @@ def planted_static():
     return StaticData(
         units={
             name: Unit(name, name, 2, ("T",), 1.0, None, f"https://icons.test/{name}.png")
-            for name in [*A_CORE, *B_CORE, *FILLERS, "X1", "X2", "Y1", "Y2"]
+            for name in [*A_CORE, *B_CORE, *FILLERS, "X1", "X2", "Y1", "Y2", "Z1", "Z2"]
         }
         | {name: Unit(name, name, 2, ("T", "T_C"), 1.0, None, f"https://icons.test/{name}.png") for name in B_CARRIES}
         | {"Dummy": Unit("Dummy", "Target Dummy", 8, (), 0.0, None)},
@@ -58,7 +58,8 @@ def planted_boards():
 
     Comp A's 60 level-8 boards hold X1 and X2 and place 2nd; its 40 level-9 boards hold Y1 and Y2
     and place 6th. Comp B itemises a carry (B1), a second carry (B3) and a tank (B2), and its two
-    carries share a trait the comp has active (T_C).
+    carries share a trait the comp has active (T_C). Half its boards hold Z1 and half hold Z2, as
+    often together as chance would have it.
     """
     rng = random.Random(7)
     filler = lambda: rng.choice(FILLERS)
@@ -74,7 +75,7 @@ def planted_boards():
     return (
         [_board([*A_CORE, "X1", "X2", filler(), "Dummy"], 2, **x_variant) for _ in range(60)]
         + [_board([*A_CORE, "Y1", "Y2", filler()], 6, **y_variant) for _ in range(40)]
-        + [_board([*B_CORE, filler()], 4, **comp_b) for _ in range(80)]
+        + [_board([*B_CORE, *(["Z1"] if n < 40 else []), *(["Z2"] if 20 <= n < 60 else [])], 4, **comp_b) for n in range(80)]
         + [_board(rng.sample(FILLERS, 9), 8, carry=None, items=[]) for _ in range(20)]
         + [_board(A_CORE[:5], 8, carry=None, items=[]) for _ in range(10)]
     )

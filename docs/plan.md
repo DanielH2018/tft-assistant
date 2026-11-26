@@ -112,9 +112,14 @@ condition                   an augment or an encounter
    with density clustering, and the simpler one wins unless the other is visibly better.
 3. Inside a cluster, a unit present in at least 85% of boards is core. The job groups the
    non-core units that co-occur into flex packages.
-4. Each run matches its cores to the previous run's cores by overlap, so a comp keeps its ID, its
+4. Two flex packages share a slot when the comp's boards hold both less than 30% as often as
+   chance would put them together: one is played in the other's place. The page shows a slot
+   cheapest option first, with an arrow to a costlier option, which is what the cheaper one is
+   played until. The comparison needs 10 boards expected to hold both, so two rare packages that
+   never met stay apart. A comp's default board takes the commonest option of each slot.
+5. Each run matches its cores to the previous run's cores by overlap, so a comp keeps its ID, its
    name and its edits.
-5. The page shows the share of boards that fit no cluster.
+6. The page shows the share of boards that fit no cluster.
 
 ### How item groups are derived
 

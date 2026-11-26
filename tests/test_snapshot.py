@@ -38,7 +38,7 @@ def test_a_comp_is_named_by_trait_and_carry_tiered_by_placement_and_carries_its_
 def test_every_unit_item_and_trait_a_comp_names_is_in_the_lookup_tables(snapshot):
     for comp in snapshot["comps"]:
         units = [*comp["core"], *comp["three_stars"], *(place["unit"] for place in comp["board"])]
-        units += [unit for package in comp["packages"] for unit in package["units"]]
+        units += [unit for slot in comp["flex"] for package in slot for unit in package["units"]]
         units += [pick["holder"] for pick in comp["items"]]
         units += [shift["unit"] for up in comp["level_ups"] for shift in [*up["adds"], *up["drops"]]]
         assert set(units) <= set(snapshot["units"])

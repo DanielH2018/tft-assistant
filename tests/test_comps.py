@@ -5,7 +5,7 @@ from conftest import A_CORE, B_CORE
 
 from tft_assistant.boards import Board, BoardUnit
 from tft_assistant.comp_detail import CompTrait, ItemPick, build_notes, level_ups, main_trait, tempo
-from tft_assistant.comps import find_comps
+from tft_assistant.comps import FlexPackage, FlexSlot, find_comps
 
 
 @pytest.fixture(scope="module")
@@ -26,11 +26,11 @@ def test_a_comp_reports_its_share_placement_carry_and_main_trait(report):
     assert (comp_a.carries, comp_a.main_trait) == (("A1",), "T_A")
 
 
-def test_flex_units_played_together_form_one_package_with_its_own_placement(report):
-    packages = {package.units: (package.share, package.avg_placement) for package in report.comps[0].packages}
+def test_flex_units_played_together_are_a_package_and_packages_never_played_together_share_a_slot(report):
+    comp_a, comp_b = report.comps
 
-    assert packages == {("X1", "X2"): (0.6, 2.0), ("Y1", "Y2"): (0.4, 6.0)}
-    assert report.comps[1].packages == ()
+    assert comp_a.flex == (FlexSlot((FlexPackage(("X1", "X2"), 0.6, 2.0), FlexPackage(("Y1", "Y2"), 0.4, 6.0))),)
+    assert comp_b.flex == (FlexSlot((FlexPackage(("Z1",), 0.5, 4.0),)), FlexSlot((FlexPackage(("Z2",), 0.5, 4.0),)))
 
 
 def test_boards_that_resemble_no_comp_are_unclassified_and_short_boards_are_left_out(report):

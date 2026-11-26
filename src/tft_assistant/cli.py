@@ -95,8 +95,9 @@ def comp_lines(report: CompReport, static: StaticData, top: int) -> list[str]:
             f"  {trait} / {names(comp.carries) or '?'}  core: {names(comp.core)}"
         )
         lines += [
-            f"        flex {package.share:4.0%}  avg {package.avg_placement:.2f}  {names(package.units)}"
-            for package in comp.packages
+            "        flex "
+            + "  |  ".join(f"{p.share:4.0%}  avg {p.avg_placement:.2f}  {names(p.units)}" for p in slot.options)
+            for slot in comp.flex
         ]
         lines.append(
             "        traits  "

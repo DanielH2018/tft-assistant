@@ -18,7 +18,7 @@ from tft_assistant.positioning import default_board
 from tft_assistant.static_data import StaticData
 from tft_assistant.store import Selection
 
-SCHEMA = 1
+SCHEMA = 2
 
 _TIERS = ((4.10, "S"), (4.35, "A"), (4.60, "B"))
 """A comp's tier is the first whose average placement it does not exceed; the rest are C."""
@@ -29,11 +29,12 @@ def _tier(avg_placement: float) -> str:
 
 
 def _board_units(comp: Comp) -> list[str]:
-    """The comp as usually fielded: its core, then its commonest flex units, up to its usual level."""
+    """The comp as usually fielded: its core, then the commonest option of each flex slot, up to its usual level."""
     size = max(comp.tempo.levels, key=lambda level: level[1])[0]
     units = list(comp.core)
-    for package in comp.packages:
-        units += [unit for unit in package.units if unit not in units]
+    for slot in comp.flex:
+        commonest = max(slot.options, key=lambda package: package.share)
+        units += [unit for unit in commonest.units if unit not in units]
     return units[: max(size, len(comp.core))]
 
 
@@ -112,9 +113,12 @@ def _comp(comp: Comp, name: str, static: StaticData) -> dict[str, Any]:
             }
             for key in comp.key_units
         ],
-        "packages": [
-            {"units": list(package.units), "share": package.share, "avg_placement": package.avg_placement}
-            for package in comp.packages
+        "flex": [
+            [
+                {"units": list(package.units), "share": package.share, "avg_placement": package.avg_placement}
+                for package in slot.options
+            ]
+            for slot in comp.flex
         ],
         "traits": [
             {"trait": trait.name, "units": trait.units, "tier": trait.tier, "tiers": trait.tiers}
@@ -166,7 +170,7 @@ def build_snapshot(
     comps = [_comp(comp, name, static) for comp, name in zip(report.comps, _names(report.comps, static))]
 
     units = {unit for comp in comps for unit in [*comp["core"], *comp["three_stars"]]}
-    units |= {unit for comp in comps for package in comp["packages"] for unit in package["units"]}
+    units |= {unit for comp in comps for slot in comp["flex"] for package in slot for unit in package["units"]}
     units |= {pick["holder"] for comp in comps for pick in comp["items"]} | {u for g in groups for u in g.units}
     units |= {s["unit"] for comp in comps for up in comp["level_ups"] for s in [*up["adds"], *up["drops"]]}
     units |= {key["unit"] for comp in comps for key in comp["key_units"]}
