@@ -43,6 +43,8 @@ MIN_CORE = 3
 _FIT_SAMPLE = 15_000
 _PACKAGE_FLOOR = 0.10
 _PACKAGE_LINK = 0.60
+_SLOT_EXPECTED = 10
+_SLOT_LIFT = 0.30
 
 
 @dataclass(frozen=True)
@@ -52,6 +54,17 @@ class FlexPackage:
     units: tuple[str, ...]
     share: float
     avg_placement: float
+
+
+@dataclass(frozen=True)
+class FlexSlot:
+    """Flex packages that take each other's place: a board of the comp holds one of them, rarely two.
+
+    The options run from the cheapest to the costliest, so an option is what the ones before it
+    are played until. A package nothing replaces is a slot of one option.
+    """
+
+    options: tuple[FlexPackage, ...]
 
 
 @dataclass(frozen=True)
@@ -65,7 +78,8 @@ class Comp:
     share: float
     avg_placement: float
     top4: float
-    packages: tuple[FlexPackage, ...]
+    flex: tuple[FlexSlot, ...]
+    """The flex slots, the one whose commonest option is played most first."""
     traits: tuple[CompTrait, ...]
     tempo: Tempo
     item_priority: tuple[ItemPick, ...]
@@ -120,7 +134,14 @@ def _merge_variants(sample: np.ndarray, labels: np.ndarray, likeness: float) -> 
         labels[labels == found[second]] = found[first]
 
 
-def _packages(members: list[Board], core: set[str], static: StaticData) -> tuple[FlexPackage, ...]:
+def _flex(members: list[Board], core: set[str], static: StaticData) -> tuple[FlexSlot, ...]:
+    """The comp's flex packages, grouped into the slots they compete for.
+
+    Units that are usually played together form a package. Two packages take one slot when the
+    comp's boards hold both far less often than chance would put them together: one is played
+    in the other's place. The comparison needs `_SLOT_EXPECTED` boards expected to hold both,
+    so two rare packages that merely never met stay apart.
+    """
     held = [_unit_ids(board, static) - core for board in members]
     seen = Counter(unit for units in held for unit in units)
     flex = [unit for unit, count in seen.items() if count / len(members) >= _PACKAGE_FLOOR]
@@ -133,18 +154,37 @@ def _packages(members: list[Board], core: set[str], static: StaticData) -> tuple
             for unit in merged:
                 group[unit] = merged
 
-    packages = []
+    found: list[tuple[FlexPackage, set[int]]] = []
     for units in {frozenset(units) for units in group.values()}:
-        holding = [board for board, flexed in zip(members, held) if units <= flexed]
+        holding = {index for index, flexed in enumerate(held) if units <= flexed}
         if len(holding) / len(members) >= _PACKAGE_FLOOR:
-            packages.append(
-                FlexPackage(
-                    tuple(sorted(units, key=lambda unit: (-static.units[unit].cost, unit))),
-                    len(holding) / len(members),
-                    float(np.mean([board.placement for board in holding])),
-                )
+            package = FlexPackage(
+                tuple(sorted(units, key=lambda unit: (-static.units[unit].cost, unit))),
+                len(holding) / len(members),
+                float(np.mean([members[index].placement for index in holding])),
             )
-    return tuple(sorted(packages, key=lambda package: -package.share))
+            found.append((package, holding))
+    found.sort(key=lambda entry: (-entry[0].share, entry[0].units))
+
+    def replace_each_other(first: set[int], second: set[int]) -> bool:
+        by_chance = len(first) * len(second) / len(members)
+        return by_chance >= _SLOT_EXPECTED and len(first & second) <= _SLOT_LIFT * by_chance
+
+    slots: list[list[tuple[FlexPackage, set[int]]]] = []
+    for package, holding in found:
+        fits = next((slot for slot in slots if all(replace_each_other(holding, other) for _, other in slot)), None)
+        if fits is None:
+            slots.append([(package, holding)])
+        else:
+            fits.append((package, holding))
+
+    def cost(package: FlexPackage) -> int:
+        return max(static.units[unit].cost for unit in package.units)
+
+    return tuple(
+        FlexSlot(tuple(sorted((package for package, _ in slot), key=lambda package: (cost(package), -package.share))))
+        for slot in slots
+    )
 
 
 def _comp(members: list[Board], total: int, core_share: float, static: StaticData) -> Comp:
@@ -167,7 +207,7 @@ def _comp(members: list[Board], total: int, core_share: float, static: StaticDat
         len(members) / total,
         float(np.mean(placements)),
         sum(1 for placement in placements if placement <= 4) / len(members),
-        _packages(members, set(core), static),
+        _flex(members, set(core), static),
         traits,
         tempo(members, carries[0] if carries else None, static),
         picks,

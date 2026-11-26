@@ -30,7 +30,7 @@ function styleHtml(comp) {
 
 function matches(comp, words) {
   if (!words.length) return true;
-  const units = [...comp.core, ...comp.packages.flatMap((p) => p.units)].map((id) => unitOf(id).name);
+  const units = [...comp.core, ...comp.flex.flat().flatMap((p) => p.units)].map((id) => unitOf(id).name);
   const text = [comp.name, comp.style, ...units, ...comp.traits.map((t) => traitName(t.trait))].join(" ").toLowerCase();
   return words.every((word) => text.includes(word));
 }
@@ -148,12 +148,22 @@ function renderDetail() {
     return;
   }
   const threeStar = (id) => comp.three_stars.includes(id);
-  const packages = comp.packages
-    .map(
-      (p) => `<div class="package">${p.units.map((id) => unitTile(id, "m", { threeStar: threeStar(id) })).join("")}
-        <div class="figures"><b>${pct(p.share)}</b> of boards<br>avg ${delta(p.avg_placement, comp.avg_placement)}</div></div>`,
-    )
-    .join("");
+  const packageHtml = (p) => `<div class="package">${p.units.map((id) => unitTile(id, "m", { threeStar: threeStar(id) })).join("")}
+        <div class="figures"><b>${pct(p.share)}</b> of boards<br>avg ${delta(p.avg_placement, comp.avg_placement)}</div></div>`;
+  const cost = (p) => Math.max(...p.units.map((id) => unitOf(id).cost));
+  const slotHtml = (options) =>
+    options
+      .map((p, index) => {
+        if (!index) return packageHtml(p);
+        const upgrade = cost(p) > cost(options[index - 1]);
+        const joint = upgrade
+          ? `<span class="joint" title="Played until the costlier one is found">→</span>`
+          : `<span class="joint" title="One is played in the other's place">or</span>`;
+        return joint + packageHtml(p);
+      })
+      .join("");
+  const packages = comp.flex.map((options) => `<div class="slot ${options.length > 1 ? "shared" : ""}">${slotHtml(options)}</div>`).join("");
+  const sharedSlots = comp.flex.some((options) => options.length > 1);
   const shift = (s) =>
     `<span class="shift">${unitTile(s.unit, "m")}<span class="figures">${pct(s.share)}<br><span class="note">was ${pct(s.share_below)}</span></span></span>`;
   const levelUps = comp.level_ups
@@ -186,9 +196,9 @@ function renderDetail() {
     <header><h1><span class="tier t${comp.tier}">${comp.tier}</span>${esc(comp.name)}</h1>
       <p class="stats"><b>${styleHtml(comp)}</b> · avg <b>${comp.avg_placement.toFixed(2)}</b> · top 4 <b>${pct(comp.top4)}</b> · play <b>${(comp.share * 100).toFixed(1)}%</b> · ${comp.boards.toLocaleString()} boards</p></header>
     <section><h2>Core</h2><div class="row">${comp.core.map((id) => unitTile(id, "l", { traits: true, threeStar: threeStar(id) })).join("")}</div></section>
-    <section><h2>Flex</h2><div class="row">${packages || `<span class="note">no regular flex units</span>`}</div></section>
-    <section><h2>Level up</h2><div>${levelUps || `<span class="note">no level above the usual one has enough boards</span>`}
-      ${levelUps ? `<div class="note">Shares compare each level with the one below. A higher level places better partly because only a winning player reaches it.</div>` : ""}</div></section>
+    <section><h2>Flex</h2><div><div class="row">${packages || `<span class="note">no regular flex units</span>`}</div>
+      ${sharedSlots ? `<div class="note">Units in one outline take one slot: a board rarely holds both. An arrow points to the costlier unit, which the cheaper one is played until.</div>` : ""}</div></section>
+    <section><h2>Level up</h2><div>${levelUps || `<span class="note">no level above the usual one has enough boards</span>`}</div></section>
     <section><h2>Traits</h2><div class="row">${traits}</div></section>
     <section><h2>Key units</h2><div>${keyUnitsHtml(comp) || `<span class="note">no unit holds items regularly</span>`}
       <div class="note">Critical: in 70% of the unit's builds here, or in 40% and builds without it place 0.4 worse. Needs: the item places 0.5 better beside that one than apart. Correlations, from builds of one size.</div></div></section>
