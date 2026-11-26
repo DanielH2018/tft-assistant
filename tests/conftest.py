@@ -56,8 +56,8 @@ def _board(units, placement, *, carry, items, trait="T_A", level=9, three_star=N
 def planted_boards():
     """Comp A in two variants, comp B (80 boards), 20 boards of noise and 10 short boards.
 
-    Comp A's 60 level-8 boards hold X1 and X2 and place 2nd; its 40 level-9 boards hold Y1 and Y2
-    and place 6th. Comp B itemises a carry (B1), a second carry (B3) and a tank (B2), and its two
+    Comp A's 60 level-8 boards hold X1 and X2 and place 2nd on average: 10 place 1st, 10 place 3rd
+    and 40 place 2nd. Its 40 level-9 boards hold Y1 and Y2 and place 6th. Comp B itemises a carry (B1), a second carry (B3) and a tank (B2), and its two
     carries share a trait the comp has active (T_C). Half its boards hold Z1 and half hold Z2, as
     often together as chance would have it.
     """
@@ -73,7 +73,7 @@ def planted_boards():
         carry_trait="T_C",
     )
     return (
-        [_board([*A_CORE, "X1", "X2", filler(), "Dummy"], 2, **x_variant) for _ in range(60)]
+        [_board([*A_CORE, "X1", "X2", filler(), "Dummy"], 1 if n < 10 else 3 if n < 20 else 2, **x_variant) for n in range(60)]
         + [_board([*A_CORE, "Y1", "Y2", filler()], 6, **y_variant) for _ in range(40)]
         + [_board([*B_CORE, *(["Z1"] if n < 40 else []), *(["Z2"] if 20 <= n < 60 else [])], 4, **comp_b) for n in range(80)]
         + [_board(rng.sample(FILLERS, 9), 8, carry=None, items=[]) for _ in range(20)]

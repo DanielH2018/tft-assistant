@@ -91,7 +91,7 @@ def comp_lines(report: CompReport, static: StaticData, top: int) -> list[str]:
     for comp in report.comps[:top]:
         trait = static.traits[comp.main_trait].name if comp.main_trait in static.traits else "?"
         lines.append(
-            f"{comp.share:5.1%}  avg {comp.avg_placement:.2f}  top4 {comp.top4:.0%}"
+            f"{comp.share:5.1%}  avg {comp.avg_placement:.2f}  top4 {comp.top4:.0%}  win {comp.win_rate:.0%}"
             f"  {trait} / {names(comp.carries) or '?'}  core: {names(comp.core)}"
         )
         lines += [

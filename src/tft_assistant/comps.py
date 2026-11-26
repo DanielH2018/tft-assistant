@@ -82,6 +82,8 @@ class Comp:
     share: float
     avg_placement: float
     top4: float
+    win_rate: float
+    """The share of its boards that place first."""
     flex: tuple[FlexSlot, ...]
     """The flex slots, the one whose commonest option is played most first."""
     traits: tuple[CompTrait, ...]
@@ -215,6 +217,7 @@ def _comp(members: list[Board], total: int, core_share: float, static: StaticDat
         len(members) / total,
         float(np.mean(placements)),
         sum(1 for placement in placements if placement <= 4) / len(members),
+        placements.count(1) / len(members),
         _flex(members, set(core), static),
         traits,
         tempo(members, carries[0] if carries else None, static),

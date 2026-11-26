@@ -105,6 +105,7 @@ def _comp(comp: Comp, name: str, static: StaticData) -> dict[str, Any]:
         "share": comp.share,
         "avg_placement": comp.avg_placement,
         "top4": comp.top4,
+        "win_rate": comp.win_rate,
         "core": list(comp.core),
         "carries": list(comp.carries),
         "key_units": [
@@ -146,7 +147,7 @@ def _comp(comp: Comp, name: str, static: StaticData) -> dict[str, Any]:
         "items": [_pick(pick) for pick in comp.item_priority],
         "take": list(comp.take),
         "spare": [
-            {"component": spare.component, "share": spare.share, "uses": [_pick(pick) for pick in spare.uses]}
+            {"component": spare.component, "share": spare.share, "uses": list(spare.uses)}
             for spare in comp.spare
         ],
         "specials": [
@@ -195,9 +196,7 @@ def build_snapshot(
 
     units = {unit for comp in comps for unit in [*comp["core"], *comp["three_stars"]]}
     units |= {unit for comp in comps for slot in comp["flex"] for package in slot for unit in package["units"]}
-    spare_uses = [pick for comp in comps for spare in comp["spare"] for pick in spare["uses"]]
     units |= {pick["holder"] for comp in comps for pick in comp["items"]} | {u for g in groups for u in g.units}
-    units |= {pick["holder"] for pick in spare_uses}
     specials = [special for comp in comps for special in comp["specials"]]
     units |= {special["holder"] for special in specials}
     units |= {swap["unit"] for special in specials for swap in [*special["adds"], *special["drops"]]}
@@ -205,7 +204,7 @@ def build_snapshot(
     units |= {key["unit"] for comp in comps for key in comp["key_units"]}
     items = {pick["item"] for comp in comps for pick in comp["items"]} | {i for g in groups for i in g.items}
     items |= {item for comp in comps for item in comp["take"]}
-    items |= {pick["item"] for pick in spare_uses} | {spare["component"] for comp in comps for spare in comp["spare"]}
+    items |= {item for comp in comps for spare in comp["spare"] for item in [spare["component"], *spare["uses"]]}
     items |= {special["item"] for special in specials} | {item for special in specials for item in special["beside"]}
     items |= {note["item"] for comp in comps for key in comp["key_units"] for note in key["build"]}
     traits = {trait["trait"] for comp in comps for trait in comp["traits"]}

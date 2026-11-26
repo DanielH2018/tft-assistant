@@ -8,7 +8,7 @@
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 body {
-  display: grid; grid-template-columns: var(--list-width, min(660px, 40vw)) 5px 1fr; background: var(--base); color: var(--text);
+  display: grid; grid-template-columns: var(--list-width, min(708px, 40vw)) 5px 1fr; background: var(--base); color: var(--text);
   font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; overflow: hidden;
 }
 aside {
@@ -38,11 +38,12 @@ aside {
 .comp-row { display: flex; align-items: center; gap: 8px; padding: 4px 10px; }
 .comp-row > * { flex: none; }
 .c-tier { width: 32px; } .c-name { width: 184px; } .c-level { width: 44px; } .c-core { width: 190px; }
-.c-avg, .c-top4 { width: 40px; } .c-play { width: 46px; }
+.c-avg, .c-top4, .c-win { width: 40px; } .c-play { width: 46px; }
 /* A column leaves when the list is too narrow for it and every column to its left. Each limit is one
    pixel under the width of the columns that stay, their gaps, the row's padding and a 15-pixel
    scrollbar gutter. */
-@container (max-width: 658px) { .c-play { display: none; } }
+@container (max-width: 706px) { .c-play { display: none; } }
+@container (max-width: 652px) { .c-win { display: none; } }
 @container (max-width: 604px) { .c-top4 { display: none; } }
 @container (max-width: 556px) { .c-avg { display: none; } }
 @container (max-width: 508px) { .c-core { display: none; } }
@@ -69,24 +70,31 @@ aside {
 .tier { display: inline-block; width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 4px; font-weight: 700; color: var(--crust); }
 .tS { background: var(--red); } .tA { background: var(--peach); } .tB { background: var(--yellow); } .tC { background: var(--grey); }
 
-main { padding: 16px 22px; overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable; min-height: 0; min-width: 0; }
-#sheet { overflow: hidden; container-type: inline-size; }
-/* The sections stand in two columns once the sheet is wide enough for both, so a wide pane is used
-   across its width and the content need not shrink to fit its height. */
-.columns { display: grid; grid-template-columns: minmax(0, 1fr); }
-@container (min-width: 1000px) { .columns { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 28px; } }
+main { padding: 16px 22px 16px 10px; overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable; min-height: 0; min-width: 0; }
+/* The left padding is where a heading's fold mark hangs, so the mark takes no width from the heading. */
+#sheet { overflow: hidden; padding-left: 12px; }
+/* Sections share a row while their widths fit it, then start the next row. A section is as wide as
+   its content laid on one line, so a section with little content leaves room for its neighbour and
+   one with a lot takes a row and wraps inside it. */
+.flow { display: flex; flex-wrap: wrap; column-gap: 28px; align-items: flex-start; }
+.flow > section { flex: 1 1 auto; min-width: 0; max-width: 100%; }
+.flow > section.wraps { flex: 8 1 300px; }
+.flow > section.half { flex-basis: 480px; }
+.flow > section.folded { flex: 0 0 auto; }
+/* A sentence fills the width its section has and adds nothing to the width the section asks for. */
+.fills { contain: inline-size; }
 main h1 { font-size: 22px; margin: 0; display: flex; align-items: center; gap: 10px; }
 main header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 20px; margin-bottom: 10px; }
 .stats { color: var(--subtext); margin: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .stats b { color: var(--text); font-weight: 600; }
-section { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 6px 12px; padding: 7px 0; border-top: 1px solid var(--surface0); align-items: start; }
+section { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 6px 4px; padding: 7px 0; border-top: 1px solid var(--surface0); align-items: start; }
 section > h2 {
   margin: 2px 0 0; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;
-  cursor: pointer; user-select: none;
+  cursor: pointer; user-select: none; position: relative;
 }
 section > h2:hover { color: var(--text); }
-section > h2::before { content: "▾ "; }
-section.folded > h2::before { content: "▸ "; }
+section > h2::before { content: "▾"; position: absolute; left: -11px; }
+section.folded > h2::before { content: "▸"; }
 section.folded > :not(h2) { display: none; }
 section.folded { grid-template-columns: 1fr; }
 .row { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: flex-start; }
@@ -120,12 +128,12 @@ section.folded { grid-template-columns: 1fr; }
 .slot.shared { padding: 3px; border: 1px dashed var(--surface2); border-radius: 9px; }
 .slot .joint { color: var(--subtext); font-size: 13px; padding: 0 2px; }
 .package .figures { font-size: 12px; color: var(--subtext); font-variant-numeric: tabular-nums; line-height: 1.3; }
-.key-unit { display: flex; gap: 20px; align-items: flex-start; padding: 2px 0 6px; }
-.key-unit .role { width: 84px; font-size: 12px; color: var(--subtext); padding-top: 10px; }
+.key-unit { display: flex; gap: 6px; align-items: flex-start; padding: 2px 0 6px; }
+.key-unit .role { width: 50px; font-size: 13.5px; line-height: 1.2; color: var(--subtext); text-align: right; padding-top: 4px; }
 .key-unit > * { flex: none; }
 .key-unit .uses { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
-.key-unit .row { align-items: center; gap: 4px 8px; }
-.key-unit .row > .note { width: 48px; }
+.key-unit .row { align-items: center; gap: 4px 6px; }
+.key-unit .row > .note { width: 44px; }
 .build-item { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px 2px 2px; border: 1px solid var(--surface0); border-radius: 6px; }
 .build-item .figures { font-size: 11.5px; color: var(--subtext); line-height: 1.15; font-variant-numeric: tabular-nums; }
 .build-item.critical { border-color: var(--yellow); }
@@ -143,11 +151,10 @@ section.folded { grid-template-columns: 1fr; }
 .spare .joint { color: var(--subtext); }
 .spare .use { white-space: nowrap; }
 .take .item-icon { width: 32px; height: 32px; }
-.level-up { display: flex; flex-wrap: wrap; gap: 6px 22px; align-items: flex-start; padding: 2px 0 6px; }
-.level-up .figures, .shift .figures { font-size: 12px; color: var(--subtext); font-variant-numeric: tabular-nums; line-height: 1.3; }
-.level-up > .figures { width: 96px; flex: none; }
-.level-up > .figures b { color: var(--text); font-size: 13px; }
-.shift { display: inline-flex; align-items: center; gap: 2px; }
+.levels { display: flex; flex-wrap: wrap; gap: 0 32px; }
+.level-up { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: flex-start; padding: 2px 0 6px; }
+.level-up > b { font-size: 13px; white-space: nowrap; }
+.level-up .row { gap: 8px 2px; }
 .trait { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px 2px 4px; border-radius: 12px; background: var(--surface0); font-size: 12.5px; }
 .trait img { width: 16px; height: 16px; }
 .trait.top { background: var(--yellow); color: var(--crust); } .trait.top img { filter: brightness(0); }
