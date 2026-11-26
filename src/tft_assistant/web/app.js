@@ -25,7 +25,7 @@ const itemName = (id) => esc((snap().items[id] || { name: id }).name);
 function matches(comp, words) {
   if (!words.length) return true;
   const units = [...comp.core, ...comp.flex.flat().flatMap((p) => p.units)].map((id) => unitOf(id).name);
-  const text = [comp.name, comp.style, ...units, ...comp.traits.map((t) => traitName(t.trait))].join(" ").toLowerCase();
+  const text = [comp.name, comp.style, `level ${comp.roll_level}`, ...units, ...comp.traits.map((t) => traitName(t.trait))].join(" ").toLowerCase();
   return words.every((word) => text.includes(word));
 }
 
