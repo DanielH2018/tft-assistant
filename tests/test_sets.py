@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 import pytest
 
 from tft_assistant.sets import GameSet, Patch, latest_set_number
+from tft_assistant.static_data import CACHE_DIR
 
 
 def at(day):
@@ -48,6 +49,20 @@ def test_the_standing_selections_cover_the_live_patch_its_recent_days_the_previo
         ("Patch 19.1", at(2), at(16)),
         ("Set 19, every stored match", None, None),
     ]
+
+
+@pytest.mark.skipif(
+    not (CACHE_DIR / "cdragon-latest.json").exists(),
+    reason="needs Community Dragon's document in the cache; any command that loads static data fetches it",
+)
+def test_a_sets_roster_knows_its_defensive_items_from_the_components_the_set_file_names():
+    game_set = GameSet.load(18)
+    roster = game_set.roster()
+
+    named = [*game_set.defensive_components, *game_set.offensive_components]
+    assert len(named) == 7
+    assert all(roster.items[component].is_component for component in named)
+    assert 5 <= sum(item.is_defensive for item in roster.items.values()) < len(roster.items) / 2
 
 
 def test_a_set_file_loads_its_queue_and_a_calendar_of_timezone_aware_starts():

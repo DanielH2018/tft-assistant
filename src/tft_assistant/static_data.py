@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import time
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -57,6 +57,8 @@ class Item:
     radiant_of: str | None
     is_component: bool
     icon: str | None = None
+    is_defensive: bool = False
+    """The recipe has a defensive component and no offensive one, as the set file lists them."""
 
 
 def _icon_url(path: str | None) -> str | None:
@@ -85,6 +87,10 @@ def _emblem_trait(item: dict[str, Any], trait_by_name: dict[str, str]) -> str | 
     return trait_by_name.get(name.removesuffix(" Emblem"))
 
 
+def _is_defensive(recipe: Sequence[str], defensive: set[str], offensive: set[str]) -> bool:
+    return any(part in defensive for part in recipe) and not any(part in offensive for part in recipe)
+
+
 def _radiant_base(item: dict[str, Any], by_name: dict[str | None, str]) -> str | None:
     name = item.get("name") or ""
     return by_name.get(name.removeprefix("Radiant ")) if name.startswith("Radiant ") else None
@@ -109,8 +115,19 @@ class StaticData:
         return build
 
     @classmethod
-    def from_document(cls, source: dict[str, Any], mutator: str) -> StaticData:
-        """The roster of one game mode of one set, named as in Community Dragon's `setData`."""
+    def from_document(
+        cls,
+        source: dict[str, Any],
+        mutator: str,
+        defensive_components: Iterable[str] = (),
+        offensive_components: Iterable[str] = (),
+    ) -> StaticData:
+        """The roster of one game mode of one set, named as in Community Dragon's `setData`.
+
+        The document marks no item as defensive, so the caller names the defensive and the
+        offensive components. A component in neither list, such as one that gives mana, is neutral.
+        """
+        defensive, offensive = set(defensive_components), set(offensive_components)
         found = [entry for entry in source["setData"] if entry["mutator"] == mutator]
         if not found:
             raise KeyError(f"no {mutator!r} in the document; it has {sorted(e['mutator'] for e in source['setData'])}")
@@ -152,6 +169,7 @@ class StaticData:
                 _radiant_base(item, by_name),
                 item["apiName"] in built_from,
                 _icon_url(item.get("icon")),
+                _is_defensive(item.get("composition") or (), defensive, offensive),
             )
             for item in records
         }

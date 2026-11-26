@@ -26,32 +26,45 @@ def planted_static():
             "Whisper": Item("Whisper", "Whisper", ("Bow", "Glove"), None, None, False),
             "Plate": Item("Plate", "Plate", (), None, None, False),
             "Sword": Item("Sword", "Sword", (), None, None, True),
+            "Stone": Item("Stone", "Stone", ("Vest", "Vest"), None, None, False, is_defensive=True),
+            "Cape": Item("Cape", "Cape", ("Vest", "Belt"), None, None, False, is_defensive=True),
         },
     )
 
 
-def _board(units, placement, *, carry, items, trait="T_A", level=9, three_star=None):
+def _board(units, placement, *, carry, items, trait="T_A", level=9, three_star=None, others=None):
+    builds = {carry: items, **(others or {})}
     return Board(
         "NA1_1",
         placement,
         level,
         34,
-        tuple(BoardUnit(unit, 3 if unit == three_star else 2, tuple(items) if unit == carry else ()) for unit in units),
+        tuple(BoardUnit(unit, 3 if unit == three_star else 2, tuple(builds.get(unit, ()))) for unit in units),
         {trait: RiotTrait(6, 2, 3), "T_Unique": RiotTrait(1, 1, 1), "T_Inactive": RiotTrait(1, 0, 3)},
     )
 
 
 @pytest.fixture(scope="session")
 def planted_boards():
-    """Comp A in two variants (60 and 40 boards), comp B (80), 20 boards of noise and 10 short boards."""
+    """Comp A in two variants, comp B (80 boards), 20 boards of noise and 10 short boards.
+
+    Comp A's 60 level-8 boards hold X1 and X2 and place 2nd; its 40 level-9 boards hold Y1 and Y2
+    and place 6th. Comp B itemises a carry (B1), a second carry (B3) and a tank (B2).
+    """
     rng = random.Random(7)
     filler = lambda: rng.choice(FILLERS)
-    x_variant = dict(carry="A1", items=["Edge", "Whisper", "Sword"], three_star="A2")
-    y_variant = dict(carry="A1", items=["Edge", "Plate", "Sword"], level=8)
+    x_variant = dict(carry="A1", items=["Edge", "Whisper", "Sword"], three_star="A2", level=8)
+    y_variant = dict(carry="A1", items=["Edge", "Plate", "Sword"], level=9)
+    comp_b = dict(
+        carry="B1",
+        items=["Edge", "Whisper", "Plate"],
+        others={"B3": ["Edge", "Whisper"], "B2": ["Stone", "Cape", "Plate"]},
+        trait="T_B",
+    )
     return (
         [_board([*A_CORE, "X1", "X2", filler(), "Dummy"], 2, **x_variant) for _ in range(60)]
         + [_board([*A_CORE, "Y1", "Y2", filler()], 6, **y_variant) for _ in range(40)]
-        + [_board([*B_CORE, filler()], 4, carry="B1", items=["Edge", "Whisper", "Plate"], trait="T_B") for _ in range(80)]
+        + [_board([*B_CORE, filler()], 4, **comp_b) for _ in range(80)]
         + [_board(rng.sample(FILLERS, 9), 8, carry=None, items=[]) for _ in range(20)]
         + [_board(A_CORE[:5], 8, carry=None, items=[]) for _ in range(10)]
     )

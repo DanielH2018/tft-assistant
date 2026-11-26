@@ -84,7 +84,9 @@ comp core                   units present in nearly every board of a cluster
   │                         share of boards holding it, placement with and without
   ├─ item priority          ordered (item → holder) pairs, plus components to take
   ├─ carries ──► item group
+  ├─ key units              carry, second carry and tank, each with its build and item group
   ├─ tempo                  final-level and star-level distribution
+  ├─ level-ups              per level above the usual one: units that come in, units that go out
   ├─ early plan             derived proposal + edits
   └─ saved boards           final or early (stage tag), with positions
 
@@ -132,6 +134,19 @@ condition                   an augment or an encounter
 | Holder chains, opener to comp | Partly: overlap, not a record of real openers |
 | Strong early boards, positioning, unlock conditions | No: by hand, with suggestions |
 | Filter by augment, re-rank by encounter | No: categories kept by hand, proposed from text |
+
+### Key units and level-ups
+
+A carry holds 1.5 or more finished items on an average board of its comp. The tank is the most
+itemised unit whose items are mostly defensive. The static data marks no item as defensive, so
+the set file names the defensive and the offensive components, and an item is defensive when its
+recipe has a defensive component and no offensive one. Counting an item with one defensive
+component as defensive labelled a carry holding Edge of Night and Quicksilver as a tank.
+
+A level-up compares the comp's boards that end one level above with the boards one level below:
+a unit whose share rises by 15 points comes in, and one whose share falls by 15 goes out. A level
+is reported once 20 boards and 5% of the comp end there. The placement at a higher level is
+better partly because only a winning player reaches it.
 
 ### Default positions
 

@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from tft_assistant.static_data import StaticData, document
 from tft_assistant.store import Selection
 
 SETS_DIR = Path(__file__).parent / "data" / "sets"
@@ -32,13 +33,28 @@ class GameSet:
     static_data: str
     ranked_queue: int
     patches: tuple[Patch, ...]
+    defensive_components: tuple[str, ...] = ()
+    offensive_components: tuple[str, ...] = ()
 
     @classmethod
     def load(cls, number: int, sets_dir: Path = SETS_DIR) -> GameSet:
         with (sets_dir / str(number) / "set.toml").open("rb") as file:
             facts = tomllib.load(file)
         patches = sorted((Patch(p["name"], p["starts"]) for p in facts["patches"]), key=lambda p: p.starts)
-        return cls(number, facts["static_data"], facts["ranked_queue"], tuple(patches))
+        return cls(
+            number,
+            facts["static_data"],
+            facts["ranked_queue"],
+            tuple(patches),
+            tuple(facts.get("defensive_components", ())),
+            tuple(facts.get("offensive_components", ())),
+        )
+
+    def roster(self) -> StaticData:
+        """This set's units, traits and items, with the facts the set file adds to them."""
+        return StaticData.from_document(
+            document(), self.static_data, self.defensive_components, self.offensive_components
+        )
 
     def window(self, patch: str) -> tuple[datetime, datetime | None]:
         """When a patch was live: from its start to the next patch's start, or open-ended."""
