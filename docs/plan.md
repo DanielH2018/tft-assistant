@@ -226,6 +226,10 @@ A player finds a unit four levels above its cost, so a 1-cost reroll comp rolls 
 The comp list shows the roll level as its Level column, and the detail pane's heading shows the
 style. The list sorts by a click on a column header and opens sorted by tier.
 
+The filter box holds several filters at once. Enter keeps the typed filter as a chip and starts
+another, Backspace in the empty box removes the last chip, and each chip has an X. The list
+shows the comps that pass every chip and the text being typed.
+
 A "names" checkbox beside the filter box shows or hides each unit's name under its picture on
 the comp page, and the browser keeps the choice. A unit's traits are in its tooltip, not under
 its picture.

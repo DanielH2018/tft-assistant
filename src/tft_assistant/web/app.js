@@ -1,5 +1,5 @@
 const SNAPSHOTS = JSON.parse(document.getElementById("snapshots").textContent);
-const state = { snapshot: 0, comp: null, filter: "", sort: "avg" };
+const state = { snapshot: 0, comp: null, filters: [], filter: "", sort: "avg" };
 const el = (id) => document.getElementById(id);
 const esc = (text) =>
   String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -35,14 +35,29 @@ function searchedNames(comp) {
 }
 
 // A filter that is part of one name, such as "fae emblem", lists the comps with that name. Any
-// other filter lists the comps that hold every one of its words somewhere.
+// other filter lists the comps that hold every one of its words somewhere. The list shows the
+// comps that pass every kept filter and the one being typed.
 function visibleComps() {
-  const phrase = state.filter.trim().toLowerCase();
-  const words = phrase.split(/\s+/).filter(Boolean);
+  const filters = [...state.filters, state.filter].map((filter) => filter.trim().toLowerCase()).filter(Boolean);
   const comps = snap().comps.map((comp) => [comp, searchedNames(comp)]);
-  const named = comps.filter(([, names]) => names.some((name) => name.includes(phrase)));
-  const found = named.length ? named : comps.filter(([, names]) => words.every((word) => names.some((name) => name.includes(word))));
-  return found.map(([comp]) => comp).sort(SORTS[state.sort]);
+  const passing = (phrase) => {
+    const words = phrase.split(/\s+/);
+    const named = comps.filter(([, names]) => names.some((name) => name.includes(phrase)));
+    return new Set(named.length ? named : comps.filter(([, names]) => words.every((word) => names.some((name) => name.includes(word)))));
+  };
+  const passes = filters.map(passing);
+  return comps
+    .filter((entry) => passes.every((passed) => passed.has(entry)))
+    .map(([comp]) => comp)
+    .sort(SORTS[state.sort]);
+}
+
+function renderFilters() {
+  el("chips").innerHTML = state.filters
+    .map((filter, index) => `<span class="filter-chip">${esc(filter)}<button data-remove="${index}" title="Remove this filter">×</button></span>`)
+    .join("");
+  el("filter").placeholder = state.filters.length ? "add a filter" : "unit, trait, item or level";
+  renderList();
 }
 
 function renderList() {
@@ -437,6 +452,26 @@ el("head").addEventListener("click", (event) => {
 el("filter").addEventListener("input", (event) => {
   state.filter = event.target.value;
   renderList();
+});
+// Enter keeps the typed filter and starts another. Backspace in an empty box removes the last kept one.
+el("filter").addEventListener("keydown", (event) => {
+  const box = event.target;
+  if (event.key === "Enter" && box.value.trim()) {
+    state.filters.push(box.value.trim());
+    box.value = state.filter = "";
+    renderFilters();
+  } else if (event.key === "Backspace" && !box.value && state.filters.length) {
+    state.filters.pop();
+    renderFilters();
+  }
+});
+el("filters").addEventListener("click", (event) => {
+  const remove = event.target.closest("[data-remove]");
+  if (remove) {
+    state.filters.splice(Number(remove.dataset.remove), 1);
+    renderFilters();
+  }
+  el("filter").focus();
 });
 el("comps").addEventListener("click", (event) => {
   const row = event.target.closest("li");

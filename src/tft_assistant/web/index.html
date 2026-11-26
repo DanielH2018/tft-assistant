@@ -10,7 +10,9 @@
 <aside>
   <div class="bar">
     <select id="selection" title="Which matches the page shows"></select>
-    <input id="filter" type="search" placeholder="unit, trait, item or level" autocomplete="off">
+    <div id="filters" title="Enter keeps a filter and starts another. Backspace in the empty box removes the last one.">
+      <span id="chips"></span><input id="filter" type="search" placeholder="unit, trait, item or level" autocomplete="off">
+    </div>
     <label title="Show each unit's name under its picture on the comp page"><input id="names" type="checkbox" checked>names</label>
   </div>
   <div id="head" class="comp-row"></div>

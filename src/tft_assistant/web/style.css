@@ -18,12 +18,22 @@ aside {
 #divider { background: var(--surface0); cursor: col-resize; touch-action: none; }
 #divider:hover, .resizing #divider { background: var(--mauve); }
 .resizing { cursor: col-resize; user-select: none; }
-.bar { display: flex; gap: 8px; padding: 10px; }
-.bar select, .bar input {
-  background: var(--crust); color: var(--text); border: 1px solid var(--surface1); border-radius: 4px;
-  padding: 6px 8px; font: inherit;
+.bar { display: flex; gap: 8px; padding: 10px; align-items: flex-start; }
+.bar select, #filters {
+  background: var(--crust); color: var(--text); border: 1px solid var(--surface1); border-radius: 4px; font: inherit;
 }
-.bar input { flex: 1; min-width: 0; }
+.bar select { padding: 6px 8px; }
+#filters { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 3px 6px; }
+#filters:focus-within { border-color: var(--mauve); }
+#chips { display: contents; }
+#filter { flex: 1; min-width: 90px; background: none; border: 0; outline: 0; color: inherit; font: inherit; padding: 3px 2px; }
+.filter-chip {
+  display: inline-flex; align-items: center; background: var(--surface0); border-radius: 4px;
+  padding: 1px 2px 1px 7px; font-size: 12.5px; white-space: nowrap;
+}
+.filter-chip button { background: none; border: 0; color: var(--subtext); cursor: pointer; font: inherit; padding: 0 5px; }
+.filter-chip button:hover { color: var(--red); }
+.bar label { align-self: center; }
 #comps { list-style: none; margin: 0; padding: 0; overflow-y: auto; scrollbar-gutter: stable; flex: 1; }
 .comp-row { display: flex; align-items: center; gap: 8px; padding: 4px 10px; }
 .comp-row > * { flex: none; }
