@@ -50,7 +50,8 @@ def test_every_unit_item_and_trait_a_comp_names_is_in_the_lookup_tables(snapshot
         "icon": "https://icons.test/A1.png",
         "planner_code": None,
     }
-    assert snapshot["traits"]["T"]["name"] == "Trait"
+    assert snapshot["traits"]["T"] == {"name": "Trait", "icon": None, "breakpoints": [2, 4]}
+    assert snapshot["items"]["Edge"] == {"name": "Edge", "icon": None, "recipe": ["Sword", "Glove"]}
 
 
 def test_a_comps_default_board_holds_its_core_and_commonest_flex_units_up_to_its_usual_level(snapshot):

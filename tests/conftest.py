@@ -5,7 +5,7 @@ import random
 import pytest
 
 from tft_assistant.boards import Board, BoardUnit, RiotTrait
-from tft_assistant.static_data import Item, StaticData, Trait, Unit
+from tft_assistant.static_data import Breakpoint, Item, StaticData, Trait, Unit
 
 A_CORE = [f"A{n}" for n in range(1, 7)]
 B_CORE = [f"B{n}" for n in range(1, 9)]
@@ -23,7 +23,7 @@ def planted_static():
         | {name: Unit(name, name, 2, ("T", "T_C"), 1.0, None, f"https://icons.test/{name}.png") for name in B_CARRIES}
         | {"Dummy": Unit("Dummy", "Target Dummy", 8, (), 0.0, None)},
         traits={
-            "T": Trait("T", "Trait", ()),
+            "T": Trait("T", "Trait", (Breakpoint(2, 3, 1), Breakpoint(4, 25000, 3))),
             "T_A": Trait("T_A", "Alpha", ()),
             "T_B": Trait("T_B", "Beta", ()),
             "T_C": Trait("T_C", "Hunter", ()),
