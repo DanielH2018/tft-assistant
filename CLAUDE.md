@@ -19,7 +19,10 @@ live API showed, and it overrides any assumption about Riot's payload.
   calls the API while `tft crawl` runs pushes both into 429 responses, so check for a running
   crawl before starting one. A deployment's `tft refresh` crawls all day on its key, so a local
   crawl on the same key collides with it: develop against the matches the store holds.
-- `.github/workflows/ci.yml` runs the tests on a pull request and builds the image. On `main` it
-  pushes the image. Wait for the pull request's checks before merging: `cc-wait gh-ci`.
+- `.github/workflows/ci.yml` runs the tests and builds the image on every commit. Wait for a
+  pull request's checks before merging: `cc-wait gh-ci --pr <n>`.
+- A release publishes the image, and a deployment follows releases. To release, raise `version`
+  in `pyproject.toml`, run `uv lock`, and merge that. Then tag the merge commit `v<version>` and
+  push the tag. CI refuses a tag that is not the project's version.
 - `TFT_STATE_DIR` moves the match store and the static-data cache into one directory, which is
   how the image keeps both on its `/data` volume (`paths.state_path`).
