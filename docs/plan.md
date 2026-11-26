@@ -179,7 +179,8 @@ A player finds a unit four levels above its cost, so a 1-cost reroll comp rolls 
 3-cost one at level 7. The snapshot carries that level as `roll_level`.
 
 The style is a column of the comp list, which sorts by a click on a column header and opens
-sorted by tier. The detail pane marks the three-starred units on their pictures.
+sorted by tier. The border between the list and the detail pane drags; the browser keeps the
+width, and a double-click on the border resets it. The detail pane marks the three-starred units on their pictures.
 
 ### Comp names
 
