@@ -12,8 +12,25 @@ Each entry says what was measured and what it changes.
 | NA apex ladder | 250 Challenger, 495 Grandmaster, 6,918 Master |
 | Activity late in a set | Of 25 Challenger players, 20 had no match in the last 7 days. Their recent ranked games date from 11 to 21 November. |
 
+| Endpoint limits on `asia` | match 250 per 10 s; match IDs 600 per 10 s. Higher than `americas` and `europe`, and still far above the application limit. |
+| Throughput, three regions crawled at once for 110 minutes | `euw1` 2,993 requests and 2,896 matches an hour; `kr` 2,978 and 2,898; `na1` 2,969 and 2,873 |
+| Players reached in those 110 minutes, looking 24 days back | 175 on `euw1`, 143 on `kr`, 174 on `na1`: 30 to 37 matches fetched per player |
+| What the store holds after it | 16,036 matches. 13,595 are Set 18 ranked (queue 1100), which is 108,760 boards from 2 to 26 November. The other 15% are other queues and 15 Set 17 matches. |
+
 The application limit binds; every endpoint limit is far above it. One pass over NA's ladder
 costs 7,663 match-list requests, about 2.5 hours of the budget.
+
+The crawl runs at the limit: 3,000 requests an hour is the ceiling of 100 per 120 s, and each
+region reached 99% of it. The three regions do not share a budget, so crawling them at once
+triples the yield. 97% of the requests fetched a match, because a player's list of match IDs
+costs one request and yields 30 to 37 matches over 24 days.
+
+An hour of crawling one region therefore stores about 2,450 ranked matches, or 19,600 boards.
+The whole 24-day store was built in under two hours, so the sample is not the constraint.
+Freshness is: the crawl walks the ladder from the top and reached 174 of NA's 7,663 players,
+about 2%, so the last 24 hours hold only 1,400 boards. A daily crawl looks back one day instead
+of 24, which costs fewer match requests per player and reaches more players. That rate is not
+measured yet.
 
 ## The match payload
 
