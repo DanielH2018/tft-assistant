@@ -25,6 +25,8 @@ manual field is: data proposes, the user edits.
 |---|---|
 | A unit record in a match holds `character_id`, `tier` and `itemNames`, and nothing about position. | Positions come only from boards saved in the board editor. |
 | A participant record has no per-round data. | Stage plans and strong early boards are hand-written, with suggestions. |
+| A match payload names no patch. | A patch is a time window from the set's hand-kept calendar. |
+| A participant record carries Riot's own trait tally. | A comp from real boards shows that tally. The trait module serves boards a user builds. |
 | Riot enforces the rate limit per routing value. | Three regions crawl in parallel, each with 100 requests per 2 minutes. |
 | League endpoints route by platform (`na1`, `euw1`, `kr`). Match endpoints route by region (`americas`, `europe`, `asia`). | `riot.py` maps one to the other. |
 | A personal key is for a private project. Riot forbids public use of it and forbids showing augment win rates. | A deployment stays private, and it shows no augment win rates. |
@@ -51,10 +53,11 @@ Community Dragon ──► static data (units, traits, items, roles, icons)
 
 ## Selecting data
 
-A `Selection` names a set, patches, a time window, regions and a queue. It is the only way an
-analysis reads boards, so every number on a page comes from a stated selection.
+A `Selection` names a set, a time window, regions and a queue. It is the only way an analysis
+reads boards, so every number on a page comes from a stated selection. A patch resolves to a
+time window through the set's calendar, because a payload names no patch.
 
-- The store indexes each match by set, patch, start time, region and queue.
+- The store indexes each match by set, start time, region and queue.
 - A snapshot records its selection, its board count and the age of its newest match.
 - The build job produces a fixed list of selections: the live patch, its last 24 hours, its last
   3 days, and the previous patch. A switcher on the page moves between them.
@@ -151,8 +154,9 @@ selection, snapshot schema
 ```
 
 1. The core names no unit, trait, item or mechanic.
-2. A set is a directory: a set file that names the static-data source and lists the set's
-   mechanics, plus the hand-kept files.
+2. A set is a directory under `src/tft_assistant/data/sets/`: a set file that names the
+   static-data source, the ranked queue, the patch calendar and the set's mechanics, plus the
+   hand-kept files.
 3. A mechanic is a module behind one interface. It reads its own data file and the raw payload,
    and returns annotations, pane sections, condition kinds and suggestion signals.
 4. The detail pane renders sections generically, so a mechanic changes neither the snapshot
@@ -203,7 +207,7 @@ Each slice ends with something to use.
 | 4 | Edits and conditions: notes, stage plans, categories, augments and encounters, custom selections. | Putting an encounter in `reroll` and watching reroll comps move up. | |
 | 5 | Board editor: planner, early boards, default placement, unit suggestions, saved boards. | Building a stage 2 board from the suggestions. | |
 
-Slice 0's report answers: requests and matches per hour, whether the comps and item groups are
+[slice-0-findings.md](slice-0-findings.md) records what slice 0 has measured. Slice 0's report answers: requests and matches per hour, whether the comps and item groups are
 recognisable, the first-day sample size, which core threshold reads best, whether the flex
 packages match real play, which fields a real payload fills, how often the trait module
 disagrees with the payload's own trait tally, and where a set's static data comes from at

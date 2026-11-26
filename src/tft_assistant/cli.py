@@ -90,7 +90,10 @@ def main() -> None:
             )
             for report in reports:
                 print(report.line())
-        for summary in store.patches():
-            print(f"set {summary.set_number} patch {summary.patch}: {summary.matches} ranked matches")
+        for held in store.holdings():
+            print(
+                f"set {held.set_number} queue {held.queue_id}: {held.matches} matches,"
+                f" {held.first:%Y-%m-%d %H:%M} to {held.last:%Y-%m-%d %H:%M} UTC"
+            )
         for bucket, limits in sorted(client.limits_seen.items()):
             print(f"rate limit, {bucket}: {limits}")

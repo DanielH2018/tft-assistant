@@ -9,7 +9,9 @@ screen.
 
 ## Status
 
-Slice 0, the feasibility spike. The Riot client and the `probe` command exist.
+Slice 0, the feasibility spike. The crawl, the match store, the static-data join and the trait
+module exist. [docs/slice-0-findings.md](docs/slice-0-findings.md) records what the spike has
+measured.
 
 ## Run it
 
@@ -18,6 +20,7 @@ The client reads the key from the `RIOT_API_KEY` environment variable, or from
 
 ```sh
 uv run tft probe      # one ladder, one match: report the rate limits and payload fields
+uv run tft crawl      # store the matches of the NA, EUW and KR apex ladders
 uv run pytest
 ```
 

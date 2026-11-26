@@ -29,7 +29,7 @@ def test_crawl_fetches_a_match_two_players_share_once():
     report = crawl(client, store, "na1", since=0, budget_seconds=60)
 
     assert client.fetched == ["NA1_1", "NA1_2", "NA1_3"]
-    assert store.count(Selection(19)) == 3
+    assert store.count(Selection(19, 1100)) == 3
     assert (report.players_listed, report.matches_stored, report.requests, report.finished_ladder) == (2, 3, 8, True)
 
 
