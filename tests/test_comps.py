@@ -1,8 +1,10 @@
+import dataclasses
+
 import pytest
 from conftest import A_CORE, B_CORE
 
 from tft_assistant.boards import Board, BoardUnit
-from tft_assistant.comp_detail import CompTrait, ItemPick, build_notes, level_ups, tempo
+from tft_assistant.comp_detail import CompTrait, ItemPick, build_notes, level_ups, main_trait, tempo
 from tft_assistant.comps import find_comps
 
 
@@ -51,14 +53,43 @@ def test_tempo_gives_the_final_levels_and_the_units_usually_taken_to_three_stars
     assert comp_b.tempo.three_stars == ()
 
 
-def test_a_comps_style_is_the_cost_it_rerolls_for_or_else_the_level_it_usually_ends_at(report, planted_static):
+def test_a_comps_style_is_the_cost_it_rerolls_for_or_else_the_level_that_finds_its_carry(report, planted_static):
     comp_a, comp_b = report.comps
-    costly_three_star = [
-        Board("NA1_1", 4, 8, 30, (BoardUnit("Dummy", 3, ()), BoardUnit("A1", 2, ())), {}) for _ in range(10)
-    ]
+    costs = {"A1": 1, "A3": 4, "A4": 5}
+    static = dataclasses.replace(
+        planted_static,
+        units=planted_static.units
+        | {unit: dataclasses.replace(planted_static.units[unit], cost=cost) for unit, cost in costs.items()},
+    )
 
-    assert (comp_a.tempo.style, comp_b.tempo.style) == ("2-cost reroll", "Fast 9")
-    assert tempo(costly_three_star, planted_static).style == "Level 8"
+    def style(carry, *, level, three_star=()):
+        units = tuple(BoardUnit(unit, 3 if unit in three_star else 2, ()) for unit in ["A1", "A2", "A3", "A4", "Dummy"])
+        found = tempo([Board("NA1_1", 4, level, 30, units, {}) for _ in range(10)], carry, static)
+        return found.style, found.roll_level
+
+    assert (comp_a.tempo.style, comp_a.tempo.roll_level) == ("2-cost reroll", 6)
+    assert (comp_b.tempo.style, comp_b.tempo.roll_level) == ("Fast 9", 9)
+    assert style("A1", level=8, three_star=("A1", "A2")) == ("1-cost reroll", 5)
+    assert style("A3", level=9) == ("Level 8", 8)
+    assert style("A4", level=8, three_star=("Dummy",)) == ("Fast 9", 9)
+    assert style("A2", level=7) == ("Level 7", 7)
+
+
+def test_a_comp_is_named_for_its_largest_vertical_and_otherwise_for_a_trait_of_its_carry(planted_static):
+    small_but_full, vertical = CompTrait("T_B", 2, 2, 2, 1.0), CompTrait("T_A", 7, 3, 5, 1.0)
+    larger, carrys_own, one_tier = CompTrait("T_A", 3, 1, 4, 1.0), CompTrait("T", 2, 1, 3, 1.0), CompTrait("T_U", 3, 1, 1, 1.0)
+
+    assert main_trait([small_but_full, vertical], ("A1",), planted_static) == "T_A"
+    assert main_trait([one_tier, larger, carrys_own], ("A1",), planted_static) == "T"
+    assert main_trait([one_tier, larger], ("A1",), planted_static) == "T_A"
+    assert main_trait([one_tier], ("A1",), planted_static) is None
+
+
+def test_the_carry_trait_is_an_active_trait_the_carry_and_the_second_carry_both_have(report):
+    comp_a, comp_b = report.comps
+
+    assert (comp_a.carries, comp_a.carry_trait) == (("A1",), None)
+    assert (comp_b.carries, comp_b.carry_trait) == (("B1", "B3"), "T_C")
 
 
 def test_item_priority_orders_item_and_holder_pairs_and_compares_placement_with_and_without(report):

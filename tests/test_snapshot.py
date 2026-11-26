@@ -56,14 +56,22 @@ def test_a_comps_default_board_holds_its_core_and_commonest_flex_units_up_to_its
     assert len({(place["row"], place["column"]) for place in comp["board"]}) == 8
 
 
-def test_comps_that_would_share_a_name_are_told_apart_by_a_core_unit(planted_boards, planted_static):
+def names_when_both_comps_read_alpha_a1(boards, static, **b3):
     same_names = dataclasses.replace(
-        planted_static,
-        traits=planted_static.traits | {"T_B": dataclasses.replace(planted_static.traits["T_B"], name="Alpha")},
-        units=planted_static.units | {"B1": dataclasses.replace(planted_static.units["B1"], name="A1")},
+        static,
+        traits=static.traits | {"T_B": dataclasses.replace(static.traits["T_B"], name="Alpha")},
+        units=static.units
+        | {"B1": dataclasses.replace(static.units["B1"], name="A1"), "B3": dataclasses.replace(static.units["B3"], **b3)},
     )
+    return [comp["name"] for comp in built(boards, same_names)["comps"]]
 
-    names = [comp["name"] for comp in built(planted_boards, same_names)["comps"]]
+
+def test_comps_that_would_share_a_name_are_told_apart_by_the_trait_their_carries_share(planted_boards, planted_static):
+    assert names_when_both_comps_read_alpha_a1(planted_boards, planted_static) == ["Alpha A1", "Alpha Hunters"]
+
+
+def test_comps_whose_carries_share_no_active_trait_are_told_apart_by_a_core_unit(planted_boards, planted_static):
+    names = names_when_both_comps_read_alpha_a1(planted_boards, planted_static, traits=("T",))
 
     assert names == ["Alpha A1 · A2", "Alpha A1 · B2"]
 

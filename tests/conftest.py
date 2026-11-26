@@ -9,6 +9,7 @@ from tft_assistant.static_data import Item, StaticData, Trait, Unit
 
 A_CORE = [f"A{n}" for n in range(1, 7)]
 B_CORE = [f"B{n}" for n in range(1, 9)]
+B_CARRIES = ["B1", "B3"]
 FILLERS = [f"F{n}" for n in range(60)]
 
 
@@ -19,8 +20,14 @@ def planted_static():
             name: Unit(name, name, 2, ("T",), 1.0, None, f"https://icons.test/{name}.png")
             for name in [*A_CORE, *B_CORE, *FILLERS, "X1", "X2", "Y1", "Y2"]
         }
+        | {name: Unit(name, name, 2, ("T", "T_C"), 1.0, None, f"https://icons.test/{name}.png") for name in B_CARRIES}
         | {"Dummy": Unit("Dummy", "Target Dummy", 8, (), 0.0, None)},
-        traits={"T": Trait("T", "Trait", ()), "T_A": Trait("T_A", "Alpha", ()), "T_B": Trait("T_B", "Beta", ())},
+        traits={
+            "T": Trait("T", "Trait", ()),
+            "T_A": Trait("T_A", "Alpha", ()),
+            "T_B": Trait("T_B", "Beta", ()),
+            "T_C": Trait("T_C", "Hunter", ()),
+        },
         items={
             "Edge": Item("Edge", "Edge", ("Sword", "Glove"), None, None, False),
             "Whisper": Item("Whisper", "Whisper", ("Bow", "Glove"), None, None, False),
@@ -32,15 +39,16 @@ def planted_static():
     )
 
 
-def _board(units, placement, *, carry, items, trait="T_A", level=9, three_star=None, others=None):
+def _board(units, placement, *, carry, items, trait="T_A", level=9, three_star=None, others=None, carry_trait=None):
     builds = {carry: items, **(others or {})}
+    shared = {carry_trait: RiotTrait(2, 1, 3)} if carry_trait else {}
     return Board(
         "NA1_1",
         placement,
         level,
         34,
         tuple(BoardUnit(unit, 3 if unit == three_star else 2, tuple(builds.get(unit, ()))) for unit in units),
-        {trait: RiotTrait(6, 2, 3), "T_Unique": RiotTrait(1, 1, 1), "T_Inactive": RiotTrait(1, 0, 3)},
+        {trait: RiotTrait(6, 2, 3), "T_Unique": RiotTrait(1, 1, 1), "T_Inactive": RiotTrait(1, 0, 3), **shared},
     )
 
 
@@ -49,7 +57,8 @@ def planted_boards():
     """Comp A in two variants, comp B (80 boards), 20 boards of noise and 10 short boards.
 
     Comp A's 60 level-8 boards hold X1 and X2 and place 2nd; its 40 level-9 boards hold Y1 and Y2
-    and place 6th. Comp B itemises a carry (B1), a second carry (B3) and a tank (B2).
+    and place 6th. Comp B itemises a carry (B1), a second carry (B3) and a tank (B2), and its two
+    carries share a trait the comp has active (T_C).
     """
     rng = random.Random(7)
     filler = lambda: rng.choice(FILLERS)
@@ -60,6 +69,7 @@ def planted_boards():
         items=["Edge", "Whisper", "Plate"],
         others={"B3": ["Edge", "Whisper"], "B2": ["Stone", "Cape", "Plate"]},
         trait="T_B",
+        carry_trait="T_C",
     )
     return (
         [_board([*A_CORE, "X1", "X2", filler(), "Dummy"], 2, **x_variant) for _ in range(60)]

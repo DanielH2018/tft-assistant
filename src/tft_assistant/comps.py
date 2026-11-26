@@ -23,10 +23,12 @@ from tft_assistant.comp_detail import (
     TANK,
     KeyUnit,
     LevelUp,
+    carry_trait,
     components_to_take,
     item_priority,
     key_units,
     level_ups,
+    main_trait,
     tempo,
     typical_traits,
 )
@@ -57,6 +59,8 @@ class Comp:
     core: tuple[str, ...]
     carries: tuple[str, ...]
     main_trait: str | None
+    carry_trait: str | None
+    """A trait the carry and the second carry share, which names the comp when its main trait cannot."""
     boards: int
     share: float
     avg_placement: float
@@ -151,24 +155,21 @@ def _comp(members: list[Board], total: int, core_share: float, static: StaticDat
     key = key_units(members, static)
     carries = [unit.unit for unit in key if unit.role != TANK]
 
-    reached = Counter()
-    for board in members:
-        for name, trait in board.riot_traits.items():
-            if trait.tiers > 1:
-                reached[name] += trait.tier / trait.tiers
+    traits = typical_traits(members)
     placements = [board.placement for board in members]
     picks = item_priority(members, static)
     return Comp(
         tuple(core),
         tuple(carries),
-        reached.most_common(1)[0][0] if reached else None,
+        main_trait(traits, carries, static),
+        carry_trait(traits, carries, static),
         len(members),
         len(members) / total,
         float(np.mean(placements)),
         sum(1 for placement in placements if placement <= 4) / len(members),
         _packages(members, set(core), static),
-        typical_traits(members),
-        tempo(members, static),
+        traits,
+        tempo(members, carries[0] if carries else None, static),
         picks,
         components_to_take(picks, static),
         level_ups(members, static),

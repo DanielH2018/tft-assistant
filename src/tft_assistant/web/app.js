@@ -22,6 +22,12 @@ function itemIcon(id) {
 }
 const itemName = (id) => esc((snap().items[id] || { name: id }).name);
 
+// A reroll style names a unit cost, so it also says the level the comp rolls at.
+function styleHtml(comp) {
+  const level = comp.style.includes(String(comp.roll_level)) ? "" : ` <span class="note">Lv ${comp.roll_level}</span>`;
+  return `${esc(comp.style)}${level}`;
+}
+
 function matches(comp, words) {
   if (!words.length) return true;
   const units = [...comp.core, ...comp.packages.flatMap((p) => p.units)].map((id) => unitOf(id).name);
@@ -49,7 +55,7 @@ function renderList() {
       (comp) => `<li data-id="${comp.id}" class="comp-row ${comp.id === state.comp ? "selected" : ""}">
         <span class="tier t${comp.tier}">${comp.tier}</span>
         <span class="name">${esc(comp.name)}</span>
-        <span class="style">${esc(comp.style)}</span>
+        <span class="style">${styleHtml(comp)}</span>
         <span class="mini">${comp.core.map((id) => unitTile(id, "s")).join("")}</span>
         <span class="num">${comp.avg_placement.toFixed(2)}</span>
         <span class="num">${pct(comp.top4)}</span>
@@ -123,7 +129,7 @@ const SORTS = {
   avg: (a, b) => a.avg_placement - b.avg_placement,
   top4: (a, b) => b.top4 - a.top4,
   name: (a, b) => a.name.localeCompare(b.name),
-  style: (a, b) => a.style.localeCompare(b.style) || a.avg_placement - b.avg_placement,
+  style: (a, b) => a.roll_level - b.roll_level || a.style.localeCompare(b.style) || a.avg_placement - b.avg_placement,
 };
 const COLUMNS = [
   ["Tier", "avg"],
@@ -178,7 +184,7 @@ function renderDetail() {
     .join("");
   el("detail").innerHTML = `
     <header><h1><span class="tier t${comp.tier}">${comp.tier}</span>${esc(comp.name)}</h1>
-      <p class="stats"><b>${esc(comp.style)}</b> · avg <b>${comp.avg_placement.toFixed(2)}</b> · top 4 <b>${pct(comp.top4)}</b> · play <b>${(comp.share * 100).toFixed(1)}%</b> · ${comp.boards.toLocaleString()} boards</p></header>
+      <p class="stats"><b>${styleHtml(comp)}</b> · avg <b>${comp.avg_placement.toFixed(2)}</b> · top 4 <b>${pct(comp.top4)}</b> · play <b>${(comp.share * 100).toFixed(1)}%</b> · ${comp.boards.toLocaleString()} boards</p></header>
     <section><h2>Core</h2><div class="row">${comp.core.map((id) => unitTile(id, "l", { traits: true, threeStar: threeStar(id) })).join("")}</div></section>
     <section><h2>Flex</h2><div class="row">${packages || `<span class="note">no regular flex units</span>`}</div></section>
     <section><h2>Level up</h2><div>${levelUps || `<span class="note">no level above the usual one has enough boards</span>`}
