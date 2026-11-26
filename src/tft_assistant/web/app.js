@@ -285,8 +285,8 @@ function detailHtml(comp) {
     .map(
       (up) => `<div class="level-up">
         <b title="${pct(up.share)} of boards, avg ${up.avg_placement.toFixed(2)}">Level ${up.level}</b>
-        ${up.adds.length ? `<div><div class="note">comes in</div><div class="row">${up.adds.map(shift).join("")}</div></div>` : ""}
-        ${up.drops.length ? `<div><div class="note">goes out</div><div class="row">${up.drops.map(shift).join("")}</div></div>` : ""}
+        ${up.adds.length ? `<div class="row">${up.adds.map(shift).join("")}</div>` : ""}
+        ${up.drops.length ? `<div class="out"><span class="note">goes out</span><div class="row">${up.drops.map(shift).join("")}</div></div>` : ""}
       </div>`,
     )
     .join("");
