@@ -88,6 +88,15 @@ class Store:
         with self._lock, self._db:
             self._db.execute("INSERT OR IGNORE INTO matches VALUES (?, ?, ?, ?, ?, ?)", row)
 
+    def prune(self, before: datetime) -> int:
+        """Delete every match that started before a moment, and return how many went.
+
+        The file keeps its size: SQLite reuses the freed pages for later matches, so a store
+        pruned on a schedule stops growing without being rewritten.
+        """
+        with self._lock, self._db:
+            return self._db.execute("DELETE FROM matches WHERE started_at < ?", [before.timestamp()]).rowcount
+
     def missing(self, match_ids: Iterable[str]) -> list[str]:
         """The given IDs that the store does not hold, in the given order."""
         ids = list(match_ids)

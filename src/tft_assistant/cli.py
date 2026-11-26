@@ -6,7 +6,7 @@ import time
 from collections import Counter
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -183,10 +183,13 @@ def main() -> None:
     built.add_argument("--out", type=Path, default=Path("site"), help="directory that receives index.html")
     commands.add_parser("crawl", parents=[crawled], help="store the matches of each platform's apex ladder")
     commands.add_parser("build", parents=[built], help="analyse the standing selections and write the page")
-    commands.add_parser(
+    refresh_args = commands.add_parser(
         "refresh",
         parents=[crawled, built],
         help="build the page, then crawl and build again every --minutes, until stopped",
+    )
+    refresh_args.add_argument(
+        "--keep-days", type=float, default=30.0, help="after each crawl, delete matches that started longer ago"
     )
     selected = argparse.ArgumentParser(add_help=False)
     selected.add_argument("--set", type=int, dest="set_number", default=latest_set_number())
@@ -209,11 +212,15 @@ def main() -> None:
         crawl_platforms(RiotClient(load_key()), Store(), args.platforms, args.days_back, args.minutes)
     elif args.command == "refresh":
         client, store = RiotClient(load_key()), Store()
-        refresh(
-            lambda: crawl_platforms(client, store, args.platforms, args.days_back, args.minutes),
-            lambda: build_page(store, args.set_number, args.out),
-            cycle_seconds=args.minutes * 60,
-        )
+        # A match the crawl still looks back for is never pruned, or each cycle would fetch it again.
+        keep_days = max(args.keep_days, args.days_back)
+
+        def crawl_and_prune() -> None:
+            crawl_platforms(client, store, args.platforms, args.days_back, args.minutes)
+            gone = store.prune(datetime.now(UTC) - timedelta(days=keep_days))
+            print(f"pruned {gone} matches that started more than {keep_days:g} days ago")
+
+        refresh(crawl_and_prune, lambda: build_page(store, args.set_number, args.out), cycle_seconds=args.minutes * 60)
     elif args.command in ("comps", "item-groups"):
         game_set = GameSet.load(args.set_number)
         selection = game_set.selection(

@@ -31,6 +31,8 @@ uv run pytest
 
 `tft refresh` is the unattended run. It builds the page from the matches the store holds, then
 crawls and builds again once a cycle. A cycle lasts `--minutes`, an hour unless told otherwise.
+After each crawl it deletes matches that started more than `--keep-days` ago, 30 unless told
+otherwise, so the store stops growing.
 
 The image runs it. CI builds and proves the image on every commit, and publishes
 `ghcr.io/danielh2018/tft-assistant` when a version tag such as `v0.2.0` is pushed, tagged

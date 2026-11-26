@@ -64,6 +64,15 @@ server reads the page from the same directory. A crawl that fails ends the run, 
 restarts it shows the failure. The page that was built last stays up meanwhile, and its footer
 states the age of its newest match.
 
+Two bounds keep a run that never stops inside a fixed budget:
+
+- **Memory.** A build holds every board of a selection in memory, so a selection is analysed
+  from its newest 20,000 matches at most (`cli.MAX_MATCHES`). The snapshot's label and its
+  recorded window say so when the cap applies.
+- **Disk.** After each crawl the run deletes matches that started more than `--keep-days` ago,
+  30 unless told otherwise. That covers the live patch and the one before it. SQLite reuses
+  the freed pages, so the store's file stops growing.
+
 CI builds and proves the image on every commit and publishes it when a version tag is pushed.
 A deployment follows releases, so it moves when a release is cut and not on every merge. A
 set's patch calendar is part of the image, so a new patch reaches a deployment as a release.
