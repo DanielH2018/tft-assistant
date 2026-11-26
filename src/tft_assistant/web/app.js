@@ -96,6 +96,16 @@ function delta(value, baseline) {
   return `<span class="${tone}">${value.toFixed(2)}</span>`;
 }
 
+// How much better or worse boards with an item place than boards without it. A lower placement
+// is better, so a negative gap is the good one.
+function placementGap(withIt, withoutIt) {
+  if (withoutIt === null) return `<span title="Every board has it; they average ${withIt.toFixed(2)}">always built</span>`;
+  const gap = withIt - withoutIt;
+  const tone = gap <= -0.05 ? "good" : gap >= 0.05 ? "bad" : "";
+  const sign = gap <= -0.005 ? "−" : gap >= 0.005 ? "+" : "";
+  return `<span title="Average placement ${withIt.toFixed(2)} with it, ${withoutIt.toFixed(2)} without">avg <span class="${tone}">${sign}${Math.abs(gap).toFixed(2)}</span></span>`;
+}
+
 function boardHtml(comp) {
   const at = Object.fromEntries(comp.board.map((place) => [`${place.row},${place.column}`, place.unit]));
   const lines = [0, 1, 2, 3].map((row) => {
@@ -324,7 +334,7 @@ function detailHtml(comp) {
     .map(
       (pick, index) => `<tr><td class="rank">${index + 1}</td><td>${itemIcon(pick.item)} ${itemName(pick.item)}</td>
         <td>→ ${esc(unitOf(pick.holder).name)}</td><td>${pct(pick.share)}</td>
-        <td class="note">avg ${delta(pick.avg_with, comp.avg_placement)} with${pick.avg_without === null ? "" : `, ${pick.avg_without.toFixed(2)} without`}</td></tr>`,
+        <td class="note">${placementGap(pick.avg_with, pick.avg_without)}</td></tr>`,
     )
     .join("");
   const spare = comp.spare
