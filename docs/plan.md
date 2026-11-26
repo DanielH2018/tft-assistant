@@ -30,8 +30,30 @@ manual field is: data proposes, the user edits.
 | Riot enforces the rate limit per routing value. | Three regions crawl in parallel, each with 100 requests per 2 minutes. |
 | League endpoints route by platform (`na1`, `euw1`, `kr`). Match endpoints route by region (`americas`, `europe`, `asia`). | `riot.py` maps one to the other. |
 | A personal key is for a private project. Riot forbids public use of it and forbids showing augment win rates. | A deployment stays private, and it shows no augment win rates. |
-| No source records unlock conditions. | A hand-kept file per set holds them. |
+| No source records unlock conditions for Set 18. | A hand-kept file per set holds them. See *Data Dragon from Set 19.1* for what replaces it. |
 | A set lasts about four months and replaces the roster and at least one mechanic. | See *Built to take a new set*. |
+
+### Data Dragon from Set 19.1
+
+Riot's [developer page](https://developer.riotgames.com/docs/tft#data-dragon) announces a
+Data Dragon export from a different pipeline, starting with 19.1 on 2026-12-01. The tool reads
+Community Dragon, and the page says nothing about it. Read on 2026-11-26, the page lists these
+changes that bear on the plan:
+
+- **Unlock conditions are in the export.** They lose `traitId`, `traitName`, `traits`,
+  `requiredContributionCount` and `requiredTotalStarLevels`. Check the export before seeding
+  the Set 19 unlock file by hand: it may fill the file, or replace it.
+- **Encounter data is added**, in `tft-encounters.json`. The augment and encounter categories
+  of a later slice can start from it.
+- **Identifiers change shape.** The page's example is `TFT16_Ahri` becoming `DA_19_Ahri`. No
+  code here names a set's prefix, but the first Set 19 crawl is the check that a match's
+  `character_id` still joins to the static data's unit ids.
+- **Description markup changes.** The deferred unit and trait descriptions (*Hover cards*)
+  were blocked on Community Dragon's calculated values. Read the 19.1 export before resuming.
+- **Champion square icons are added**, and the sprite sheets are removed.
+
+The page states that further, smaller changes may follow. None of it is verified against a
+19.1 export, which does not exist before 2026-12-01.
 
 ## Pipeline
 
