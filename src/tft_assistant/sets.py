@@ -16,6 +16,10 @@ from tft_assistant.store import Selection
 SETS_DIR = Path(__file__).parent / "data" / "sets"
 
 
+def latest_set_number(sets_dir: Path = SETS_DIR) -> int:
+    return max(int(entry.name) for entry in sets_dir.iterdir() if entry.is_dir())
+
+
 @dataclass(frozen=True)
 class Patch:
     name: str

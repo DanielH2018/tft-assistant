@@ -14,14 +14,22 @@ class BoardUnit:
 
 
 @dataclass(frozen=True)
+class RiotTrait:
+    """One line of Riot's own trait tally for a board, which is exact where static data is not."""
+
+    units: int
+    tier: int
+    tiers: int
+
+
+@dataclass(frozen=True)
 class Board:
     match_id: str
     placement: int
     level: int
     last_round: int
     units: tuple[BoardUnit, ...]
-    riot_trait_counts: dict[str, int]
-    """Riot's own count of units per trait, the oracle the trait module is checked against."""
+    riot_traits: dict[str, RiotTrait]
 
 
 def boards(match: dict[str, Any]) -> list[Board]:
@@ -35,7 +43,10 @@ def boards(match: dict[str, Any]) -> list[Board]:
                 BoardUnit(unit["character_id"], unit["tier"], tuple(unit.get("itemNames") or ()))
                 for unit in participant["units"]
             ),
-            {trait["name"]: trait["num_units"] for trait in participant["traits"]},
+            {
+                trait["name"]: RiotTrait(trait["num_units"], trait["tier_current"], trait["tier_total"])
+                for trait in participant["traits"]
+            },
         )
         for participant in match["info"]["participants"]
     ]

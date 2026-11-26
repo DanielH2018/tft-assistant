@@ -6,10 +6,15 @@ import time
 from collections import Counter
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
 from typing import Any
 
+from tft_assistant.boards import boards
+from tft_assistant.comps import CompReport, find_comps
 from tft_assistant.crawl import crawl
 from tft_assistant.riot import REGION_OF_PLATFORM, RiotClient, load_key
+from tft_assistant.sets import GameSet, latest_set_number
+from tft_assistant.static_data import StaticData, document
 from tft_assistant.store import Store
 
 _MECHANIC_FIELD = re.compile(r"encounter|portal|unlock|augment", re.IGNORECASE)
@@ -66,6 +71,29 @@ def probe(client: RiotClient, platform: str) -> list[str]:
     return lines
 
 
+def _moment(text: str) -> datetime:
+    moment = datetime.fromisoformat(text)
+    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)
+
+
+def comp_lines(report: CompReport, static: StaticData, top: int) -> list[str]:
+    def names(units: tuple[str, ...]) -> str:
+        return ", ".join(static.units[unit].name for unit in units)
+
+    lines = [f"{report.boards} boards, {len(report.comps)} comps, {report.unclassified:.1%} unclassified"]
+    for comp in report.comps[:top]:
+        trait = static.traits[comp.main_trait].name if comp.main_trait in static.traits else "?"
+        lines.append(
+            f"{comp.share:5.1%}  avg {comp.avg_placement:.2f}  top4 {comp.top4:.0%}"
+            f"  {trait} / {names(comp.carries) or '?'}  core: {names(comp.core)}"
+        )
+        lines += [
+            f"        flex {package.share:4.0%}  avg {package.avg_placement:.2f}  {names(package.units)}"
+            for package in comp.packages
+        ]
+    return lines
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="tft")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -75,9 +103,24 @@ def main() -> None:
     crawl_args.add_argument("--platform", action="append", choices=sorted(REGION_OF_PLATFORM), dest="platforms")
     crawl_args.add_argument("--days-back", type=float, default=2.0, help="how far back a match may have started")
     crawl_args.add_argument("--minutes", type=float, default=60.0, help="time budget per platform")
+    comps_args = commands.add_parser("comps", help="derive comps from the stored ranked boards of a selection")
+    comps_args.add_argument("--set", type=int, dest="set_number", default=latest_set_number())
+    comps_args.add_argument("--patch", help="a patch from the set's calendar, such as 18.7")
+    comps_args.add_argument("--since", type=_moment, help="ISO date or time, UTC unless it carries an offset")
+    comps_args.add_argument("--until", type=_moment)
+    comps_args.add_argument("--platform", action="append", choices=sorted(REGION_OF_PLATFORM), dest="platforms")
+    comps_args.add_argument("--top", type=int, default=25, help="how many comps to print")
     args = parser.parse_args()
 
-    if args.command == "probe":
+    if args.command == "comps":
+        game_set = GameSet.load(args.set_number)
+        selection = game_set.selection(
+            patch=args.patch, since=args.since, until=args.until, platforms=tuple(args.platforms or ())
+        )
+        static = StaticData.from_document(document(), game_set.static_data)
+        found = [board for match in Store().matches(selection) for board in boards(match)]
+        print("\n".join(comp_lines(find_comps(found, static), static, args.top)))
+    elif args.command == "probe":
         print("\n".join(probe(RiotClient(load_key()), args.platform)))
     elif args.command == "crawl":
         client, store = RiotClient(load_key()), Store()
