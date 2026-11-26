@@ -92,6 +92,19 @@ def comp_lines(report: CompReport, static: StaticData, top: int) -> list[str]:
             f"        flex {package.share:4.0%}  avg {package.avg_placement:.2f}  {names(package.units)}"
             for package in comp.packages
         ]
+        lines.append(
+            "        traits  "
+            + " · ".join(f"{t.units} {static.traits[t.name].name if t.name in static.traits else t.name}" for t in comp.traits)
+        )
+        levels = " ".join(f"L{level} {share:.0%}" for level, share in comp.tempo.levels if share >= 0.05)
+        lines.append(f"        tempo   {levels}" + (f" · 3-star: {names(comp.tempo.three_stars)}" if comp.tempo.three_stars else ""))
+        for pick in comp.item_priority:
+            without = f"{pick.avg_without:.2f}" if pick.avg_without is not None else "n/a"
+            lines.append(
+                f"        item {pick.share:4.0%}  {static.items[pick.item].name} → {static.units[pick.holder].name}"
+                f"  (avg {pick.avg_with:.2f} with, {without} without)"
+            )
+        lines.append("        take    " + ", ".join(static.items[c].name if c in static.items else c for c in comp.take))
     return lines
 
 

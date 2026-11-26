@@ -28,16 +28,6 @@ class ItemGroup:
     """Cheapest first."""
 
 
-def _build(items: Sequence[str], static: StaticData) -> set[str]:
-    """The finished items of one unit that say how it is built: no emblem, no loose component."""
-    build = set()
-    for name in items:
-        item = static.items.get(name)
-        if item and not item.emblem_of and not item.is_component:
-            build.add(item.radiant_of or name)
-    return build
-
-
 def find_item_groups(
     boards: Sequence[Board],
     static: StaticData,
@@ -54,7 +44,7 @@ def find_item_groups(
     builds: Counter[str] = Counter()
     for board in boards:
         for unit in board.units:
-            build = _build(unit.items, static)
+            build = static.finished_items(unit.items)
             if len(build) >= 2 and unit.character_id in static.units:
                 builds[unit.character_id] += 1
                 held[unit.character_id].update(build)

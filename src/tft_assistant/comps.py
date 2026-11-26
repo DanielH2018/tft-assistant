@@ -16,6 +16,15 @@ import numpy as np
 from sklearn.cluster import HDBSCAN
 
 from tft_assistant.boards import Board
+from tft_assistant.comp_detail import (
+    CompTrait,
+    ItemPick,
+    Tempo,
+    components_to_take,
+    item_priority,
+    tempo,
+    typical_traits,
+)
 from tft_assistant.static_data import StaticData
 
 MIN_UNITS = 7
@@ -48,6 +57,11 @@ class Comp:
     avg_placement: float
     top4: float
     packages: tuple[FlexPackage, ...]
+    traits: tuple[CompTrait, ...]
+    tempo: Tempo
+    item_priority: tuple[ItemPick, ...]
+    take: tuple[str, ...]
+    """The components to take first, from the item priority."""
 
 
 @dataclass(frozen=True)
@@ -140,6 +154,7 @@ def _comp(members: list[Board], total: int, core_share: float, static: StaticDat
             if trait.tiers > 1:
                 reached[name] += trait.tier / trait.tiers
     placements = [board.placement for board in members]
+    picks = item_priority(members, static)
     return Comp(
         tuple(core),
         tuple(carries),
@@ -149,6 +164,10 @@ def _comp(members: list[Board], total: int, core_share: float, static: StaticDat
         float(np.mean(placements)),
         sum(1 for placement in placements if placement <= 4) / len(members),
         _packages(members, set(core), static),
+        typical_traits(members),
+        tempo(members, static),
+        picks,
+        components_to_take(picks, static),
     )
 
 
