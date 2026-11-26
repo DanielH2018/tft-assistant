@@ -12,7 +12,7 @@ import sqlite3
 import threading
 import zlib
 from collections.abc import Iterable, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -111,6 +111,22 @@ class Store:
             rows = self._db.execute(f"SELECT payload FROM matches WHERE {where} ORDER BY started_at", values).fetchall()
         for (payload,) in rows:
             yield json.loads(zlib.decompress(payload))
+
+    def capped(self, selection: Selection, limit: int) -> Selection:
+        """A selection narrowed to its `limit` newest matches, or itself when it holds no more than that.
+
+        The narrowed selection starts where its `limit`-th newest match started, so it says in its
+        own terms which matches an analysis read.
+        """
+        where, values = selection._where()
+        with self._lock:
+            rows = self._db.execute(
+                f"SELECT started_at FROM matches WHERE {where} ORDER BY started_at DESC LIMIT 2 OFFSET ?",
+                [*values, limit - 1],
+            ).fetchall()
+        if len(rows) < 2:
+            return selection
+        return replace(selection, since=datetime.fromtimestamp(rows[0][0], UTC))
 
     def newest(self, selection: Selection) -> datetime | None:
         """When the latest match of a selection started, or None when it holds no match."""

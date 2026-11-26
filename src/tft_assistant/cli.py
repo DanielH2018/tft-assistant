@@ -25,6 +25,14 @@ from tft_assistant.store import Store
 MIN_BOARDS = 1000
 """A selection with fewer boards gets no snapshot: clustering that few finds noise, not comps."""
 
+MAX_MATCHES = 20_000
+"""A selection with more matches is analysed from its newest 20,000, about 160,000 boards.
+
+An unattended store grows by tens of thousands of matches a day, and a build holds every board
+of a selection in memory: 13,600 matches took 790 MB on 2026-11-26. The cap keeps a build near
+1 GB however long the store has run.
+"""
+
 _MECHANIC_FIELD = re.compile(r"encounter|portal|unlock|augment", re.IGNORECASE)
 _PLAYER_FIELDS = {"puuid", "riotIdGameName", "riotIdTagline", "participants"}
 
@@ -120,12 +128,19 @@ def build_page(store: Store, set_number: int, out: Path) -> None:
     """Analyse each standing selection of a set that has enough boards, and write the page."""
     game_set = GameSet.load(set_number)
     static = game_set.roster()
-    now, snapshots = datetime.now(UTC), []
-    for label, selection in game_set.standing_selections(now):
+    now, snapshots, built = datetime.now(UTC), [], {}
+    for label, standing in game_set.standing_selections(now):
+        selection = store.capped(standing, MAX_MATCHES)
+        if selection is not standing:
+            label += f", newest {MAX_MATCHES:,} matches"
+        if selection in built:
+            print(f"skipped {label}: the same matches as {built[selection]}")
+            continue
         found = [board for match in store.matches(selection) for board in boards(match)]
         if len(found) < MIN_BOARDS:
             print(f"skipped {label}: {len(found)} boards, and a snapshot needs {MIN_BOARDS}")
             continue
+        built[selection] = label
         snapshots.append(
             build_snapshot(label, selection, found, static, built_at=now, newest_match=store.newest(selection))
         )
