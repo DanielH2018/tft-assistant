@@ -161,6 +161,17 @@ a unit whose share rises by 15 points comes in, and one whose share falls by 15 
 is reported once 20 boards and 5% of the comp end there. The placement at a higher level is
 better partly because only a winning player reaches it.
 
+### Least-used components
+
+The Items section ends with the two components a comp uses least and where its boards put
+them: the (item, holder) pairs built with each on 5% of the comp's boards, most common first. A
+comp that uses few Rods shows Crownguard on its tank. A component's use is counted over the
+recipes of every finished item on the comp's boards.
+
+A share threshold for "unwanted" was tried and dropped. A comp's finished boards use every
+component, at shares between 6% and 25% on patch 18.7, so half the even share marked nothing in
+any of 26 comps.
+
 ### Comp style
 
 A comp's style is the name players give its tempo, and it comes from what the comp rolls for.

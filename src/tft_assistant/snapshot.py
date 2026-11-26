@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any
 
 from tft_assistant.boards import Board
+from tft_assistant.comp_detail import ItemPick
 from tft_assistant.comps import Comp, find_comps
 from tft_assistant.item_groups import find_item_groups
 from tft_assistant.positioning import default_board
@@ -80,6 +81,16 @@ def _names(comps: Sequence[Comp], static: StaticData) -> list[str]:
     return names
 
 
+def _pick(pick: ItemPick) -> dict[str, Any]:
+    return {
+        "item": pick.item,
+        "holder": pick.holder,
+        "share": pick.share,
+        "avg_with": pick.avg_with,
+        "avg_without": pick.avg_without,
+    }
+
+
 def _comp(comp: Comp, name: str, static: StaticData) -> dict[str, Any]:
     board = default_board(_board_units(comp), comp.carries, static)
     return {
@@ -128,17 +139,12 @@ def _comp(comp: Comp, name: str, static: StaticData) -> dict[str, Any]:
         "three_stars": list(comp.tempo.three_stars),
         "style": comp.tempo.style,
         "roll_level": comp.tempo.roll_level,
-        "items": [
-            {
-                "item": pick.item,
-                "holder": pick.holder,
-                "share": pick.share,
-                "avg_with": pick.avg_with,
-                "avg_without": pick.avg_without,
-            }
-            for pick in comp.item_priority
-        ],
+        "items": [_pick(pick) for pick in comp.item_priority],
         "take": list(comp.take),
+        "spare": [
+            {"component": spare.component, "share": spare.share, "uses": [_pick(pick) for pick in spare.uses]}
+            for spare in comp.spare
+        ],
         "level_ups": [
             {
                 "level": up.level,
@@ -171,11 +177,14 @@ def build_snapshot(
 
     units = {unit for comp in comps for unit in [*comp["core"], *comp["three_stars"]]}
     units |= {unit for comp in comps for slot in comp["flex"] for package in slot for unit in package["units"]}
+    spare_uses = [pick for comp in comps for spare in comp["spare"] for pick in spare["uses"]]
     units |= {pick["holder"] for comp in comps for pick in comp["items"]} | {u for g in groups for u in g.units}
+    units |= {pick["holder"] for pick in spare_uses}
     units |= {s["unit"] for comp in comps for up in comp["level_ups"] for s in [*up["adds"], *up["drops"]]}
     units |= {key["unit"] for comp in comps for key in comp["key_units"]}
     items = {pick["item"] for comp in comps for pick in comp["items"]} | {i for g in groups for i in g.items}
     items |= {item for comp in comps for item in comp["take"]}
+    items |= {pick["item"] for pick in spare_uses} | {spare["component"] for comp in comps for spare in comp["spare"]}
     items |= {note["item"] for comp in comps for key in comp["key_units"] for note in key["build"]}
     traits = {trait["trait"] for comp in comps for trait in comp["traits"]}
     traits |= {trait for unit in units for trait in static.units[unit].traits}

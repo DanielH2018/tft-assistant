@@ -248,6 +248,16 @@ function detailHtml(comp) {
         <td class="note">avg ${delta(pick.avg_with, comp.avg_placement)} with${pick.avg_without === null ? "" : `, ${pick.avg_without.toFixed(2)} without`}</td></tr>`,
     )
     .join("");
+  const spare = comp.spare
+    .map(
+      (found) => `<div class="row">${itemIcon(found.component)}<span class="joint">→</span>${found.uses
+        .map(
+          (use) =>
+            `<span class="use" title="${itemName(use.item)}: on ${pct(use.share)} of boards, avg ${use.avg_with.toFixed(2)}">${itemIcon(use.item)} ${itemName(use.item)} on ${esc(unitOf(use.holder).name)} <span class="note">${pct(use.share)}</span></span>`,
+        )
+        .join("")}</div>`,
+    )
+    .join("");
   return `<div id="sheet">
     <header><h1><span class="tier t${comp.tier}">${comp.tier}</span>${esc(comp.name)}</h1>
       <p class="stats"><b>${esc(comp.style)}</b> · avg <b>${comp.avg_placement.toFixed(2)}</b> · top 4 <b>${pct(comp.top4)}</b> · play <b>${(comp.share * 100).toFixed(1)}%</b> · ${comp.boards.toLocaleString()} boards</p></header>
@@ -260,7 +270,8 @@ function detailHtml(comp) {
     <div class="band">
       <section><h2>Items</h2><div><div class="row take"><span class="note">components to take first</span>${comp.take.map(itemIcon).join("")}</div>
         <table class="items">${items}</table>
-        <div class="note">Placements beside an item are correlations, not effects.</div></div></section>
+        <div class="note">Placements beside an item are correlations, not effects.</div>
+        ${spare ? `<div class="spare"><div class="note">the components it uses least go into</div>${spare}</div>` : ""}</div></section>
       <section><h2>Positioning</h2>${boardHtml(comp)}</section>
     </div></div>`;
 }
