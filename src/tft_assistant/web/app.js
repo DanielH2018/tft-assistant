@@ -275,7 +275,7 @@ function detailHtml(comp) {
   const threeStar = (id) => comp.three_stars.includes(id);
   const picked = pickedFlex(comp);
   const packageHtml = (p, key) => `<div class="package ${picked.has(key) ? "picked" : ""}" data-flex="${key}">${p.units.map((id) => unitTile(id, "m", { threeStar: threeStar(id) })).join("")}
-        <div class="figures"><b>${pct(p.share)}</b> of boards<br>avg ${delta(p.avg_placement, comp.avg_placement)}</div></div>`;
+        <div class="figures" ${tipOf(`On ${pct(p.share)} of boards. Those boards place ${p.avg_placement.toFixed(2)} on average.`)}><b>${pct(p.share)}</b><br>${delta(p.avg_placement, comp.avg_placement)}</div></div>`;
   const cost = (p) => Math.max(...p.units.map((id) => unitOf(id).cost));
   const slotHtml = (options, slot) =>
     options
