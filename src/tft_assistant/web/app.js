@@ -209,7 +209,7 @@ function renderDetail() {
   showTip(null);
   const comp = snap().comps.find((candidate) => candidate.id === state.comp);
   if (!comp) {
-    el("detail").innerHTML = `<p class="empty">No comp matches.</p>`;
+    el("detail").innerHTML = `<p class="empty">${MAXIMIZE} No comp matches.</p>`;
     return;
   }
   el("detail").innerHTML = detailHtml(comp);
@@ -345,7 +345,7 @@ function detailHtml(comp) {
     )
     .join("");
   return `<div id="sheet">
-    <header><div class="title"><h1><span class="tier t${comp.tier}">${comp.tier}</span>${esc(comp.name)}</h1>
+    <header><div class="title">${MAXIMIZE}<h1><span class="tier t${comp.tier}">${comp.tier}</span>${esc(comp.name)}</h1>
       <button id="copy-team" data-tip="${esc(teamCode(comp))}">Copy team code</button><span class="note">${teamNote}: core and picked flex</span></div>
       <p class="stats"><b>${esc(comp.style)}</b> · avg <b>${comp.avg_placement.toFixed(2)}</b> · top 4 <b>${pct(comp.top4)}</b> · win <b>${pct(comp.win_rate)}</b> · play <b>${(comp.share * 100).toFixed(1)}%</b> · ${comp.boards.toLocaleString()} boards</p></header>
     <div class="flow">
@@ -398,29 +398,48 @@ function move(step) {
   }
 }
 
+// The list's width is a number of pixels, or "" for the width the stylesheet gives it. At 0 the
+// comp page is maximized: it has the whole window. The browser keeps the width, and the width to
+// go back to from maximized. The body's `maximized` class follows the width however it was set,
+// so the button in the comp page's corner reads the same after a click and after a drag.
 const LIST_WIDTH = "tft-assistant.list-width";
+const LIST_RESTORE = "tft-assistant.list-restore";
 const NARROWEST_LIST = 260;
 const NARROWEST_DETAIL = 640;
-const setListWidth = (pixels) => document.body.style.setProperty("--list-width", `${pixels}px`);
-if (localStorage.getItem(LIST_WIDTH)) setListWidth(localStorage.getItem(LIST_WIDTH));
+const storedWidth = (key) => (localStorage.getItem(key) ? Number(localStorage.getItem(key)) : "");
+function setListWidth(width) {
+  if (width === "") document.body.style.removeProperty("--list-width");
+  else document.body.style.setProperty("--list-width", `${width}px`);
+  localStorage.setItem(LIST_WIDTH, width);
+  document.body.classList.toggle("maximized", width === 0);
+  fitWidth();
+}
+function maximize(from) {
+  if (from !== 0) localStorage.setItem(LIST_RESTORE, from);
+  setListWidth(0);
+}
+const MAXIMIZE = `<button id="maximize">
+  <span class="grow" data-tip="Give the comp page the whole window"><svg viewBox="0 0 16 16"><path d="M9.5 2H14v4.5M14 2 9 7M6.5 14H2V9.5M2 14l5-5"/></svg></span>
+  <span class="shrink" data-tip="Bring the list back"><svg viewBox="0 0 16 16"><path d="M13.5 7H9V2.5M9 7l5-5M2.5 9H7v4.5M7 9l-5 5"/></svg></span>
+</button>`;
+setListWidth(storedWidth(LIST_WIDTH));
 addEventListener("resize", fitWidth);
+
+// A drag that passes the middle of the narrowest list maximizes the comp page, and a drag back
+// past it brings the list back. `draggedFrom` is the width to restore after such a drag.
+let draggedFrom = "";
 el("divider").addEventListener("pointerdown", (event) => {
   event.target.setPointerCapture(event.pointerId);
+  draggedFrom = storedWidth(LIST_WIDTH);
   document.body.classList.add("resizing");
 });
 el("divider").addEventListener("pointermove", (event) => {
   if (!document.body.classList.contains("resizing")) return;
-  const width = Math.round(Math.min(Math.max(event.clientX, NARROWEST_LIST), innerWidth - NARROWEST_DETAIL));
-  setListWidth(width);
-  localStorage.setItem(LIST_WIDTH, width);
-  fitWidth();
+  if (event.clientX < NARROWEST_LIST / 2) maximize(draggedFrom);
+  else setListWidth(Math.round(Math.min(Math.max(event.clientX, NARROWEST_LIST), innerWidth - NARROWEST_DETAIL)));
 });
 el("divider").addEventListener("pointerup", () => document.body.classList.remove("resizing"));
-el("divider").addEventListener("dblclick", () => {
-  document.body.style.removeProperty("--list-width");
-  localStorage.removeItem(LIST_WIDTH);
-  fitWidth();
-});
+el("divider").addEventListener("dblclick", () => setListWidth(""));
 
 const HIDE_NAMES = "tft-assistant.hide-names";
 const showNames = (shown) => {
@@ -474,6 +493,11 @@ document.addEventListener("scroll", () => showTip(null), true);
 document.documentElement.addEventListener("mouseleave", () => showTip(null));
 
 el("detail").addEventListener("click", (event) => {
+  if (event.target.closest("#maximize")) {
+    if (document.body.classList.contains("maximized")) setListWidth(storedWidth(LIST_RESTORE));
+    else maximize(storedWidth(LIST_WIDTH));
+    return;
+  }
   const comp = snap().comps.find((candidate) => candidate.id === state.comp);
   if (!comp || event.target.closest(".info")) return;
   const flex = event.target.closest("[data-flex]");
