@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Any
 
 from tft_assistant.boards import Board
-from tft_assistant.comp_detail import ItemPick
+from tft_assistant.comp_detail import ItemPick, Swap
 from tft_assistant.comps import Comp, find_comps
 from tft_assistant.item_groups import find_item_groups
 from tft_assistant.positioning import default_board
@@ -91,6 +91,10 @@ def _pick(pick: ItemPick) -> dict[str, Any]:
     }
 
 
+def _swap(swap: Swap) -> dict[str, Any]:
+    return {"unit": swap.unit, "share_with": swap.share_with, "share_without": swap.share_without}
+
+
 def _comp(comp: Comp, name: str, static: StaticData) -> dict[str, Any]:
     board = default_board(_board_units(comp), comp.carries, static)
     return {
@@ -145,6 +149,20 @@ def _comp(comp: Comp, name: str, static: StaticData) -> dict[str, Any]:
             {"component": spare.component, "share": spare.share, "uses": [_pick(pick) for pick in spare.uses]}
             for spare in comp.spare
         ],
+        "specials": [
+            {
+                "item": special.item,
+                "kind": "emblem" if static.items[special.item].emblem_of else "artifact",
+                "share": special.share,
+                "avg_placement": special.avg_placement,
+                "holder": special.holder,
+                "holder_share": special.holder_share,
+                "beside": list(special.beside),
+                "adds": [_swap(swap) for swap in special.adds],
+                "drops": [_swap(swap) for swap in special.drops],
+            }
+            for special in comp.specials
+        ],
         "level_ups": [
             {
                 "level": up.level,
@@ -180,11 +198,15 @@ def build_snapshot(
     spare_uses = [pick for comp in comps for spare in comp["spare"] for pick in spare["uses"]]
     units |= {pick["holder"] for comp in comps for pick in comp["items"]} | {u for g in groups for u in g.units}
     units |= {pick["holder"] for pick in spare_uses}
+    specials = [special for comp in comps for special in comp["specials"]]
+    units |= {special["holder"] for special in specials}
+    units |= {swap["unit"] for special in specials for swap in [*special["adds"], *special["drops"]]}
     units |= {s["unit"] for comp in comps for up in comp["level_ups"] for s in [*up["adds"], *up["drops"]]}
     units |= {key["unit"] for comp in comps for key in comp["key_units"]}
     items = {pick["item"] for comp in comps for pick in comp["items"]} | {i for g in groups for i in g.items}
     items |= {item for comp in comps for item in comp["take"]}
     items |= {pick["item"] for pick in spare_uses} | {spare["component"] for comp in comps for spare in comp["spare"]}
+    items |= {special["item"] for special in specials} | {item for special in specials for item in special["beside"]}
     items |= {note["item"] for comp in comps for key in comp["key_units"] for note in key["build"]}
     traits = {trait["trait"] for comp in comps for trait in comp["traits"]}
     traits |= {trait for unit in units for trait in static.units[unit].traits}

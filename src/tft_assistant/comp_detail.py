@@ -39,6 +39,13 @@ _CRITICAL_GAP_SHARE = 0.40
 _PAIR_GAP = 0.50
 _PAIR_EXTRA = 0.25
 _PAIRINGS = 1
+_SPECIAL_BOARDS = 20
+_SPECIAL_SHARE = 0.03
+_SPECIAL_SHIFT = 0.15
+_SPECIAL_UNITS = 3
+_SPECIAL_BESIDE = 0.30
+_SPECIAL_EMBLEMS = 3
+_SPECIAL_ARTIFACTS = 2
 
 
 @dataclass(frozen=True)
@@ -434,6 +441,92 @@ def level_ups(members: Sequence[Board], static: StaticData) -> tuple[LevelUp, ..
             )
         )
     return tuple(ups)
+
+
+@dataclass(frozen=True)
+class Swap:
+    """A unit that the boards holding a special item play more, or less, than the boards without it."""
+
+    unit: str
+    share_with: float
+    share_without: float
+
+
+@dataclass(frozen=True)
+class SpecialItem:
+    """An emblem or an artifact that some of a comp's boards hold, and how those boards differ."""
+
+    item: str
+    share: float
+    avg_placement: float
+    holder: str
+    holder_share: float
+    """The share of the boards holding the item on which this unit is the one that holds it."""
+    beside: tuple[str, ...]
+    """The finished items the holder most often builds beside it."""
+    adds: tuple[Swap, ...]
+    drops: tuple[Swap, ...]
+
+
+def special_items(members: Sequence[Board], static: StaticData) -> tuple[SpecialItem, ...]:
+    """The emblems a comp's boards hold and then the artifacts, commonest first, with what each changes.
+
+    An item counts once `_SPECIAL_BOARDS` boards and `_SPECIAL_SHARE` of the comp hold it. A unit
+    comes in or goes out when its share differs by `_SPECIAL_SHIFT` between the boards with the
+    item and the boards without. Each figure is a correlation: a player who was offered an
+    emblem made other choices too.
+    """
+    fielded = [
+        {u.character_id for u in board.units if u.character_id in static.units and static.units[u.character_id].traits}
+        for board in members
+    ]
+    holding: dict[str, list[tuple[int, str]]] = {}
+    for index, board in enumerate(members):
+        for unit in board.units:
+            for name in set(unit.items):
+                item = static.items.get(name)
+                if item and (item.emblem_of or item.is_artifact) and unit.character_id in static.units:
+                    holding.setdefault(name, []).append((index, unit.character_id))
+
+    def shares(boards: Sequence[int]) -> Counter[str]:
+        held = Counter(unit for index in boards for unit in fielded[index])
+        return Counter({unit: count / len(boards) for unit, count in held.items()})
+
+    found = []
+    for name, held in holding.items():
+        boards = {index for index, _ in held}
+        if len(boards) < max(_SPECIAL_BOARDS, _SPECIAL_SHARE * len(members)):
+            continue
+        holder, holder_boards = Counter(unit for _, unit in held).most_common(1)[0]
+        beside: Counter[str] = Counter()
+        for index, unit in held:
+            if unit == holder:
+                for placed in members[index].units:
+                    if placed.character_id == holder:
+                        beside.update(static.finished_items(placed.items) - {name})
+        others = [index for index in range(len(members)) if index not in boards]
+        swaps: list[Swap] = []
+        if len(others) >= _SPECIAL_BOARDS:
+            with_item, without = shares(list(boards)), shares(others)
+            swaps = [Swap(unit, with_item[unit], without[unit]) for unit in with_item.keys() | without.keys()]
+        adds = sorted(swaps, key=lambda swap: (swap.share_without - swap.share_with, swap.unit))
+        drops = sorted(swaps, key=lambda swap: (swap.share_with - swap.share_without, swap.unit))
+        found.append(
+            SpecialItem(
+                name,
+                len(boards) / len(members),
+                _mean([members[index].placement for index in boards]),
+                holder,
+                min(1.0, holder_boards / len(boards)),
+                tuple(item for item, count in beside.most_common(2) if count / holder_boards >= _SPECIAL_BESIDE),
+                tuple(s for s in adds if s.share_with - s.share_without >= _SPECIAL_SHIFT)[:_SPECIAL_UNITS],
+                tuple(s for s in drops if s.share_without - s.share_with >= _SPECIAL_SHIFT)[:_SPECIAL_UNITS],
+            )
+        )
+    found.sort(key=lambda special: (-special.share, special.item))
+    emblems = [special for special in found if static.items[special.item].emblem_of]
+    artifacts = [special for special in found if not static.items[special.item].emblem_of]
+    return tuple(emblems[:_SPECIAL_EMBLEMS] + artifacts[:_SPECIAL_ARTIFACTS])
 
 
 def components_to_take(picks: Sequence[ItemPick], static: StaticData) -> tuple[str, ...]:

@@ -22,18 +22,27 @@ function itemIcon(id) {
 }
 const itemName = (id) => esc((snap().items[id] || { name: id }).name);
 
-function matches(comp, words) {
-  if (!words.length) return true;
+// Everything the filter box searches in a comp: its name, style, level, units, items and traits.
+function searchedNames(comp) {
   const units = [...comp.core, ...comp.flex.flat().flatMap((p) => p.units)].map((id) => unitOf(id).name);
-  const text = [comp.name, comp.style, `level ${comp.roll_level}`, ...units, ...comp.traits.map((t) => traitName(t.trait))].join(" ").toLowerCase();
-  return words.every((word) => text.includes(word));
+  const built = [
+    ...comp.items.map((pick) => pick.item),
+    ...comp.key_units.flatMap((key) => key.build.map((note) => note.item)),
+    ...comp.specials.map((special) => special.item),
+  ].map((id) => (snap().items[id] || { name: id }).name);
+  const names = [comp.name, comp.style, `level ${comp.roll_level}`, ...units, ...built, ...comp.traits.map((t) => traitName(t.trait))];
+  return names.map((name) => name.toLowerCase());
 }
 
+// A filter that is part of one name, such as "fae emblem", lists the comps with that name. Any
+// other filter lists the comps that hold every one of its words somewhere.
 function visibleComps() {
-  const words = state.filter.toLowerCase().split(/\s+/).filter(Boolean);
-  return snap()
-    .comps.filter((comp) => matches(comp, words))
-    .sort(SORTS[state.sort]);
+  const phrase = state.filter.trim().toLowerCase();
+  const words = phrase.split(/\s+/).filter(Boolean);
+  const comps = snap().comps.map((comp) => [comp, searchedNames(comp)]);
+  const named = comps.filter(([, names]) => names.some((name) => name.includes(phrase)));
+  const found = named.length ? named : comps.filter(([, names]) => words.every((word) => names.some((name) => name.includes(word))));
+  return found.map(([comp]) => comp).sort(SORTS[state.sort]);
 }
 
 function renderList() {
@@ -313,6 +322,19 @@ function detailHtml(comp) {
         .join("")}</div>`,
     )
     .join("");
+  const smallTiles = (swaps) => swaps.map((swap) => `<span title="${esc(unitOf(swap.unit).name)}: on ${pct(swap.share_with)} of boards with it, ${pct(swap.share_without)} without">${unitTile(swap.unit, "s")}</span>`).join("");
+  const specials = comp.specials
+    .map(
+      (special) => `<div class="special">
+        <span class="what">${itemIcon(special.item)} ${itemName(special.item)} <span class="note">${special.kind}</span></span>
+        <span class="figures"><b>${pct(special.share)}</b> of boards · avg ${delta(special.avg_placement, comp.avg_placement)}</span>
+        <span class="part"><span class="note">on</span>${unitTile(special.holder, "s")} ${esc(unitOf(special.holder).name)} <span class="note">${pct(special.holder_share)}</span></span>
+        ${special.beside.length ? `<span class="part"><span class="note">beside</span>${special.beside.map(itemIcon).join("")}</span>` : ""}
+        ${special.adds.length ? `<span class="part"><span class="note">comes in</span>${smallTiles(special.adds)}</span>` : ""}
+        ${special.drops.length ? `<span class="part"><span class="note">goes out</span>${smallTiles(special.drops)}</span>` : ""}
+      </div>`,
+    )
+    .join("");
   return `<div id="sheet">
     <header><div class="title"><h1><span class="tier t${comp.tier}">${comp.tier}</span>${esc(comp.name)}</h1>
       <button id="copy-team" title="${esc(teamCode(comp))}">Copy team code</button><span class="note">${teamNote}: core and picked flex</span></div>
@@ -329,7 +351,8 @@ function detailHtml(comp) {
         <div class="note">Placements beside an item are correlations, not effects.</div>
         ${spare ? `<div class="spare"><div class="note">the components it uses least go into</div>${spare}</div>` : ""}</div></section>
       <section><h2>Positioning</h2>${boardHtml(comp)}</section>
-    </div></div>`;
+    </div>
+    ${specials ? `<section><h2>Emblems, artifacts</h2><div>${specials}</div></section>` : ""}</div>`;
 }
 
 function move(step) {

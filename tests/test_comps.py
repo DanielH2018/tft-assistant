@@ -4,8 +4,20 @@ import pytest
 from conftest import A_CORE, B_CORE
 
 from tft_assistant.boards import Board, BoardUnit
-from tft_assistant.comp_detail import CompTrait, ItemPick, SpareComponent, build_notes, level_ups, main_trait, tempo
+from tft_assistant.comp_detail import (
+    CompTrait,
+    ItemPick,
+    SpareComponent,
+    SpecialItem,
+    Swap,
+    build_notes,
+    level_ups,
+    main_trait,
+    special_items,
+    tempo,
+)
 from tft_assistant.comps import FlexPackage, FlexSlot, find_comps
+from tft_assistant.static_data import Item
 
 
 @pytest.fixture(scope="module")
@@ -116,6 +128,32 @@ def test_the_two_components_a_comp_uses_least_list_the_items_its_boards_build_wi
         ),
     )
     assert [(spare.component, spare.share) for spare in comp_a.spare] == [("Bow", 0.1875), ("Sword", 0.3125)]
+
+
+def test_an_artifact_lists_its_holder_the_items_beside_it_and_the_units_its_boards_add_and_drop(planted_static):
+    relic = Item("Relic", "Relic", (), None, None, False, is_artifact=True)
+    static = dataclasses.replace(planted_static, items=planted_static.items | {"Relic": relic})
+
+    def board(flex, held, placement):
+        units = (BoardUnit("A1", 2, tuple(held)), BoardUnit("A2", 2, ()), BoardUnit(flex, 2, ()))
+        return Board("NA1_1", placement, 8, 30, units, {})
+
+    with_relic = [board("X1", ["Relic", "Edge"], 2) for _ in range(30)]
+    without = [board("Y1", ["Edge", "Whisper"], 5) for _ in range(70)]
+
+    assert special_items(with_relic + without, static) == (
+        SpecialItem(
+            "Relic",
+            share=0.3,
+            avg_placement=2.0,
+            holder="A1",
+            holder_share=1.0,
+            beside=("Edge",),
+            adds=(Swap("X1", 1.0, 0.0),),
+            drops=(Swap("Y1", 0.0, 1.0),),
+        ),
+    )
+    assert special_items(with_relic[:19] + without, static) == ()
 
 
 def test_a_level_above_the_usual_one_lists_the_units_that_come_in_and_the_units_that_go_out(report):
