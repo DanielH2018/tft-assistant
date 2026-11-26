@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import tomllib
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from tft_assistant.store import Selection
@@ -52,6 +52,20 @@ class GameSet:
         """The patch live at a moment, or None before the calendar's first entry."""
         live = [patch.name for patch in self.patches if patch.starts <= moment]
         return live[-1] if live else None
+
+    def standing_selections(self, now: datetime) -> list[tuple[str, Selection]]:
+        """The selections a build always produces, each with the label the page shows for it."""
+        live = self.patches[-1].name
+        standing = [
+            (f"Patch {live}", self.selection(patch=live)),
+            (f"Patch {live}, last 3 days", self.selection(patch=live, since=now - timedelta(days=3))),
+            (f"Patch {live}, last 24 hours", self.selection(patch=live, since=now - timedelta(days=1))),
+        ]
+        if len(self.patches) > 1:
+            previous = self.patches[-2].name
+            standing.append((f"Patch {previous}", self.selection(patch=previous)))
+        standing.append((f"Set {self.number}, every stored match", self.selection()))
+        return standing
 
     def selection(
         self,

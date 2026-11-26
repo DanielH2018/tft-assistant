@@ -7,16 +7,22 @@ from collections import Counter
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from tft_assistant.boards import boards
+from tft_assistant.build import build_site
 from tft_assistant.comps import CompReport, find_comps
 from tft_assistant.crawl import crawl
 from tft_assistant.item_groups import find_item_groups
 from tft_assistant.riot import REGION_OF_PLATFORM, RiotClient, load_key
 from tft_assistant.sets import GameSet, latest_set_number
+from tft_assistant.snapshot import build_snapshot
 from tft_assistant.static_data import StaticData, document
 from tft_assistant.store import Store
+
+MIN_BOARDS = 1000
+"""A selection with fewer boards gets no snapshot: clustering that few finds noise, not comps."""
 
 _MECHANIC_FIELD = re.compile(r"encounter|portal|unlock|augment", re.IGNORECASE)
 _PLAYER_FIELDS = {"puuid", "riotIdGameName", "riotIdTagline", "participants"}
@@ -130,9 +136,26 @@ def main() -> None:
     commands.add_parser(
         "item-groups", parents=[selected], help="group units by the items they hold in a selection's boards"
     )
+    build_args = commands.add_parser("build", help="analyse the standing selections and write the page")
+    build_args.add_argument("--set", type=int, dest="set_number", default=latest_set_number())
+    build_args.add_argument("--out", type=Path, default=Path("site"), help="directory that receives index.html")
     args = parser.parse_args()
 
-    if args.command in ("comps", "item-groups"):
+    if args.command == "build":
+        game_set = GameSet.load(args.set_number)
+        static = StaticData.from_document(document(), game_set.static_data)
+        store, now, snapshots = Store(), datetime.now(UTC), []
+        for label, selection in game_set.standing_selections(now):
+            found = [board for match in store.matches(selection) for board in boards(match)]
+            if len(found) < MIN_BOARDS:
+                print(f"skipped {label}: {len(found)} boards, and a snapshot needs {MIN_BOARDS}")
+                continue
+            snapshots.append(
+                build_snapshot(label, selection, found, static, built_at=now, newest_match=store.newest(selection))
+            )
+            print(f"built {label}: {len(found)} boards, {len(snapshots[-1]['comps'])} comps")
+        print(f"wrote {build_site(snapshots, args.out)}")
+    elif args.command in ("comps", "item-groups"):
         game_set = GameSet.load(args.set_number)
         selection = game_set.selection(
             patch=args.patch, since=args.since, until=args.until, platforms=tuple(args.platforms or ())

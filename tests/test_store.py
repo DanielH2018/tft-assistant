@@ -58,6 +58,12 @@ def test_holdings_counts_matches_per_set_and_queue(store):
     assert store.holdings()[1].last == at(17)
 
 
+def test_newest_is_the_start_of_a_selections_latest_match_and_none_without_one(store):
+    assert store.newest(Selection(19, RANKED)) == at(17)
+    assert store.newest(Selection(19, RANKED, until=at(4))) == at(3)
+    assert store.newest(Selection(20, RANKED)) is None
+
+
 def test_missing_names_the_ids_not_stored_and_a_repeated_add_keeps_one_copy(store):
     store.add_match("na1", match("NA1_1"))
 

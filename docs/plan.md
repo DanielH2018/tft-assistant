@@ -133,6 +133,13 @@ condition                   an augment or an encounter
 | Strong early boards, positioning, unlock conditions | No: by hand, with suggestions |
 | Filter by augment, re-rank by encounter | No: categories kept by hand, proposed from text |
 
+### Default positions
+
+A match payload records no positions. Until a board is edited by hand, `positioning.default_board`
+puts each unit in the row it usually takes: the row of its attack range, or of its role where the
+range is missing. Tanks stand central in the front row, and carries take a back corner. A
+snapshot marks such a board `board_is_default`, and a saved board replaces it.
+
 ### Assistance for the manual parts
 
 Every manual field starts from a derived proposal. The board editor scores candidate units on
@@ -205,7 +212,8 @@ Each slice ends with something to use.
 | 2 | Unattended: image, k3s role, three regions, stable comp IDs, `new-set`, set switcher. | Loading the site and reading data a few hours old. | Registered personal key |
 | 3 | Item groups: groups view, pivots, holder chains, safe-slam grid, artifact and emblem filter. | Checking a slam decision in a game. | |
 | 4 | Edits and conditions: notes, stage plans, categories, augments and encounters, custom selections. | Putting an encounter in `reroll` and watching reroll comps move up. | |
-| 5 | Board editor: planner, early boards, default placement, unit suggestions, saved boards. | Building a stage 2 board from the suggestions. | |
+| 5 | Board editor: planner, early boards, unit suggestions, saved boards that replace a comp's default board. | Building a stage 2 board from the suggestions. | |
+| 6 | Explorer: filter boards by units, items, traits and level, and read the stats of units, items and traits under that filter, as [tactics.tools' explorer](https://tactics.tools/explorer) does. | Asking a question the comp list cannot answer, such as how a unit does with one item. | The API from slice 4, or the boards shipped to the browser |
 
 [slice-0-findings.md](slice-0-findings.md) records what slice 0 has measured. Slice 0's report answers: requests and matches per hour, whether the comps and item groups are
 recognisable, the first-day sample size, which core threshold reads best, whether the flex

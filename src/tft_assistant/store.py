@@ -110,6 +110,13 @@ class Store:
         for (payload,) in rows:
             yield json.loads(zlib.decompress(payload))
 
+    def newest(self, selection: Selection) -> datetime | None:
+        """When the latest match of a selection started, or None when it holds no match."""
+        where, values = selection._where()
+        with self._lock:
+            started = self._db.execute(f"SELECT MAX(started_at) FROM matches WHERE {where}", values).fetchone()[0]
+        return datetime.fromtimestamp(started, UTC) if started else None
+
     def holdings(self) -> list[Holding]:
         """How many matches the store holds for each set and queue, and the span they cover."""
         with self._lock:
