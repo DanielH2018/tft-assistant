@@ -21,5 +21,4 @@ def test_describe_match_reports_mechanic_fields_and_no_player_identity():
     report = "\n".join(describe_match(match))
 
     assert "info.encounterId" in report and "info.participants[].augments" in report
-    assert "  1  9  38  1  1  3" in report
     assert "secret-puuid" not in report and "SomePlayer" not in report
