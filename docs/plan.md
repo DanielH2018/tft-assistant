@@ -178,9 +178,19 @@ boards end at level 9.
 A player finds a unit four levels above its cost, so a 1-cost reroll comp rolls at level 5 and a
 3-cost one at level 7. The snapshot carries that level as `roll_level`.
 
-The style is a column of the comp list, which sorts by a click on a column header and opens
-sorted by tier. The border between the list and the detail pane drags; the browser keeps the
-width, and a double-click on the border resets it. The detail pane marks the three-starred units on their pictures.
+The comp list shows the roll level as its Level column, and the detail pane's heading shows the
+style. The list sorts by a click on a column header and opens sorted by tier.
+
+### How the page fits a screen
+
+The detail pane never scrolls. Its content is laid out 1155 pixels wide, which holds every
+section, and is then scaled down to the pane when the pane is smaller. A reflowing layout was
+rejected because it cannot promise a fit: a narrower pane wraps rows and grows taller.
+
+The list's columns have fixed widths and never move. A list too narrow for all of them drops
+whole columns from the right: Play, Top 4, Avg, Core, then Level. The list opens 660 pixels
+wide, or 40% of a narrower window. The border between the list and the detail pane drags; the
+browser keeps the width, and a double-click on the border resets it. The detail pane marks the three-starred units on their pictures.
 
 ### Comp names
 
