@@ -152,8 +152,11 @@ section.folded { grid-template-columns: 1fr; }
 .spare .use { white-space: nowrap; }
 .take .item-icon { width: 32px; height: 32px; }
 .levels { display: flex; flex-wrap: wrap; gap: 0 32px; }
-.level-up { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: flex-start; padding: 2px 0 6px; }
+.level-up { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: flex-start; padding: 2px 0 6px; }
 .level-up > b { font-size: 13px; white-space: nowrap; }
+.level-up .out { display: flex; gap: 6px; }
+/* A label beside a row of pictures sits level with the middle of a 36-pixel picture. */
+.level-up > b, .level-up .out > .note { padding-top: 9px; white-space: nowrap; }
 .level-up .row { gap: 8px 2px; }
 .trait { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px 2px 4px; border-radius: 12px; background: var(--surface0); font-size: 12.5px; }
 .trait img { width: 16px; height: 16px; }
