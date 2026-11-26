@@ -161,6 +161,24 @@ a unit whose share rises by 15 points comes in, and one whose share falls by 15 
 is reported once 20 boards and 5% of the comp end there. The placement at a higher level is
 better partly because only a winning player reaches it.
 
+### Team codes
+
+Each comp has a "Copy team code" button, which copies a code Riot's in-game team planner
+accepts. The code holds the comp's core and the flex packages picked on the page. A click on a
+flex package picks it or drops it, and picking one option of a shared slot drops the others. A
+comp opens with the packages its default board holds.
+
+The format is `02`, then ten units as three lower-case hex digits each with `000` for an empty
+place, then the set's name, such as `TFTSet18`. Riot documents none of it. The format comes from
+the README of [nkhoit/tftkit](https://github.com/nkhoit/tftkit), and two of its example
+numbers match Community Dragon's `tftchampions-teamplanner.json`, which holds each unit's
+number. The planner lists one unit where the roster has a variant per origin, named
+`Unit (Origin)`, so a variant takes the number of the unit it is a variant of. A code carries
+units only: no positions, stars or items.
+
+The picks are kept in the page's memory and are gone on a reload. Saved picks arrive with the
+saved boards of slice 5.
+
 ### Least-used components
 
 The Items section ends with the two components a comp uses least and where its boards put

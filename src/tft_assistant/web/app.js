@@ -202,23 +202,78 @@ function renderDetail() {
   largestScaleThatFits(sheetScale);
 }
 
+// The flex packages picked for each comp, as "slot.option" keys. A comp nobody has touched starts
+// with the packages its default board holds.
+const pickedByComp = new Map();
+function pickedFlex(comp) {
+  const key = `${state.snapshot}:${comp.id}`;
+  if (!pickedByComp.has(key)) {
+    const placed = new Set(comp.board.map((place) => place.unit));
+    const picked = new Set();
+    comp.flex.forEach((options, slot) =>
+      options.forEach((p, option) => p.units.every((id) => placed.has(id)) && picked.add(`${slot}.${option}`)),
+    );
+    pickedByComp.set(key, picked);
+  }
+  return pickedByComp.get(key);
+}
+
+// One slot holds one option, so picking an option drops the others of its slot.
+function togglePick(comp, key) {
+  const picked = pickedFlex(comp);
+  if (picked.delete(key)) return;
+  const slot = key.split(".")[0];
+  for (const other of [...picked]) if (other.split(".")[0] === slot) picked.delete(other);
+  picked.add(key);
+}
+
+function teamUnits(comp) {
+  const picked = pickedFlex(comp);
+  const flex = comp.flex.flatMap((options, slot) => options.filter((_, option) => picked.has(`${slot}.${option}`)).flatMap((p) => p.units));
+  return [...new Set([...comp.core, ...flex])];
+}
+
+// Riot's team code: "02", ten units as three hex digits each with 000 for an empty place, then the set's name.
+const TEAM_PLACES = 10;
+function teamCode(comp) {
+  const numbers = teamUnits(comp).map((id) => unitOf(id).planner_code).filter(Boolean);
+  const places = Array.from({ length: TEAM_PLACES }, (_, place) => (numbers[place] || 0).toString(16).padStart(3, "0"));
+  return `02${places.join("")}${snap().team_code_set}`;
+}
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const area = document.createElement("textarea");
+    area.value = text;
+    document.body.append(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+  }
+}
+
 function detailHtml(comp) {
   const threeStar = (id) => comp.three_stars.includes(id);
-  const packageHtml = (p) => `<div class="package">${p.units.map((id) => unitTile(id, "m", { threeStar: threeStar(id) })).join("")}
+  const picked = pickedFlex(comp);
+  const packageHtml = (p, key) => `<div class="package ${picked.has(key) ? "picked" : ""}" data-flex="${key}" title="Click to put it in the team code, or to take it out">${p.units.map((id) => unitTile(id, "m", { threeStar: threeStar(id) })).join("")}
         <div class="figures"><b>${pct(p.share)}</b> of boards<br>avg ${delta(p.avg_placement, comp.avg_placement)}</div></div>`;
   const cost = (p) => Math.max(...p.units.map((id) => unitOf(id).cost));
-  const slotHtml = (options) =>
+  const slotHtml = (options, slot) =>
     options
-      .map((p, index) => {
-        if (!index) return packageHtml(p);
-        const upgrade = cost(p) > cost(options[index - 1]);
+      .map((p, option) => {
+        if (!option) return packageHtml(p, `${slot}.${option}`);
+        const upgrade = cost(p) > cost(options[option - 1]);
         const joint = upgrade
           ? `<span class="joint" title="Played until the costlier one is found">→</span>`
           : `<span class="joint" title="One is played in the other's place">or</span>`;
-        return joint + packageHtml(p);
+        return joint + packageHtml(p, `${slot}.${option}`);
       })
       .join("");
-  const packages = comp.flex.map((options) => `<div class="slot ${options.length > 1 ? "shared" : ""}">${slotHtml(options)}</div>`).join("");
+  const packages = comp.flex.map((options, slot) => `<div class="slot ${options.length > 1 ? "shared" : ""}">${slotHtml(options, slot)}</div>`).join("");
+  const team = teamUnits(comp);
+  const teamNote = team.length > TEAM_PLACES ? `the first ${TEAM_PLACES} of ${team.length} units` : `${team.length} units`;
   const sharedSlots = comp.flex.some((options) => options.length > 1);
   const shift = (s) =>
     `<span class="shift">${unitTile(s.unit, "m")}<span class="figures">${pct(s.share)}<br><span class="note">was ${pct(s.share_below)}</span></span></span>`;
@@ -259,7 +314,8 @@ function detailHtml(comp) {
     )
     .join("");
   return `<div id="sheet">
-    <header><h1><span class="tier t${comp.tier}">${comp.tier}</span>${esc(comp.name)}</h1>
+    <header><div class="title"><h1><span class="tier t${comp.tier}">${comp.tier}</span>${esc(comp.name)}</h1>
+      <button id="copy-team" title="${esc(teamCode(comp))}">Copy team code</button><span class="note">${teamNote}: core and picked flex</span></div>
       <p class="stats"><b>${esc(comp.style)}</b> · avg <b>${comp.avg_placement.toFixed(2)}</b> · top 4 <b>${pct(comp.top4)}</b> · play <b>${(comp.share * 100).toFixed(1)}%</b> · ${comp.boards.toLocaleString()} boards</p></header>
     <section><h2>Core</h2><div class="row">${comp.core.map((id) => unitTile(id, "l", { traits: true, threeStar: threeStar(id) })).join("")}</div></section>
     <section><h2>Flex</h2><div><div class="row">${packages || `<span class="note">no regular flex units</span>`}</div>
@@ -312,6 +368,22 @@ el("divider").addEventListener("dblclick", () => {
   document.body.style.removeProperty("--list-width");
   localStorage.removeItem(LIST_WIDTH);
   settleScale();
+});
+
+el("detail").addEventListener("click", (event) => {
+  const comp = snap().comps.find((candidate) => candidate.id === state.comp);
+  if (!comp) return;
+  const flex = event.target.closest("[data-flex]");
+  if (flex) {
+    togglePick(comp, flex.dataset.flex);
+    renderDetail();
+  } else if (event.target.closest("#copy-team")) {
+    copyText(teamCode(comp)).then(() => {
+      const button = el("copy-team");
+      button.textContent = "Copied";
+      setTimeout(() => (button.textContent = "Copy team code"), 1500);
+    });
+  }
 });
 
 el("selection").innerHTML = SNAPSHOTS.map((s, index) => `<option value="${index}">${esc(s.label)}</option>`).join("");

@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from tft_assistant.static_data import StaticData, document
+from tft_assistant.static_data import StaticData, document, planner_codes
 from tft_assistant.store import Selection
 
 SETS_DIR = Path(__file__).parent / "data" / "sets"
@@ -53,7 +53,11 @@ class GameSet:
     def roster(self) -> StaticData:
         """This set's units, traits and items, with the facts the set file adds to them."""
         return StaticData.from_document(
-            document(), self.static_data, self.defensive_components, self.offensive_components
+            document(),
+            self.static_data,
+            self.defensive_components,
+            self.offensive_components,
+            planner_codes(self.static_data),
         )
 
     def window(self, patch: str) -> tuple[datetime, datetime | None]:

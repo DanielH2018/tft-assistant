@@ -192,6 +192,7 @@ def build_snapshot(
     return {
         "schema": SCHEMA,
         "label": label,
+        "team_code_set": static.mutator,
         "selection": {
             "set": selection.set_number,
             "since": selection.since.isoformat() if selection.since else None,
@@ -210,6 +211,7 @@ def build_snapshot(
                 "cost": static.units[unit].cost,
                 "traits": list(static.units[unit].traits),
                 "icon": static.units[unit].icon,
+                "planner_code": static.units[unit].planner_code,
             }
             for unit in sorted(units)
         },
