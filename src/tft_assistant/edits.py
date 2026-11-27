@@ -16,7 +16,7 @@ from tft_assistant.paths import state_path
 
 DEFAULT_PATH = state_path("keep/edits.db", "~/.local/share/tft-assistant/edits.db")
 
-FIELDS = {"name": 60, "notes": 4000, "plan": 2000, "categories": 200}
+FIELDS = {"name": 60, "notes": 4000, "plan": 2000, "categories": 200, "board": 1000}
 """Each field a comp's edit may hold, with the longest text it takes."""
 
 _SCHEMA = """
