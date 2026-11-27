@@ -247,6 +247,38 @@ function boardHtml(comp) {
 const SHOWN_IN_A_GROUP = 9;
 const ITEM_ROWS = 6;
 
+// The cheaper units of a unit's item group, cheapest first: what holds its items on the way up.
+function holdersOf(unit) {
+  const group = snap().item_groups.find((g) => g.units.includes(unit));
+  const cost = unitOf(unit).cost;
+  return (group ? group.units : []).filter((id) => unitOf(id).cost < cost).sort((a, b) => unitOf(a).cost - unitOf(b).cost);
+}
+
+// The stage plan a comp's own numbers propose, a line for each thing they can say: the components
+// to take, who holds the carry's items until the carry arrives, when to roll, and where boards end.
+function proposedPlan(comp) {
+  const names = (ids) => ids.map((id) => unitOf(id).name).join(", ");
+  const carry = comp.carries[0];
+  const holders = carry ? holdersOf(carry).slice(0, 3) : [];
+  const ends = comp.levels.filter(([, share]) => share >= 0.15).sort((a, b) => b[1] - a[1]);
+  return [
+    comp.take.length && `Take ${comp.take.map((id) => (snap().items[id] || { name: id }).name).join(", ")} first.`,
+    holders.length && `Until ${unitOf(carry).name} arrives, ${names(holders)} can hold its items.`,
+    comp.three_stars.length
+      ? `Roll at level ${comp.roll_level} for 3-star ${names(comp.three_stars)}.`
+      : `Level to ${comp.roll_level} before rolling.`,
+    ends.length && `Boards end at ${ends.map(([level, share]) => `level ${level} (${pct(share)})`).join(" or ")}.`,
+  ].filter(Boolean);
+}
+
+// The derived plan is always shown. The reader's own plan is a box above it, on a page a server
+// keeps edits for, and leaves the derived lines in place to check against.
+function planHtml(comp) {
+  const own = edits ? `<textarea data-edit="plan" maxlength="2000" rows="3" placeholder="Your own plan for this comp, stage by stage">${esc((edits[comp.id] || {}).plan || "")}</textarea>
+    <span class="note edit-state"></span>` : "";
+  return `<div class="notes">${own}<ul class="plan">${proposedPlan(comp).map((line) => `<li>${esc(line)}</li>`).join("")}</ul></div>`;
+}
+
 function keyUnitsHtml(comp) {
   const tiles = (ids) => ids.slice(0, SHOWN_IN_A_GROUP).map((id) => unitTile(id, "s")).join("");
   const buildItem = (note) => {
@@ -264,10 +296,7 @@ function keyUnitsHtml(comp) {
   return comp.key_units
     .map(({ unit, role, build }) => {
       const group = snap().item_groups.find((g) => g.units.includes(unit));
-      const cost = unitOf(unit).cost;
-      const holders = (group ? group.units : [])
-        .filter((id) => unitOf(id).cost < cost)
-        .sort((a, b) => unitOf(a).cost - unitOf(b).cost);
+      const holders = holdersOf(unit);
       const pivots = role === "tank" ? [] : pivotsFrom(comp, unit, group);
       return `<div class="key-unit"><div class="role">${esc(role)}</div>${unitTile(unit, "m")}
         <div class="uses">
@@ -523,6 +552,7 @@ function detailHtml(comp) {
       }
     </div>
     ${section("Positioning", `<div>${boardHtml(comp)}</div>`)}
+    ${section("Plan", planHtml(comp), { info: "The lines are derived from the comp's boards: its item priority, its carry's item group, what it three-stars and the levels its boards end at.\nYour own plan, when the page can save one, goes in the box above them." })}
     ${edits ? section("Notes", notesHtml(comp)) : ""}</div>`;
 }
 
@@ -551,13 +581,16 @@ function notesHtml(comp) {
   return `<div class="notes">
     <input data-edit="name" maxlength="60" value="${esc(own.name || "")}" placeholder="${esc(comp.name)}" ${tipOf("Your own name for this comp. Empty goes back to the derived one.")}>
     <textarea data-edit="notes" id="notes" maxlength="4000" rows="3" placeholder="What to remember about this comp">${esc(own.notes || "")}</textarea>
-    <span id="notes-state" class="note"></span></div>`;
+    <span id="notes-state" class="note edit-state"></span></div>`;
 }
 
 // An edit is saved when its box loses the focus, under the comp it was written for. A name shows
 // in the list and in the page's heading, so saving one draws both again.
-function saveEdit(compId, field, text) {
-  const shown = (words) => el("notes-state") && (el("notes-state").textContent = words);
+function saveEdit(compId, box) {
+  const field = box.dataset.edit;
+  const text = box.value.trim();
+  const state = box.parentElement.querySelector(".edit-state");
+  const shown = (words) => state && state.isConnected && (state.textContent = words);
   fetch(`${editsOf()}/${compId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [field]: text }) })
     .then((reply) => {
       if (!reply.ok) throw new Error(`the server answered ${reply.status}`);
@@ -768,7 +801,7 @@ el("slams").addEventListener("click", (event) => {
   renderFilters();
 });
 el("detail").addEventListener("change", (event) => {
-  if (event.target.dataset.edit) saveEdit(state.comp, event.target.dataset.edit, event.target.value.trim());
+  if (event.target.dataset.edit) saveEdit(state.comp, event.target);
 });
 document.addEventListener("keydown", (event) => {
   if (event.target.dataset.edit) return;

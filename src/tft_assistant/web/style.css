@@ -231,3 +231,5 @@ table.items .rank { color: var(--muted); width: 16px; }
 .board .hex { width: 38px; height: 38px; border-radius: 50%; background: var(--crust); border: 1px solid var(--surface0); overflow: hidden; }
 .board .hex img { width: 100%; height: 100%; object-fit: cover; }
 .empty { color: var(--muted); padding: 40px; }
+.plan { margin: 2px 0 0; padding-left: 18px; color: var(--subtext); }
+.plan li { margin: 1px 0; }

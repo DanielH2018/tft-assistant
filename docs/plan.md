@@ -396,12 +396,29 @@ a plain file server, shows no box, so the page still works as a static file.
 
 An edit is keyed by set, comp id and field, which is why a comp's id has to hold between runs
 (*How comps are derived*, step 5). The store takes the fields `edits.FIELDS` names, each with a
-longest text: `name` and `notes`. The API takes JSON only: another site's page can post a
+longest text: `name`, `notes` and `plan`. The API takes JSON only: another site's page can post a
 form with the reader's login, and cannot send JSON without the browser asking the server first.
 
 The edit store and the comp ids its rows are keyed by are the files no API gives back. Both sit
 under `keep/` in the state directory, and a deployment keeps that directory on storage that is
 backed up, apart from the match store.
+
+### Stage plans
+
+A comp page has a *Plan* section. Its lines are derived in the page from the snapshot, one for
+each thing the comp's boards can say:
+
+- the components to take first, from the item priority;
+- the cheaper units of the main carry's item group, which hold its items until it arrives;
+- the level to roll at and the units to three-star, or the level to reach before rolling;
+- the levels its boards end at, for each level 15% of them or more end at.
+
+The derived lines need no server, so a page opened from a file shows them. With `tft serve`, a
+box above them takes the reader's own plan, which is the `plan` field of the comp's edit. The
+derived lines stay under it to check against, and clearing the box leaves only them.
+
+A match records no per-round data, so nothing here is a stage-by-stage plan from the data: the
+lines say what the final boards imply, and the stages are the reader's to write.
 
 ### Comp names
 
