@@ -672,10 +672,16 @@ unit swaps the two, and a click takes it off. The pane shows:
 - the comps whose core the board holds most of, each with the core units still missing, and a
   click opens the comp.
 
-- the units worth adding next, each with why: a comp the board is close to has the unit in
-  its core or plays it often, or the unit takes a trait on the board to its next breakpoint.
-  A click adds one. The reasons come from the snapshot's comps and traits, so no pairing table
-  is built for them.
+- the units worth adding next: a comp the board is close to has the unit in its core or plays
+  it often, or the unit takes a trait on the board to its next breakpoint. A click adds one,
+  and its hover card gives the reasons. The reasons come from the snapshot's comps and traits,
+  so no pairing table is built for them;
+- groups of units worth adding together: the rest of a close comp's core, and up to two whole
+  boards of that comp, from its subcomps. A group lists only the units the board lacks, and a
+  click adds them all;
+- each unit on the board, with the four items it holds most on real boards, from its item
+  group, and up to three comps it is the main carry, a carry or the main tank of, or holds
+  priority items in. A click on a comp opens it.
 
 A row of the set's emblems sits under the board. A click adds one and a shift-click takes one
 off. An emblem counts toward its trait only on a unit that lacks the trait, so the page keeps a

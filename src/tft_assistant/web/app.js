@@ -1469,6 +1469,56 @@ function suggestions(units, emblems) {
     .slice(0, SUGGESTED);
 }
 
+// Groups of units worth adding together, from the comps the board is closest to: the rest of a
+// comp's core, and each of its subcomps, which fills its board. A group lists only the units the
+// board lacks, and needs two of them.
+const GROUPS_SUGGESTED = 5;
+function suggestedGroups(units) {
+  const on = new Set(units);
+  const buyable = new Set(rosterUnits());
+  const found = new Map();
+  const offer = (ids, score, label, why) => {
+    const add = ids.filter((id) => !on.has(id) && buyable.has(id));
+    const key = [...add].sort().join(",");
+    if (add.length < 2 || (found.has(key) && found.get(key).score >= score)) return;
+    found.set(key, { add, score, label, why });
+  };
+  for (const [comp, shared, missing] of closestComps(units)) {
+    const close = shared.length / comp.core.length;
+    offer(missing, 2 * close, `the rest of ${nameOf(comp)}'s core`, `This board holds ${shared.length} of the ${comp.core.length} core units of ${nameOf(comp)}.`);
+    // Two boards a comp, so another close comp has room in the list.
+    for (const sub of (comp.subcomps || []).slice(0, 2)) {
+      offer([...missing, ...sub.units], close * (1 + sub.share), `${nameOf(comp)}, a whole board`, `The core of ${nameOf(comp)} with the units on ${pct(sub.share)} of its boards, which place ${sub.avg_placement.toFixed(2)}.`);
+    }
+  }
+  return [...found.values()].sort((a, b) => b.score - a.score || a.add.length - b.add.length).slice(0, GROUPS_SUGGESTED);
+}
+
+// What a unit on the board usually holds, and the comps it matters in. The items are the ones it
+// holds most on real boards, from its item group. A comp lists it when it is one of the comp's
+// key units or holds one of the comp's priority items.
+const ROLE_ORDER = ["Main carry", "Carry", "Main tank", "Holds items"];
+function unitAdvice(id) {
+  const group = snap().item_groups.find((candidate) => candidate.held && candidate.held[id]);
+  const items = group
+    ? Object.entries(group.held[id].items)
+        .map(([item, [share, avg]]) => [item, share, avg])
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 4)
+    : [];
+  const comps = [...snap().comps]
+    .sort(SORTS.play)
+    .map((comp) => {
+      const key = comp.key_units.find((candidate) => candidate.unit === id);
+      const role = key ? (comp.carries[0] === id ? "Main carry" : key.role === "tank" ? "Main tank" : "Carry") : comp.items.some((pick) => pick.holder === id) ? "Holds items" : null;
+      return [comp, role];
+    })
+    .filter(([, role]) => role)
+    .sort((a, b) => ROLE_ORDER.indexOf(a[1]) - ROLE_ORDER.indexOf(b[1]))
+    .slice(0, 3);
+  return { items, comps };
+}
+
 function rosterHtml(board) {
   const on = new Set(Object.values(board));
   const costs = new Map();
@@ -1502,9 +1552,26 @@ function plannerHtml(board) {
     .join("");
   const suggested = suggestions(units, emblems)
     .map(
-      ({ id, reasons }) => `<div class="suggest" data-pick="${id}" ${tipOf(...reasons.slice(0, 4), "Click to add it.")}>
-        ${unitTile(id, "s")}<span class="suggest-name">${esc(unitOf(id).name)}</span><span class="note">${esc(reasons[0])}</span></div>`,
+      ({ id, reasons }) => `<span class="pick offer" data-pick="${id}">${unitTile(id, "m", { note: [...reasons.slice(0, 4), "Click to add it."].join("\n") })}</span>`,
     )
+    .join("");
+  const groups = suggestedGroups(units)
+    .map(
+      ({ add, label, why }) => `<div class="suggest-group" data-picks="${add.join(",")}" ${tipOf(why, "Click to add them all.")}>
+        <span class="group-tiles">${add.map((id) => unitTile(id, "s")).join("")}</span><span class="note">${esc(label)}</span></div>`,
+    )
+    .join("");
+  const fielded = [...new Set(units)]
+    .sort((a, b) => unitOf(b).cost - unitOf(a).cost || unitOf(a).name.localeCompare(unitOf(b).name))
+    .map((id) => {
+      const { items, comps } = unitAdvice(id);
+      const held = items.map(([item, share, avg]) => itemIcon(item, { note: `${itemName(item)}: on ${pct(share)} of its itemised boards, placing ${avg.toFixed(2)} there.` })).join("");
+      const plays = comps
+        .map(([comp, role]) => `<span class="plays" data-open="${comp.id}" ${tipOf(`${role} in ${nameOf(comp)}.`, "Click to open the comp.")}><span class="tier t${comp.tier}">${comp.tier}</span>${esc(nameOf(comp))}</span>`)
+        .join("");
+      return `<div class="fielded">${unitTile(id, "s")}<span class="suggest-name">${esc(unitOf(id).name)}</span>
+        <span class="fielded-items">${held || `<span class="note">no usual items</span>`}</span><span class="fielded-comps">${plays}</span></div>`;
+    })
     .join("");
   const traits = activeTraits(units, emblems)
     .map(({ trait, count, breakpoints, reached, next }) => {
@@ -1555,7 +1622,9 @@ function plannerHtml(board) {
       ${section("Traits", `<div class="row">${traits || `<span class="note">no unit on the board</span>`}</div>`, { width: "wraps" })}
       ${saving ? section("Saved boards", `<div>${saving}</div>`, { info: "Boards kept by the server, each with a name and a stage.\nA board attached to a comp also shows on that comp's page." }) : ""}
       ${section("Emblems", `<div class="row emblems">${emblemRow || `<span class="note">This set's data names no emblem.</span>`}</div>`, { width: "wraps" })}
-      ${section("Suggestions", `<div>${suggested || `<span class="note">Put two units of a comp on the board, or bring a trait within one of a breakpoint.</span>`}</div>`, {
+      ${fielded ? section("On the board", `<div>${fielded}</div>`, { info: "Each unit on the board, with the items it holds most on real boards and the comps it carries, tanks or holds items for.\nClick a comp to open it." }) : ""}
+      ${groups ? section("Suggested groups", `<div>${groups}</div>`, { info: "Units worth adding together: the rest of a close comp's core, or a whole board of that comp.\nClick a group to add all of it." }) : ""}
+      ${section("Suggestions", `<div class="row suggested">${suggested || `<span class="note">Put two units of a comp on the board, or bring a trait within one of a breakpoint.</span>`}</div>`, {
         info: "Units worth adding next.\nA unit is listed because a comp this board is close to has it in its core or plays it often, or because it takes a trait on the board to its next breakpoint.\nClick one to add it.",
       })}
       ${section("Closest comps", `<div>${closest || `<span class="note">No comp shares two core units with this board.</span>`}</div>`, {
@@ -1606,6 +1675,13 @@ el("detail").addEventListener("click", (event) => {
     const emblems = plannerEmblems();
     emblems[trait] = Math.max(0, (emblems[trait] || 0) + (event.shiftKey ? -1 : 1));
     keepEmblems(emblems);
+  } else if (event.target.closest("[data-picks]")) {
+    const board = plannerBoard();
+    for (const id of event.target.closest("[data-picks]").dataset.picks.split(",")) {
+      const hex = !Object.values(board).includes(id) && freeHexFor(id, board);
+      if (hex) board[hex] = id;
+    }
+    keepPlanner(board);
   } else if (event.target.closest("[data-pick]")) {
     togglePlanned(event.target.closest("[data-pick]").dataset.pick);
   } else if (event.target.closest("#clear-plan")) {
