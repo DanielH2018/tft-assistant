@@ -227,7 +227,13 @@ def _comp(comp: Comp, comp_id: str, name: str, static: StaticData) -> dict[str, 
         ],
         "flex": [
             [
-                {"units": list(package.units), "share": package.share, "avg_placement": package.avg_placement}
+                {
+                    "units": list(package.units),
+                    "share": package.share,
+                    "avg_placement": package.avg_placement,
+                    "top4": package.top4,
+                    "win_rate": package.win_rate,
+                }
                 for package in slot.options
             ]
             for slot in comp.flex

@@ -400,6 +400,28 @@ shows it.
 The copies are the 128-pixel pictures as Community Dragon serves them. The page draws them at
 16 to 48 pixels, so smaller copies would cut the first load, at the cost of an image library in
 the build. Not done: after the first load a browser has them all.
+||||||| parent of 6297b40 (Hide low play rate comps behind a switch, and list a comp's subcomps under it)
+### Low play rates and subcomps
+
+Two switches sit under the filter box, and the browser keeps both.
+
+**Show low play rate comps.** The list leaves out a comp that under 1% of boards play, until the
+switch asks for it. On the 18.7 matches that is 6 of 26 comps, and the switch's label counts
+them. The smallest, 68 boards, read as an A tier comp on the default list. The switch changes
+the list only: a filter, the Items tab and the planner still read every comp, and a comp opened
+from another tab opens although the list leaves it out.
+
+**Expand all subcomps.** A subcomp is a comp with one of its flex packages: the boards of the
+comp that add those units to the core. Its row sits under the comp's row, set in, with the
+package's units and its own average placement, top 4 rate, win rate and play rate. A board can
+hold two packages, so two subcomps of a comp can share boards and their play rates can add up to
+more than the comp's. The switch opens every comp, and the mark before a comp's name opens or
+closes that comp alone. A click on a subcomp row opens its comp. A column sorts the comps, and
+each comp's subcomps follow it, most played first.
+
+The other definition, each distinct set of flex units as a subcomp, splits a comp's boards with
+no overlap. It was not taken: a comp with seven packages has dozens of such sets, most of a few
+boards each, and the packages are what the comp page already shows.
 
 ### Hover cards
 

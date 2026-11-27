@@ -49,8 +49,8 @@ def test_a_comp_reports_its_share_placement_carry_and_main_trait(report):
 def test_flex_units_played_together_are_a_package_and_packages_never_played_together_share_a_slot(report):
     comp_a, comp_b = report.comps
 
-    assert comp_a.flex == (FlexSlot((FlexPackage(("X1", "X2"), 0.6, 2.0), FlexPackage(("Y1", "Y2"), 0.4, 6.0))),)
-    assert comp_b.flex == (FlexSlot((FlexPackage(("Z1",), 0.5, 4.0),)), FlexSlot((FlexPackage(("Z2",), 0.5, 4.0),)))
+    assert comp_a.flex == (FlexSlot((FlexPackage(("X1", "X2"), 0.6, 2.0, 1.0, 10 / 60), FlexPackage(("Y1", "Y2"), 0.4, 6.0, 0.0, 0.0))),)
+    assert comp_b.flex == (FlexSlot((FlexPackage(("Z1",), 0.5, 4.0, 1.0, 0.0),)), FlexSlot((FlexPackage(("Z2",), 0.5, 4.0, 1.0, 0.0),)))
 
 
 def test_boards_that_resemble_no_comp_are_unclassified_and_short_boards_are_left_out(report):
