@@ -4,8 +4,12 @@
   --text: #cdd6f4; --subtext: #a6adc8; --muted: #6c7086;
   --blue: #89b4fa; --green: #a6e3a1; --yellow: #f9e2af; --red: #f38ba8;
   --mauve: #cba6f7; --peach: #fab387; --grey: #9399b2;
-  /* The width at which the list shows every column. The list never gets wider. */
-  --full-list: 708px;
+  /* The Comp column is as wide as the longest name; the script measures it. The other columns,
+     their gaps, the row's padding and a 15-pixel scrollbar gutter take the rest of the width
+     at which the list shows every column. The list never gets wider. */
+  --name-width: 150px;
+  --other-columns: 532px;
+  --full-list: calc(var(--other-columns) + var(--name-width));
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
@@ -16,7 +20,6 @@ body {
 }
 aside {
   display: flex; flex-direction: column; background: var(--mantle); min-height: 0; min-width: 0; overflow: hidden;
-  container-type: inline-size;
 }
 #divider { background: var(--surface0); cursor: col-resize; touch-action: none; }
 #divider:hover, .resizing #divider { background: var(--mauve); }
@@ -38,20 +41,12 @@ aside {
 .filter-chip button:hover { color: var(--red); }
 .bar label { align-self: center; }
 #comps { list-style: none; margin: 0; padding: 0; overflow-y: auto; scrollbar-gutter: stable; flex: 1; }
-.comp-row { display: flex; align-items: center; gap: 8px; padding: 4px 10px; }
+/* A row wraps and shows its first line only, so a column that does not fit leaves whole. */
+.comp-row { display: flex; align-items: center; gap: 20px 8px; padding: 4px 10px; flex-wrap: wrap; align-content: flex-start; overflow: hidden; }
 .comp-row > * { flex: none; }
-.c-tier { width: 32px; } .c-name { width: 184px; } .c-level { width: 44px; } .c-core { width: 190px; }
+.c-tier { width: 40px; } .c-name { width: var(--name-width); max-width: calc(100% - 48px); } .c-level { width: 44px; } .c-core { width: 190px; }
 .c-avg, .c-top4, .c-win { width: 40px; } .c-play { width: 46px; }
-/* A column leaves when the list is too narrow for it and every column to its left. Each limit is one
-   pixel under the width of the columns that stay, their gaps, the row's padding and a 15-pixel
-   scrollbar gutter. */
-@container (max-width: 706px) { .c-play { display: none; } }
-@container (max-width: 652px) { .c-win { display: none; } }
-@container (max-width: 604px) { .c-top4 { display: none; } }
-@container (max-width: 556px) { .c-avg { display: none; } }
-@container (max-width: 508px) { .c-core { display: none; } }
-@container (max-width: 310px) { .c-level { display: none; } }
-#head { overflow-y: hidden; scrollbar-gutter: stable; border-bottom: 1px solid var(--surface0); }
+#head { height: 24px; overflow-y: hidden; scrollbar-gutter: stable; border-bottom: 1px solid var(--surface0); }
 #head > * {
   font: inherit; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;
   background: none; border: 0; padding: 0; text-align: left;
@@ -60,7 +55,10 @@ aside {
 #head button { cursor: pointer; }
 #head button:hover { color: var(--text); }
 #head .sorted { color: var(--mauve); }
+#head .arrow { font-size: 8px; margin-left: 3px; vertical-align: 1px; }
 #comps li { height: 36px; cursor: pointer; border-bottom: 1px solid var(--crust); }
+/* The first line is as tall as the row whichever columns are in it. */
+#comps li::before { content: ""; height: 28px; margin-right: -8px; }
 #comps .c-level { color: var(--subtext); font-variant-numeric: tabular-nums; }
 #head .c-level, #comps .c-level { text-align: center; }
 #comps li:hover { background: var(--surface0); }
