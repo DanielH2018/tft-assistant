@@ -75,9 +75,10 @@ state.expandAll = localStorage.getItem(EXPAND_ALL) === "1";
 state.flipped = new Set();
 const isListed = (comp) => state.lowPlay || comp.share >= LOW_PLAY;
 
-// A subcomp is the comp with one of its flex packages: the boards of the comp that add those
-// units to the core. Two subcomps of a comp can share boards, since a board can hold two packages.
-const subcompsOf = (comp) => comp.flex.flat().sort((a, b) => b.share - a.share);
+// A subcomp is a whole board of the comp: its core and the units that fill the places the core
+// leaves at the comp's level. The snapshot lists the commonest, most played first. Two subcomps
+// of a comp can share boards, since a board can field more units than the level.
+const subcompsOf = (comp) => comp.subcomps || [];
 const isExpanded = (comp) => state.expandAll !== state.flipped.has(comp.id);
 function subcompRow(comp, sub) {
   const names = sub.units.map((id) => unitOf(id).name).join(", ");
@@ -434,7 +435,7 @@ function renderList() {
     .map(
       (comp) => `<li data-id="${comp.id}" class="comp-row ${comp.id === state.comp ? "selected" : ""}">
         <span class="c-tier"><span class="tier t${comp.tier}">${comp.tier}</span></span>
-        <span class="c-name">${comp.flex.length ? `<button class="expand" data-expand="${comp.id}" title="${isExpanded(comp) ? "Hide" : "List"} its subcomps">${isExpanded(comp) ? "▾" : "▸"}</button>` : `<span class="no-subs"></span>`}${esc(nameOf(comp))}</span>
+        <span class="c-name">${subcompsOf(comp).length ? `<button class="expand" data-expand="${comp.id}" title="${isExpanded(comp) ? "Hide" : "List"} its subcomps">${isExpanded(comp) ? "▾" : "▸"}</button>` : `<span class="no-subs"></span>`}${esc(nameOf(comp))}</span>
         <span class="c-level">${comp.roll_level}</span>
         <span class="c-core">${comp.core.map((id) => unitTile(id, "s")).join("")}</span>
         <span class="c-avg num">${comp.avg_placement.toFixed(2)}</span>

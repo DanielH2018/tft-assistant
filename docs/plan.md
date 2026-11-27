@@ -449,17 +449,21 @@ them. The smallest, 68 boards, read as an A tier comp on the default list. The s
 the list only: a filter, the Items tab and the planner still read every comp, and a comp opened
 from another tab opens although the list leaves it out.
 
-**Expand all subcomps.** A subcomp is a comp with one of its flex packages: the boards of the
-comp that add those units to the core. Its row sits under the comp's row, set in, with the
-package's units and its own average placement, top 4 rate, win rate and play rate. A board can
-hold two packages, so two subcomps of a comp can share boards and their play rates can add up to
-more than the comp's. The switch opens every comp, and the mark before a comp's name opens or
-closes that comp alone. A click on a subcomp row opens its comp. A column sorts the comps, and
-each comp's subcomps follow it, most played first.
+**Expand all subcomps.** A subcomp is a whole board of a comp: its core and the units that fill
+the places the core leaves at the comp's level. A level 8 comp with a core of four has subcomps
+of four units. The level is the one the list shows, the level the comp rolls at. A reroll comp
+rolls below its core's size, so its board is the level its boards most often end at. The build
+counts every set of that many units on each of the comp's boards and keeps up to six, each on
+3% of the comp's boards and on ten boards or more (`comps._subcomps`). A board that fields one
+unit more than the level counts toward several sets, so two subcomps of a comp can share boards.
 
-The other definition, each distinct set of flex units as a subcomp, splits a comp's boards with
-no overlap. It was not taken: a comp with seven packages has dozens of such sets, most of a few
-boards each, and the packages are what the comp page already shows.
+A subcomp's row sits under the comp's row, set in, with its units and its own average
+placement, top 4 rate, win rate and play rate. The switch opens every comp, and the mark before
+a comp's name opens or closes that comp alone. A click on a subcomp row opens its comp. A
+column sorts the comps, and each comp's subcomps follow it, most played first.
+
+A subcomp was first a comp with one of its flex packages. The owner asked on 2026-11-27 for
+subcomps that fill the board, which is what a reference site's subcomp is.
 
 ### Hover cards
 
