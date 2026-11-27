@@ -82,9 +82,15 @@ ends waits out the cycle.
 
 The run is one process with one directory. `TFT_STATE_DIR` names the directory, which holds the
 match store, the static-data cache and the built page. The run serves nothing: a static file
-server reads the page from the same directory. A crawl that fails ends the run, and whatever
-restarts it shows the failure. The page that was built last stays up meanwhile, and its footer
-states the age of its newest match.
+server reads the page from the same directory. A crawl that fails does not end the run: the run
+prints the failure, builds from what the crawl stored, and crawls again next cycle. The page
+that was built last stays up meanwhile, and its footer states the age of its newest match, which
+is how a reader learns of an expired key.
+
+Until release 0.2.7 a failed crawl ended the run. A development key expires after 24 hours, so
+on 2026-11-27 the crawler container of the deployment restarted in a loop, its pod read as not
+ready, and the deployment read as unavailable while the page itself was up. A container that
+shares a pod with the page must not exit over a condition that outlasts a restart.
 
 Two bounds keep a run that never stops inside a fixed budget:
 
