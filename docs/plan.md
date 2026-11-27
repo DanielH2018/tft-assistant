@@ -196,7 +196,10 @@ list beside one comp's page. *Items* puts the slam grid in the side panel and th
 in the pane beside it.
 
 The slam grid has a row and a column for each component, and the item two components build
-stands where they cross. The snapshot's `recipes` field lists every item of the components in
+stands where they cross. The components run in the owner's order, across and down: sword, bow,
+chain vest, negatron cloak, rod, tear, belt, glove, spatula, pan. `snapshot.COMPONENT_ORDER`
+holds it as id endings, because a set changes an id's prefix and keeps its ending, and the
+snapshot's `components` field carries the ordered list to the page. The snapshot's `recipes` field lists every item of the components in
 play, whether or not a comp builds it. The static data also holds earlier sets' recipes under
 other component names, so the components in play are the ones the comps' own items are made of.
 The number on an item is how many comps of tier B or better build it, counted from each comp's
