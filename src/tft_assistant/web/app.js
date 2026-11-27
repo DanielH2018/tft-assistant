@@ -188,6 +188,16 @@ function renderFilters() {
 // reader fills. The browser keeps the view across a reload.
 const VIEW = "tft-assistant.view";
 state.view = ["items", "planner"].includes(localStorage.getItem(VIEW)) ? localStorage.getItem(VIEW) : "comps";
+// Shows one comp on the comps view. The list's filters go when they would leave the comp out,
+// because the list opens its first comp in place of one it does not hold.
+function openComp(id) {
+  state.comp = id;
+  if (!visibleComps().some((comp) => comp.id === id)) {
+    state.filters = [];
+    state.filter = "";
+  }
+  setView("comps");
+}
 function setView(view) {
   state.view = view;
   localStorage.setItem(VIEW, view);
@@ -779,8 +789,8 @@ function fitNames() {
   const row = getComputedStyle(el("comps"));
   pen.font = `${row.fontWeight} ${row.fontSize} ${row.fontFamily}`;
   const longest = Math.max(0, ...snap().comps.map((comp) => pen.measureText(nameOf(comp)).width));
-  // The 16 pixels are the mark that opens a comp's subcomps.
-  const width = Math.ceil(Math.min(Math.max(longest + 18, NAME_WIDTHS[0]), NAME_WIDTHS[1]));
+  // The 18 pixels are the mark that opens a comp's subcomps.
+  const width = Math.ceil(Math.min(Math.max(longest + 20, NAME_WIDTHS[0]), NAME_WIDTHS[1]));
   if (width === nameWidth) return;
   nameWidth = width;
   document.documentElement.style.setProperty("--name-width", `${width}px`);
@@ -1185,6 +1195,21 @@ el("detail").addEventListener("click", (event) => {
     else maximize(storedWidth(LIST_WIDTH));
     return;
   }
+  // Opening a comp and folding a section need no open comp: a filter can leave the list empty.
+  const opened = event.target.closest("[data-open]");
+  const folding = !event.target.closest(".info") && event.target.closest("section > h2");
+  if (opened) {
+    openComp(opened.dataset.open);
+    document.querySelector("#comps li.selected")?.scrollIntoView({ block: "nearest" });
+    return;
+  }
+  if (folding) {
+    const title = folding.parentElement.dataset.section;
+    if (!folded.delete(title)) folded.add(title);
+    localStorage.setItem(FOLDED, JSON.stringify([...folded]));
+    renderList();
+    return;
+  }
   const comp = snap().comps.find((candidate) => candidate.id === state.comp);
   if (!comp || event.target.closest(".info")) return;
   if (event.target.closest("#comp-name")) {
@@ -1220,18 +1245,7 @@ el("detail").addEventListener("click", (event) => {
     return;
   }
   const flex = event.target.closest("[data-flex]");
-  const heading = event.target.closest("section > h2");
-  const pivot = event.target.closest("[data-open]");
-  if (pivot) {
-    state.comp = pivot.dataset.open;
-    setView("comps");
-    document.querySelector("#comps li.selected")?.scrollIntoView({ block: "nearest" });
-  } else if (heading) {
-    const title = heading.parentElement.dataset.section;
-    if (!folded.delete(title)) folded.add(title);
-    localStorage.setItem(FOLDED, JSON.stringify([...folded]));
-    renderDetail();
-  } else if (flex) {
+  if (flex) {
     togglePick(comp, flex.dataset.flex);
     renderDetail();
   } else if (event.target.closest("#copy-team")) {
@@ -1320,7 +1334,7 @@ function putBoards(compId, boards) {
       if (shown) shown.textContent = `not saved: ${error.message}`;
     });
 }
-function saveBoard() {
+function savePlanned() {
   const compId = state.saveComp || NO_COMP;
   const entry = { name: state.saveName.trim() || "Board", stage: state.saveStage, units: plannerBoard(), emblems: plannerEmblems() };
   const boards = savedBoards(compId).filter((board) => board.name !== entry.name || board.stage !== entry.stage);
@@ -1396,7 +1410,7 @@ function freeHexFor(id, board) {
   return order.find((hex) => !board[hex]);
 }
 
-function togglePick(id) {
+function togglePlanned(id) {
   const board = plannerBoard();
   const at = Object.keys(board).find((hex) => board[hex] === id);
   if (at) delete board[at];
@@ -1569,7 +1583,7 @@ function movePlanned(from, to) {
 
 el("roster").addEventListener("click", (event) => {
   const pick = event.target.closest("[data-pick]");
-  if (pick) togglePick(pick.dataset.pick);
+  if (pick) togglePlanned(pick.dataset.pick);
 });
 el("detail").addEventListener("click", (event) => {
   if (state.view !== "planner") return;
@@ -1585,14 +1599,14 @@ el("detail").addEventListener("click", (event) => {
     const [compId, place] = event.target.closest("[data-load]").dataset.load.split(":");
     loadSaved(compId, Number(place));
   } else if (event.target.closest("#save-board")) {
-    saveBoard();
+    savePlanned();
   } else if (event.target.closest("[data-emblem]")) {
     const trait = event.target.closest("[data-emblem]").dataset.emblem;
     const emblems = plannerEmblems();
     emblems[trait] = Math.max(0, (emblems[trait] || 0) + (event.shiftKey ? -1 : 1));
     keepEmblems(emblems);
   } else if (event.target.closest("[data-pick]")) {
-    togglePick(event.target.closest("[data-pick]").dataset.pick);
+    togglePlanned(event.target.closest("[data-pick]").dataset.pick);
   } else if (event.target.closest("#clear-plan")) {
     localStorage.removeItem(emblemKey());
     keepPlanner({});
