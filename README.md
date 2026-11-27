@@ -20,7 +20,7 @@ The client reads the key from the `RIOT_API_KEY` environment variable, or from
 
 ```sh
 uv run tft probe      # one ladder, one match: report the rate limits and payload fields
-uv run tft crawl      # store the matches of the NA, EUW and KR apex ladders
+uv run tft crawl      # store the matches of the NA, EUW and KR ladders, from the top
 uv run tft comps --patch 18.7          # comps of a patch; --since, --until and --platform narrow it
 uv run tft build --out site            # write site/index.html from the stored matches
 uv run tft refresh --out site          # build, then crawl and build again every hour, until stopped

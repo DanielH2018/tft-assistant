@@ -7,6 +7,7 @@ key and replaces them with what each response reports.
 
 from __future__ import annotations
 
+import itertools
 import os
 import threading
 import time
@@ -24,6 +25,8 @@ KEY_FILE = Path("~/.config/tft-assistant/riot.env").expanduser()
 REGION_OF_PLATFORM = {"na1": "americas", "euw1": "europe", "kr": "asia"}
 
 APEX_TIERS = ("challenger", "grandmaster", "master")
+LOWER_TIERS = ("diamond", "emerald", "platinum", "gold", "silver", "bronze", "iron")
+DIVISIONS = ("I", "II", "III", "IV")
 
 # The limits printed on a personal key: 20 requests per second, 100 per 2 minutes.
 PERSONAL_KEY_LIMITS = "20:1,100:120"
@@ -132,12 +135,31 @@ class RiotClient:
         self._limiter = limiter or RateLimiter()
         self.limits_seen: dict[str, str] = {}
 
-    def apex_players(self, platform: str) -> Iterator[Player]:
-        """Every Challenger, Grandmaster and Master player on one platform's ranked ladder."""
+    def ladder(self, platform: str, *, below_master: Callable[[], bool] = lambda: False) -> Iterator[list[Player]]:
+        """One platform's ranked ladder from the top, as the players each request returns.
+
+        Challenger, Grandmaster and Master come first, one request each. The tiers under them
+        are read a page at a time, Diamond I first, and only while `below_master` answers yes.
+        It is asked before each such request, so a caller that has enough players stops the
+        walk without paying for a page it will not use. A new set starts with nobody in
+        Master, and this is how a crawl still finds players then.
+        """
         for tier in APEX_TIERS:
             league = self._get(platform, f"league-{tier}", f"/tft/league/v1/{tier}", {"queue": "RANKED_TFT"})
-            for entry in league["entries"]:
-                yield Player(entry["puuid"], platform, tier, entry["leaguePoints"])
+            yield [Player(entry["puuid"], platform, tier, entry["leaguePoints"]) for entry in league["entries"]]
+        for tier, division in itertools.product(LOWER_TIERS, DIVISIONS):
+            for page in itertools.count(1):
+                if not below_master():
+                    return
+                entries = self._get(
+                    platform,
+                    "league-entries",
+                    f"/tft/league/v1/entries/{tier.upper()}/{division}",
+                    {"queue": "RANKED_TFT", "page": page},
+                )
+                if not entries:
+                    break
+                yield [Player(entry["puuid"], platform, f"{tier} {division}", entry["leaguePoints"]) for entry in entries]
 
     def match_ids(self, platform: str, puuid: str, *, since: int, count: int = 100) -> list[str]:
         """IDs of a player's matches that started at or after `since`, in epoch seconds."""

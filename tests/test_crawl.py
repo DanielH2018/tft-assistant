@@ -4,15 +4,20 @@ from tft_assistant.store import Selection, Store
 
 
 class FakeClient:
-    def __init__(self, ids_by_player):
+    def __init__(self, ids_by_player, diamond_pages=()):
         self.ids_by_player = ids_by_player
+        self.diamond_pages = diamond_pages
         self.fetched = []
 
-    def apex_players(self, platform):
-        return [Player(puuid, platform, "challenger", 1000) for puuid in self.ids_by_player]
+    def ladder(self, platform, *, below_master):
+        yield [Player(puuid, platform, "challenger", 1000) for puuid in self.ids_by_player]
+        for page in self.diamond_pages:
+            if not below_master():
+                return
+            yield [Player(puuid, platform, "diamond I", 50) for puuid in page]
 
     def match_ids(self, platform, puuid, *, since):
-        return self.ids_by_player[puuid]
+        return self.ids_by_player.get(puuid, [])
 
     def match(self, platform, match_id):
         self.fetched.append(match_id)
@@ -30,7 +35,7 @@ def test_crawl_fetches_a_match_two_players_share_once():
 
     assert client.fetched == ["NA1_1", "NA1_2", "NA1_3"]
     assert store.count(Selection(19, 1100)) == 3
-    assert (report.players_listed, report.matches_stored, report.requests, report.finished_ladder) == (2, 3, 8, True)
+    assert (report.players_listed, report.matches_stored, report.requests, report.finished_ladder) == (2, 3, 6, True)
 
 
 def test_crawl_stops_listing_players_when_the_budget_ends():
@@ -41,3 +46,15 @@ def test_crawl_stops_listing_players_when_the_budget_ends():
 
     assert client.fetched == ["NA1_1"]
     assert not report.finished_ladder
+
+
+def test_a_crawl_goes_below_master_only_until_it_has_listed_enough_players():
+    client = FakeClient({"a": [], "b": []}, diamond_pages=[["c", "d"], ["e", "f"], ["g", "h"]])
+
+    thin = crawl(client, Store(":memory:"), "na1", since=0, budget_seconds=60, min_players=5)
+    full = crawl(client, Store(":memory:"), "na1", since=0, budget_seconds=60, min_players=2)
+
+    assert (thin.players_listed, thin.lowest_tier) == (6, "diamond I")
+    assert "down to diamond I" in thin.line()
+    assert (full.players_listed, full.lowest_tier) == (2, "challenger")
+    assert "down to" not in full.line()
