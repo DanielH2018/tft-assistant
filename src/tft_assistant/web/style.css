@@ -55,6 +55,22 @@ aside {
 #head button { cursor: pointer; }
 #head button:hover { color: var(--text); }
 #head .sorted { color: var(--mauve); }
+#switches { display: flex; flex-wrap: wrap; gap: 4px 18px; padding: 0 10px 8px; font-size: 12px; color: var(--subtext); }
+.switch { display: flex; align-items: center; gap: 6px; cursor: pointer; white-space: nowrap; }
+.switch input { position: absolute; opacity: 0; pointer-events: none; }
+.switch i { width: 26px; height: 14px; border-radius: 7px; background: var(--surface1); position: relative; transition: background 0.12s; }
+.switch i::after { content: ""; position: absolute; left: 1px; top: 1px; width: 12px; height: 12px; border-radius: 50%; background: var(--subtext); transition: left 0.12s, background 0.12s; }
+.switch input:checked + i { background: var(--mauve); }
+.switch input:checked + i::after { left: 13px; background: var(--crust); }
+.switch input:focus-visible + i { outline: 2px solid var(--mauve); outline-offset: 2px; }
+/* A subcomp is its comp with one more group of units, so its row sits under the comp's, set in. */
+#comps li.sub { height: 30px; background: var(--crust); color: var(--subtext); font-size: 13px; }
+#comps li.sub::before { height: 22px; }
+#comps li.sub .c-name { padding-left: 16px; }
+#comps li.sub:hover { background: var(--surface0); }
+#comps .expand { all: unset; cursor: pointer; display: inline-block; width: 16px; color: var(--muted); font-size: 10px; }
+#comps .expand:hover { color: var(--text); }
+#comps .no-subs { display: inline-block; width: 16px; }
 #head .arrow { font-size: 8px; margin-left: 3px; vertical-align: 1px; }
 #comps li { height: 36px; cursor: pointer; border-bottom: 1px solid var(--crust); }
 /* The first line is as tall as the row whichever columns are in it. */
@@ -76,8 +92,8 @@ aside {
 #tabs button:hover { color: var(--text); }
 #tabs button.on { color: var(--text); border-bottom-color: var(--mauve); }
 /* Each view shows its own half of the side panel. The filter box and the list belong to the comps. */
-body[data-view="items"] :is(#filters, #head, #comps, #roster), body[data-view="comps"] :is(#slams, #roster),
-body[data-view="planner"] :is(#filters, #head, #comps, #slams) { display: none; }
+body[data-view="items"] :is(#filters, #switches, #head, #comps, #roster), body[data-view="comps"] :is(#slams, #roster),
+body[data-view="planner"] :is(#filters, #switches, #head, #comps, #slams) { display: none; }
 #roster { flex: 1; overflow: auto; padding: 4px 10px 10px; }
 .roster-cost { display: flex; flex-wrap: wrap; gap: 4px 2px; align-items: center; padding: 6px 0; border-top: 1px solid var(--surface0); }
 .roster-cost > .note { width: 100%; }

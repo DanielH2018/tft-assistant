@@ -58,6 +58,8 @@ class FlexPackage:
     units: tuple[str, ...]
     share: float
     avg_placement: float
+    top4: float
+    win_rate: float
 
 
 @dataclass(frozen=True)
@@ -168,10 +170,13 @@ def _flex(members: list[Board], core: set[str], static: StaticData) -> tuple[Fle
     for units in {frozenset(units) for units in group.values()}:
         holding = {index for index, flexed in enumerate(held) if units <= flexed}
         if len(holding) / len(members) >= _PACKAGE_FLOOR:
+            placements = [members[index].placement for index in holding]
             package = FlexPackage(
                 tuple(sorted(units, key=lambda unit: (-static.units[unit].cost, unit))),
                 len(holding) / len(members),
-                float(np.mean([members[index].placement for index in holding])),
+                float(np.mean(placements)),
+                sum(1 for placement in placements if placement <= 4) / len(holding),
+                placements.count(1) / len(holding),
             )
             found.append((package, holding))
     found.sort(key=lambda entry: (-entry[0].share, entry[0].units))

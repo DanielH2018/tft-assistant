@@ -63,6 +63,36 @@ function visibleComps() {
     .sort((a, b) => (state.ascending ? -1 : 1) * SORTS[state.sort](a, b));
 }
 
+// The list leaves out the comps few boards play, until its first switch asks for them. A comp of
+// 0.3% of boards can read as the best on the list from sixty boards.
+const LOW_PLAY = 0.01;
+const SHOW_LOW_PLAY = "tft-assistant.low-play";
+const EXPAND_ALL = "tft-assistant.expand-all";
+state.lowPlay = localStorage.getItem(SHOW_LOW_PLAY) === "1";
+state.expandAll = localStorage.getItem(EXPAND_ALL) === "1";
+// The comps whose rows differ from what the second switch says: opened while it is off, or
+// closed while it is on.
+state.flipped = new Set();
+const isListed = (comp) => state.lowPlay || comp.share >= LOW_PLAY;
+
+// A subcomp is the comp with one of its flex packages: the boards of the comp that add those
+// units to the core. Two subcomps of a comp can share boards, since a board can hold two packages.
+const subcompsOf = (comp) => comp.flex.flat().sort((a, b) => b.share - a.share);
+const isExpanded = (comp) => state.expandAll !== state.flipped.has(comp.id);
+function subcompRow(comp, sub) {
+  const names = sub.units.map((id) => unitOf(id).name).join(", ");
+  return `<li data-id="${comp.id}" class="comp-row sub" ${tipOf(`${nameOf(comp)} with ${names}: ${pct(sub.share)} of its boards`)}>
+    <span class="c-tier"></span>
+    <span class="c-name">+ ${esc(names)}</span>
+    <span class="c-level"></span>
+    <span class="c-core">${sub.units.map((id) => unitTile(id, "s")).join("")}</span>
+    <span class="c-avg num">${sub.avg_placement.toFixed(2)}</span>
+    <span class="c-top4 num">${pct(sub.top4)}</span>
+    <span class="c-win num">${pct(sub.win_rate)}</span>
+    <span class="c-play num">${(comp.share * sub.share * 100).toFixed(1)}%</span>
+  </li>`;
+}
+
 // A category groups comps that want the same thing from a game. The snapshot derives each comp's
 // categories by rule, and the reader's edit changes them: a list where `-reroll` takes the comp
 // out of a derived category and any other entry puts it in one.
@@ -283,18 +313,23 @@ function renderList() {
     const arrow = column === state.column ? `<span class="arrow">${state.ascending ? "▲" : "▼"}</span>` : "";
     return sort ? `<button data-sort="${sort}" data-column="${column}" ${cell}>${label}${arrow}</button>` : `<span ${cell}>${label}</span>`;
   }).join("");
+  el("low-play").checked = state.lowPlay;
+  el("expand-all").checked = state.expandAll;
+  const low = comps.filter((comp) => comp.share < LOW_PLAY).length;
+  el("low-play-label").textContent = `Show low play rate comps${low ? ` (${low})` : ""}`;
   el("comps").innerHTML = comps
+    .filter(isListed)
     .map(
       (comp) => `<li data-id="${comp.id}" class="comp-row ${comp.id === state.comp ? "selected" : ""}">
         <span class="c-tier"><span class="tier t${comp.tier}">${comp.tier}</span></span>
-        <span class="c-name">${esc(nameOf(comp))}</span>
+        <span class="c-name">${comp.flex.length ? `<button class="expand" data-expand="${comp.id}" title="${isExpanded(comp) ? "Hide" : "List"} its subcomps">${isExpanded(comp) ? "▾" : "▸"}</button>` : `<span class="no-subs"></span>`}${esc(nameOf(comp))}</span>
         <span class="c-level">${comp.roll_level}</span>
         <span class="c-core">${comp.core.map((id) => unitTile(id, "s")).join("")}</span>
         <span class="c-avg num">${comp.avg_placement.toFixed(2)}</span>
         <span class="c-top4 num">${pct(comp.top4)}</span>
         <span class="c-win num">${pct(comp.win_rate)}</span>
         <span class="c-play num">${(comp.share * 100).toFixed(1)}%</span>
-      </li>`,
+      </li>${isExpanded(comp) ? subcompsOf(comp).map((sub) => subcompRow(comp, sub)).join("") : ""}`,
     )
     .join("");
   renderDetail();
@@ -642,7 +677,8 @@ function fitNames() {
   const row = getComputedStyle(el("comps"));
   pen.font = `${row.fontWeight} ${row.fontSize} ${row.fontFamily}`;
   const longest = Math.max(0, ...snap().comps.map((comp) => pen.measureText(nameOf(comp)).width));
-  const width = Math.ceil(Math.min(Math.max(longest + 2, NAME_WIDTHS[0]), NAME_WIDTHS[1]));
+  // The 16 pixels are the mark that opens a comp's subcomps.
+  const width = Math.ceil(Math.min(Math.max(longest + 18, NAME_WIDTHS[0]), NAME_WIDTHS[1]));
   if (width === nameWidth) return;
   nameWidth = width;
   document.documentElement.style.setProperty("--name-width", `${width}px`);
@@ -1373,7 +1409,21 @@ el("filters").addEventListener("click", (event) => {
   }
   el("filter").focus();
 });
+el("switches").addEventListener("change", () => {
+  state.lowPlay = el("low-play").checked;
+  if (state.expandAll !== el("expand-all").checked) state.flipped.clear();
+  state.expandAll = el("expand-all").checked;
+  localStorage.setItem(SHOW_LOW_PLAY, state.lowPlay ? "1" : "0");
+  localStorage.setItem(EXPAND_ALL, state.expandAll ? "1" : "0");
+  renderList();
+});
 el("comps").addEventListener("click", (event) => {
+  const mark = event.target.closest("[data-expand]");
+  if (mark) {
+    if (!state.flipped.delete(mark.dataset.expand)) state.flipped.add(mark.dataset.expand);
+    renderList();
+    return;
+  }
   const row = event.target.closest("li");
   if (row) {
     state.comp = row.dataset.id;
