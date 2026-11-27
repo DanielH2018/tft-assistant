@@ -137,10 +137,11 @@ function renderFilters() {
   renderList();
 }
 
-// The page has two views of one snapshot. "comps" is the comp list beside one comp's page. "items"
-// is the slam grid beside the item groups. The browser keeps the view across a reload.
+// The page has three views of one snapshot. "comps" is the comp list beside one comp's page.
+// "items" is the slam grid beside the item groups. "planner" is the roster beside a board the
+// reader fills. The browser keeps the view across a reload.
 const VIEW = "tft-assistant.view";
-state.view = localStorage.getItem(VIEW) === "items" ? "items" : "comps";
+state.view = ["items", "planner"].includes(localStorage.getItem(VIEW)) ? localStorage.getItem(VIEW) : "comps";
 function setView(view) {
   state.view = view;
   localStorage.setItem(VIEW, view);
@@ -228,12 +229,18 @@ function renderList() {
   const s = snap();
   const age = s.newest_match ? `newest match ${hoursAgo(s.newest_match)}` : "no matches";
   el("health").textContent = `${s.boards.toLocaleString()} boards · ${pct(s.unclassified)} unclassified · ${age}`;
+  // Every view has an open comp, the one the comps tab shows: a click that opens a comp from
+  // another tab changes it and goes there.
+  const comps = visibleComps();
+  if (!comps.some((comp) => comp.id === state.comp)) state.comp = comps.length ? comps[0].id : null;
   if (state.view === "items") {
     renderItems();
     return;
   }
-  const comps = visibleComps();
-  if (!comps.some((comp) => comp.id === state.comp)) state.comp = comps.length ? comps[0].id : null;
+  if (state.view === "planner") {
+    renderPlanner();
+    return;
+  }
   el("head").innerHTML = COLUMNS.map(([label, sort, column]) => {
     const cell = `class="${column} ${sort === state.sort ? "sorted" : ""}"`;
     return sort ? `<button data-sort="${sort}" ${cell}>${label}</button>` : `<span ${cell}>${label}</span>`;
@@ -647,11 +654,7 @@ function teamUnits(comp) {
 
 // Riot's team code: "02", ten units as three hex digits each with 000 for an empty place, then the set's name.
 const TEAM_PLACES = 10;
-function teamCode(comp) {
-  const numbers = teamUnits(comp).map((id) => unitOf(id).planner_code).filter(Boolean);
-  const places = Array.from({ length: TEAM_PLACES }, (_, place) => (numbers[place] || 0).toString(16).padStart(3, "0"));
-  return `02${places.join("")}${snap().team_code_set}`;
-}
+const teamCode = (comp) => teamCodeOf(teamUnits(comp));
 
 async function copyText(text) {
   try {
@@ -1050,6 +1053,180 @@ function changeCategory(category, member) {
     if (shown) shown.textContent = `not saved: ${error.message}`;
   });
 }
+// ── The planner ──────────────────────────────────────────────────────────────────────────────
+// The reader builds a board from the roster. The board is "row,column" → unit, kept in the
+// browser for each set, so it is there after a reload and needs no server.
+const PLANNER = "tft-assistant.planner";
+const plannerKey = () => `${PLANNER}.${snap().selection.set}`;
+function plannerBoard() {
+  try {
+    const kept = JSON.parse(localStorage.getItem(plannerKey()) || "{}");
+    const board = {};
+    for (const hex of HEXES) if (kept && snap().units[kept[hex]]) board[hex] = kept[hex];
+    return board;
+  } catch {
+    return {};
+  }
+}
+function keepPlanner(board) {
+  localStorage.setItem(plannerKey(), JSON.stringify(board));
+  renderPlanner();
+}
+
+// The units a player can buy, cheapest first: the ones Riot's team planner lists.
+const rosterUnits = () =>
+  Object.keys(snap().units)
+    .filter((id) => unitOf(id).planner_code && unitOf(id).traits.length)
+    .sort((a, b) => unitOf(a).cost - unitOf(b).cost || unitOf(a).name.localeCompare(unitOf(b).name));
+
+// Each trait the units field, with its count, how many breakpoints that count reaches and the
+// next breakpoint. A unit counts once however often it is on the board. The traits that reach a
+// breakpoint come first, then the ones nearest their first.
+function activeTraits(units) {
+  const counts = new Map();
+  for (const id of new Set(units)) for (const trait of unitOf(id).traits) counts.set(trait, (counts.get(trait) || 0) + 1);
+  return [...counts]
+    .map(([trait, count]) => {
+      const breakpoints = (snap().traits[trait] || {}).breakpoints || [];
+      const reached = breakpoints.filter((at) => at <= count).length;
+      return { trait, count, breakpoints, reached, next: breakpoints[reached] };
+    })
+    .sort((a, b) => Math.sign(b.reached) - Math.sign(a.reached) || b.count - a.count || traitName(a.trait).localeCompare(traitName(b.trait)));
+}
+
+// The hex a unit added from the roster takes: the free hex of its usual row nearest the centre,
+// or else the nearest free hex of any row.
+function freeHexFor(id, board) {
+  const row = unitOf(id).row ?? ROWS - 1;
+  const order = [...CENTRE_OUT.map((column) => `${row},${column}`), ...HEXES];
+  return order.find((hex) => !board[hex]);
+}
+
+function togglePick(id) {
+  const board = plannerBoard();
+  const at = Object.keys(board).find((hex) => board[hex] === id);
+  if (at) delete board[at];
+  else {
+    const hex = freeHexFor(id, board);
+    if (hex) board[hex] = id;
+  }
+  keepPlanner(board);
+}
+
+function teamCodeOf(units) {
+  const numbers = units.map((id) => unitOf(id).planner_code).filter(Boolean);
+  const places = Array.from({ length: TEAM_PLACES }, (_, place) => (numbers[place] || 0).toString(16).padStart(3, "0"));
+  return `02${places.join("")}${snap().team_code_set}`;
+}
+
+// The comps whose core the board shares most of, as [comp, shared units, missing units].
+const CLOSEST_SHOWN = 5;
+function closestComps(units) {
+  const on = new Set(units);
+  return snap()
+    .comps.map((comp) => [comp, comp.core.filter((id) => on.has(id)), comp.core.filter((id) => !on.has(id))])
+    .filter(([, shared]) => shared.length >= 2)
+    .sort((a, b) => b[1].length / b[0].core.length - a[1].length / a[0].core.length || a[0].avg_placement - b[0].avg_placement)
+    .slice(0, CLOSEST_SHOWN);
+}
+
+function rosterHtml(board) {
+  const on = new Set(Object.values(board));
+  const costs = new Map();
+  for (const id of rosterUnits()) costs.set(unitOf(id).cost, [...(costs.get(unitOf(id).cost) || []), id]);
+  return [...costs]
+    .map(
+      ([cost, ids]) => `<div class="roster-cost"><span class="note">${cost} cost</span>${ids
+        .map((id) => `<span class="pick ${on.has(id) ? "on" : ""}" data-pick="${id}">${unitTile(id, "m", { note: on.has(id) ? "Click to take it off the board." : "Click to put it on the board." })}</span>`)
+        .join("")}</div>`,
+    )
+    .join("");
+}
+
+function plannerHtml(board) {
+  const units = Object.values(board);
+  const lines = [0, 1, 2, 3].map((row) => {
+    const hexes = CORNER_IN.map((column) => {
+      const id = board[`${row},${column}`];
+      const unit = id && unitOf(id);
+      const image = unit && unit.icon ? `<img src="${esc(unit.icon)}" alt="" draggable="false">` : "";
+      return `<span class="hex" data-hex="${row},${column}" ${id ? `draggable="true" ${unitTip(id, "Drag to move it. Click to take it off the board.")}` : ""}>${image}</span>`;
+    });
+    return `<div class="line">${hexes.join("")}</div>`;
+  });
+  const traits = activeTraits(units)
+    .map(({ trait, count, breakpoints, reached, next }) => {
+      const { icon } = snap().traits[trait] || {};
+      const tip = tipOf(
+        traitName(trait),
+        breakpoints.length ? `Breakpoints: ${breakpoints.join(" / ")}` : "",
+        reached ? `${count} reaches ${breakpoints[reached - 1]}` : `${count} of the ${breakpoints[0] || "?"} it needs`,
+        next ? `${next - count} more for ${next}` : "",
+      );
+      return `<span class="trait ${reached ? "top" : ""}" ${tip}>${icon ? `<img src="${esc(icon)}" alt="">` : ""}${count}${next ? `/${next}` : ""} ${esc(traitName(trait))}</span>`;
+    })
+    .join("");
+  const closest = closestComps(units)
+    .map(
+      ([comp, shared, missing]) => `<div class="closest" data-open="${comp.id}" ${tipOf(`${shared.length} of its ${comp.core.length} core units are on the board.`, "Click to open the comp.")}>
+        <span class="tier t${comp.tier}">${comp.tier}</span><span class="closest-name">${esc(nameOf(comp))}</span>
+        <span class="note">${shared.length} of ${comp.core.length}${missing.length ? ", missing" : ""}</span>${missing.map((id) => unitTile(id, "s")).join("")}</div>`,
+    )
+    .join("");
+  const cut = units.length > TEAM_PLACES ? `the first ${TEAM_PLACES} of ${units.length} units` : `${units.length} units`;
+  return `<div id="sheet">
+    <header><div class="title">${MAXIMIZE}<h1>Planner</h1>
+      <button id="copy-plan" ${tipOf(teamCodeOf(units), cut)}>Copy team code</button>
+      <button id="clear-plan" ${tipOf("Take every unit off the board.")}>Clear</button></div>
+      <p class="stats">${units.length} unit${units.length === 1 ? "" : "s"} on the board. Click a unit in the roster to add it, and drag it on the board to place it.</p></header>
+    <div class="flow">
+      ${section("Board", `<div class="board planner-board" ${tipOf("The front row is at the top.")}>${lines.join("")}</div>`)}
+      ${section("Traits", `<div class="row">${traits || `<span class="note">no unit on the board</span>`}</div>`, { width: "wraps" })}
+      ${section("Closest comps", `<div>${closest || `<span class="note">No comp shares two core units with this board.</span>`}</div>`, {
+        info: "The comps whose core this board holds most of, each with the core units still missing.\nClick one to open it.",
+      })}
+    </div></div>`;
+}
+
+function renderPlanner() {
+  showTip(null);
+  const board = plannerBoard();
+  el("roster").innerHTML = rosterHtml(board);
+  el("detail").innerHTML = plannerHtml(board);
+  fitWidth();
+}
+
+function movePlanned(from, to) {
+  const board = plannerBoard();
+  if (from === to || !board[from]) return;
+  const [moved, other] = [board[from], board[to]];
+  board[to] = moved;
+  if (other) board[from] = other;
+  else delete board[from];
+  keepPlanner(board);
+}
+
+el("roster").addEventListener("click", (event) => {
+  const pick = event.target.closest("[data-pick]");
+  if (pick) togglePick(pick.dataset.pick);
+});
+el("detail").addEventListener("click", (event) => {
+  if (state.view !== "planner") return;
+  const hex = event.target.closest(".planner-board .hex[data-tip]");
+  if (hex) {
+    const board = plannerBoard();
+    delete board[hex.dataset.hex];
+    keepPlanner(board);
+  } else if (event.target.closest("#clear-plan")) {
+    keepPlanner({});
+  } else if (event.target.closest("#copy-plan")) {
+    copyText(teamCodeOf(Object.values(plannerBoard()))).then(() => {
+      const button = el("copy-plan");
+      if (button) button.textContent = "Copied";
+    });
+  }
+});
+
 // A unit is dragged from its hex to another hex of the same board.
 let heldHex = null;
 el("detail").addEventListener("focusout", (event) => {
@@ -1072,7 +1249,8 @@ el("detail").addEventListener("drop", (event) => {
   const comp = snap().comps.find((candidate) => candidate.id === state.comp);
   if (!hex || !heldHex || !comp) return;
   event.preventDefault();
-  moveUnit(comp, heldHex, hex.dataset.hex);
+  if (state.view === "planner") movePlanned(heldHex, hex.dataset.hex);
+  else moveUnit(comp, heldHex, hex.dataset.hex);
   heldHex = null;
 });
 el("detail").addEventListener("dragend", () => (heldHex = null));
