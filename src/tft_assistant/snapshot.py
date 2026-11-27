@@ -98,6 +98,36 @@ def _recipes(static: StaticData, built: set[str]) -> dict[str, list[str]]:
     return {name: parts for name, parts in every.items() if set(parts) <= in_play}
 
 
+COMPONENT_ORDER = (
+    "BFSword",
+    "RecurveBow",
+    "ChainVest",
+    "NegatronCloak",
+    "NeedlesslyLargeRod",
+    "TearOfTheGoddess",
+    "GiantsBelt",
+    "SparringGloves",
+    "Spatula",
+    "FryingPan",
+)
+"""The order the owner reads components in: damage, defence, magic, utility, then the emblem makers.
+
+Each entry is the ending of a component's id. A set changes the prefix of the ids and keeps
+the endings: Set 18 has `DA_Component_BFSword`.
+"""
+
+
+def components_in_order(recipes: dict[str, list[str]], static: StaticData) -> list[str]:
+    """The components the recipes use, in `COMPONENT_ORDER`, then any other by name."""
+
+    def place(part: str) -> tuple[int, str]:
+        known = [at for at, ending in enumerate(COMPONENT_ORDER) if part.endswith(ending)]
+        name = static.items[part].name if part in static.items else part
+        return (known[0] if known else len(COMPONENT_ORDER), name)
+
+    return sorted({part for parts in recipes.values() for part in parts}, key=place)
+
+
 def _pick(pick: ItemPick) -> dict[str, Any]:
     return {
         "item": pick.item,
@@ -256,6 +286,7 @@ def build_snapshot(
         "comps": comps,
         "item_groups": [{"items": list(group.items), "units": list(group.units)} for group in groups],
         "recipes": recipes,
+        "components": components_in_order(recipes, static),
         "units": {
             unit: {
                 "name": static.units[unit].name,
