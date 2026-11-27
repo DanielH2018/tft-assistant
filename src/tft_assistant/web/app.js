@@ -159,11 +159,27 @@ function categoriesHtml(comp) {
   return `<p class="categories">${chips.join("")}${add}<span class="note edit-state"></span></p>`;
 }
 
+// The filter box belongs to the view: the comps view filters its comps, and the items view
+// filters the units of the item groups. Each keeps its own filters and its own typed text.
+Object.assign(state, { groupFilters: [], groupFilter: "" });
+const filterKeys = () => (state.view === "items" ? ["groupFilters", "groupFilter"] : ["filters", "filter"]);
+// A unit passes a filter that is part of its name, of one of its traits' names or of its cost:
+// "4", "4 cost" and "cost 4" all list the 4-cost units.
+function unitPasses(id, phrase) {
+  const unit = unitOf(id);
+  const asked = phrase.toLowerCase().replace("-", " ").trim();
+  if (/^\d+$/.test(asked)) return unit.cost === Number(asked);
+  return [unit.name, `${unit.cost} cost`, `cost ${unit.cost}`, ...unit.traits.map(traitName)].some((name) => name.toLowerCase().includes(asked));
+}
+const groupPhrases = () => [...state.groupFilters, state.groupFilter].filter((phrase) => phrase.trim());
+
 function renderFilters() {
-  el("chips").innerHTML = state.filters
+  const [kept] = filterKeys();
+  el("chips").innerHTML = state[kept]
     .map((filter, index) => `<span class="filter-chip">${esc(filter)}<button data-remove="${index}" data-tip="Remove this filter">×</button></span>`)
     .join("");
-  el("filter").placeholder = state.filters.length ? "add a filter" : "unit, trait, item or level";
+  const asks = state.view === "items" ? "unit, cost or trait" : "unit, trait, item or level";
+  el("filter").placeholder = state[kept].length ? "add a filter" : asks;
   renderList();
 }
 
@@ -175,7 +191,8 @@ state.view = ["items", "planner"].includes(localStorage.getItem(VIEW)) ? localSt
 function setView(view) {
   state.view = view;
   localStorage.setItem(VIEW, view);
-  renderList();
+  el("filter").value = state[filterKeys()[1]];
+  renderFilters();
 }
 
 // A comp counts toward a slam when its boards place well enough to copy.
@@ -260,14 +277,17 @@ function itemGroupsHtml() {
       .join("\n");
     return `<span class="to-filter ${comp ? "carrier" : ""}" data-filter="${esc(unitOf(id).name)}">${unitTile(id, "m", { note })}</span>`;
   };
+  const phrases = groupPhrases();
+  const listed = (group) => group.units.filter((id) => phrases.every((phrase) => unitPasses(id, phrase)));
   const groups = [...s.item_groups]
+    .filter((group) => listed(group).length)
     .sort((a, b) => Number(Boolean(uses(b))) - Number(Boolean(uses(a))))
     .map(
       (group) => `<div class="group ${uses(group) ? "lit" : ""}">
       <div class="group-items">${group.items
         .map((item) => `<span class="to-filter ${item === picked ? "picked" : ""}" data-filter="${esc(named(item))}">${itemIcon(item, { note: "Click to list the comps that build it." })}</span>`)
         .join("")}</div>
-      <div class="group-units">${[...group.units].sort(order(group)).map(unit(group)).join("")}</div>
+      <div class="group-units">${listed(group).sort(order(group)).map(unit(group)).join("")}</div>
     </div>`,
     );
   const info = "Units in one group build alike on real boards, so they can hold each other's items.\nA group lists the items its units hold most, then its units, the best placed first.\nClick an item in the grid to bring the units that hold it to the top. An outlined unit is a comp's main carry.";
@@ -275,12 +295,68 @@ function itemGroupsHtml() {
     ? `<p class="stats">Ordered for <b>${esc(named(picked))}</b> <button id="clear-item" ${tipOf("Go back to the usual order.")}>Clear</button></p>`
     : "";
   return `<div id="sheet"><header><h1>${MAXIMIZE} Item groups <span class="info" tabindex="0" ${tipOf(info)}>i</span></h1>${ordered}</header>
-    ${groups.join("") || `<p class="empty">No unit has enough itemised boards to group.</p>`}</div>`;
+    ${groups.join("") || `<p class="empty">${phrases.length ? "No unit in an item group passes the filters." : "No unit has enough itemised boards to group."}</p>`}</div>`;
+}
+
+// How the boards that hold an item place, one row an item. A kind button lists one kind of item.
+// "Craftable" holds no emblem: an emblem is under "Emblem" whether two components make it or a
+// game hands it out, and a second row of buttons tells those apart.
+const KINDS = [
+  [null, "All"],
+  ["craftable", "Craftable"],
+  ["artifact", "Artifact"],
+  ["emblem", "Emblem"],
+  ["radiant", "Radiant"],
+  ["other", "Other"],
+];
+const EMBLEM_KINDS = [
+  [null, "All"],
+  [true, "Craftable"],
+  [false, "Uncraftable"],
+];
+// Each column's own order puts the best or the most first, as in the comp list.
+const STAT_COLUMNS = [
+  ["Item", "name", (a, b) => itemName(a.item).localeCompare(itemName(b.item))],
+  ["Avg", "avg", (a, b) => a.avg_placement - b.avg_placement],
+  ["Top 4", "top4", (a, b) => b.top4 - a.top4],
+  ["Win", "win", (a, b) => b.win_rate - a.win_rate],
+  ["Play", "play", (a, b) => b.share - a.share],
+];
+Object.assign(state, { statKind: null, emblemCraft: null, statSort: "avg", statAscending: false });
+const kindOf = (stat) => (stat.kind === "component" ? "other" : stat.kind);
+function itemStatsHtml() {
+  const stats = snap().item_stats || [];
+  if (!stats.length) return "";
+  const button = (attribute, value, label, on) => `<button ${attribute}="${value === null ? "" : value}" class="${on ? "on" : ""}">${label}</button>`;
+  const kinds = KINDS.map(([kind, label]) => button("data-kind", kind, label, kind === state.statKind)).join("");
+  const emblems =
+    state.statKind === "emblem"
+      ? `<div class="stat-kinds sub">${EMBLEM_KINDS.map(([craft, label]) => button("data-craft", craft, label, craft === state.emblemCraft)).join("")}</div>`
+      : "";
+  const order = STAT_COLUMNS.find(([, key]) => key === state.statSort)[2];
+  const rows = stats
+    .filter((stat) => state.statKind === null || kindOf(stat) === state.statKind)
+    .filter((stat) => state.statKind !== "emblem" || state.emblemCraft === null || stat.has_recipe === state.emblemCraft)
+    .sort((a, b) => (state.statAscending ? -1 : 1) * order(a, b))
+    .map(
+      (stat) => `<tr data-slam="${esc(stat.item)}" class="${stat.item === state.item ? "picked" : ""}" ${tipOf(`On ${stat.boards.toLocaleString()} boards. Click to order the item groups for it.`)}>
+        <td class="stat-item">${itemIcon(stat.item)} ${itemName(stat.item)}</td>
+        <td class="num">${stat.avg_placement.toFixed(2)}</td><td class="num">${pct(stat.top4)}</td>
+        <td class="num">${pct(stat.win_rate)}</td><td class="num">${(stat.share * 100).toFixed(1)}%</td>
+      </tr>`,
+    );
+  const head = STAT_COLUMNS.map(([label, key]) => {
+    const arrow = key === state.statSort ? `<span class="arrow">${state.statAscending ? "▲" : "▼"}</span>` : "";
+    return `<th class="${key === "name" ? "" : "num"} ${key === state.statSort ? "sorted" : ""}"><button data-stat-sort="${key}">${label}${arrow}</button></th>`;
+  }).join("");
+  return `<h3 class="stats-title">Item stats <span class="info" tabindex="0" ${tipOf("How the boards that hold an item place. A board holds an artifact or a radiant item because it was ahead or was offered one, so their figures say less about the item.")}>i</span></h3>
+    <div class="stat-kinds">${kinds}</div>${emblems}
+    <table class="stats"><thead><tr>${head}</tr></thead><tbody>${rows.join("") || `<tr><td colspan="5" class="note">No item of this kind is on 50 boards.</td></tr>`}</tbody></table>`;
 }
 
 function renderItems() {
   showTip(null);
-  el("slams").innerHTML = slamGridHtml();
+  el("slams").innerHTML = slamGridHtml() + itemStatsHtml();
   el("detail").innerHTML = itemGroupsHtml();
   fitWidth();
 }
@@ -1386,25 +1462,26 @@ el("head").addEventListener("click", (event) => {
   }
 });
 el("filter").addEventListener("input", (event) => {
-  state.filter = event.target.value;
+  state[filterKeys()[1]] = event.target.value;
   renderList();
 });
 // Enter keeps the typed filter and starts another. Backspace in an empty box removes the last kept one.
 el("filter").addEventListener("keydown", (event) => {
   const box = event.target;
+  const [kept, typed] = filterKeys();
   if (event.key === "Enter" && box.value.trim()) {
-    state.filters.push(box.value.trim());
-    box.value = state.filter = "";
+    state[kept].push(box.value.trim());
+    box.value = state[typed] = "";
     renderFilters();
-  } else if (event.key === "Backspace" && !box.value && state.filters.length) {
-    state.filters.pop();
+  } else if (event.key === "Backspace" && !box.value && state[kept].length) {
+    state[kept].pop();
     renderFilters();
   }
 });
 el("filters").addEventListener("click", (event) => {
   const remove = event.target.closest("[data-remove]");
   if (remove) {
-    state.filters.splice(Number(remove.dataset.remove), 1);
+    state[filterKeys()[0]].splice(Number(remove.dataset.remove), 1);
     renderFilters();
   }
   el("filter").focus();
@@ -1440,7 +1517,17 @@ el("tabs").addEventListener("click", (event) => {
 el("slams").addEventListener("click", (event) => {
   const part = event.target.closest("[data-component]");
   const slam = event.target.closest("[data-slam]");
-  if (part) state.component = state.component === part.dataset.component ? null : part.dataset.component;
+  const kind = event.target.closest("[data-kind]");
+  const craft = event.target.closest("[data-craft]");
+  const sort = event.target.closest("[data-stat-sort]");
+  if (kind) {
+    state.statKind = kind.dataset.kind || null;
+    state.emblemCraft = null;
+  } else if (craft) state.emblemCraft = craft.dataset.craft === "" ? null : craft.dataset.craft === "true";
+  else if (sort) {
+    state.statAscending = sort.dataset.statSort === state.statSort && !state.statAscending;
+    state.statSort = sort.dataset.statSort;
+  } else if (part) state.component = state.component === part.dataset.component ? null : part.dataset.component;
   else if (slam) state.item = state.item === slam.dataset.slam ? null : slam.dataset.slam;
   else return;
   renderItems();
@@ -1452,9 +1539,9 @@ el("detail").addEventListener("click", (event) => {
     state.item = null;
     renderItems();
   } else if (named) {
+    state.view = "comps";
     state.filters = [named.dataset.filter];
     el("filter").value = state.filter = "";
-    state.view = "comps";
     localStorage.setItem(VIEW, "comps");
     renderFilters();
   }

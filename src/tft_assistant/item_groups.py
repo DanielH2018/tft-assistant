@@ -18,6 +18,10 @@ from tft_assistant.static_data import StaticData
 
 _TOP_ITEMS = 5
 _ITEM_FLOOR = 0.10
+_FILLS_THE_SLOTS = "ThiefsGloves"
+"""Part of the API name of Thief's Gloves, plain and radiant, in every set. The item fills its
+holder's other slots with items of its own choosing, so that unit's items say nothing of how
+the unit is built."""
 
 
 @dataclass(frozen=True)
@@ -49,8 +53,8 @@ def find_item_groups(
 ) -> tuple[ItemGroup, ...]:
     """Item groups among the boards, largest first.
 
-    A unit counts where it holds two or more finished items, and it joins a group only once
-    `min_builds` such boards exist. `distance` is how unlike two builds may be within one group.
+    A unit counts where it holds two or more finished items and no Thief's Gloves, and it joins
+    a group only once `min_builds` such boards exist. `distance` is how unlike two builds may be within one group.
     """
     held: dict[str, Counter[str]] = defaultdict(Counter)
     builds: Counter[str] = Counter()
@@ -58,6 +62,8 @@ def find_item_groups(
     placed_with: dict[str, Counter[str]] = defaultdict(Counter)
     for board in boards:
         for unit in board.units:
+            if any(_FILLS_THE_SLOTS in item for item in unit.items):
+                continue
             build = static.finished_items(unit.items)
             if len(build) >= 2 and unit.character_id in static.units:
                 builds[unit.character_id] += 1
