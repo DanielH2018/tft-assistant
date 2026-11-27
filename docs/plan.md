@@ -88,8 +88,15 @@ lower tiers drop out by themselves as Master fills: late in Set 18 an hour's cra
 
 The rule counts players, not matches, because a crawl learns how many matches it has only
 after it has spent the requests. A crawl's report line says how far down it went: `down to
-diamond II`. The store does not record which rank a match came from, so the page cannot say it
-yet; a match holds eight players of mixed ranks.
+diamond II`.
+
+The page says so too. A crawl records the lowest tier it listed on its platform
+(`Store.note_floor`), and a snapshot names the platforms of its selection whose latest crawl
+went below Master (`below_master`). The line under the list then ends `ranks down to Diamond II
+on KR`, and says nothing when every platform stayed in Master and above. It describes the
+latest crawl, not each match: the store does not record which rank a match came from, and a
+match holds eight players of mixed ranks. Matches from an earlier, deeper crawl stay in a
+selection until they age out of it.
 
 ### The unattended run
 
