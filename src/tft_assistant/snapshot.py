@@ -385,6 +385,7 @@ def build_snapshot(
                 "icon": static.items[item].icon,
                 "recipe": [static.items[part].name if part in static.items else part for part in static.items[item].components],
                 "emblem_of": static.items[item].emblem_of,
+                "radiant_of": static.items[item].radiant_of,
             }
             for item in sorted(items)
             if item in static.items

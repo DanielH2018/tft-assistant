@@ -254,7 +254,7 @@ the list is back.
 Under the grid, the Items tab lists how the boards that hold each item place: average
 placement, top 4 rate, win rate and play rate (`item_stats.py`). A board that holds two copies
 counts once, and an item on fewer than 50 boards has no row. A column sorts both ways, as in the
-comp list, and a click on a row orders the item groups for that item.
+comp list, and a click on a row picks that item (see *Picking items*).
 
 A row of buttons lists one kind of item: Craftable, Artifact, Emblem, Radiant or Other. An item
 has one kind. An emblem is under Emblem whether two components make it or a game hands it out,
@@ -264,6 +264,16 @@ the uncraftable. Other holds the loose components and whatever fits no kind.
 The figures say how boards with an item did, not what the item did for them. A board holds an
 artifact or a radiant item because it was ahead or was offered one. Riot's policy forbids
 showing win rates of augments, not of items.
+
+### Picking items
+
+A click on an item in the grid or in the stats table picks it, up to two; a third pick replaces
+the older one. With an item picked, a group lists only the units that hold a picked item on a
+tenth of their itemised boards or more, which is the floor the snapshot keeps a unit's items
+at. A tank leaves when a carry's item is picked, and a group with no unit left is not drawn.
+Each unit that stays is a card: for each picked item it holds, how often and how it places
+there, then its overall placement and the comp it carries. A unit that holds both items comes
+first. A radiant item is picked as its base.
 
 ### Filtering the item groups
 

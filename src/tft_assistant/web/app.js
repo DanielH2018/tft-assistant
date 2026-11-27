@@ -1,5 +1,5 @@
 const SNAPSHOTS = JSON.parse(document.getElementById("snapshots").textContent);
-const state = { snapshot: 0, comp: null, filters: [], filter: "", sort: "avg", column: "c-tier", ascending: false, component: null, item: null };
+const state = { snapshot: 0, comp: null, filters: [], filter: "", sort: "avg", column: "c-tier", ascending: false, component: null };
 const el = (id) => document.getElementById(id);
 const esc = (text) =>
   String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -230,7 +230,7 @@ function slamGridHtml() {
     const note = built.length
       ? `Built by ${built.length} of ${strong.length} comps of tier B or better:\n${lines.join("\n")}${built.length > 8 ? "\n…" : ""}\nClick to bring the units that hold it to the top of the item groups.`
       : "No comp of tier B or better builds it.";
-    return `<td class="slam ${tone} ${lit} ${item === state.item ? "picked" : ""}" data-slam="${esc(item)}">${itemIcon(item, { note })}<b>${built.length || ""}</b></td>`;
+    return `<td class="slam ${tone} ${lit} ${state.items.includes(item) ? "picked" : ""}" data-slam="${esc(item)}">${itemIcon(item, { note })}<b>${built.length || ""}</b></td>`;
   };
   const part = (id) =>
     `<th class="${id === state.component ? "lit" : ""}" data-component="${esc(id)}">${itemIcon(id, { note: "Click to light up its row and column." })}</th>`;
@@ -242,10 +242,23 @@ function slamGridHtml() {
   return `<table class="slams">${head}${rows.join("")}</table>`;
 }
 
-// Each group lists the items its units build and its units, the best placed first. With an item
-// picked in the slam grid, the groups whose units hold it come first, and within every group the
-// units that hold it most often lead. A unit that is a comp's main carry is outlined. A click on
-// a unit or an item goes to the comps tab with its name as the filter.
+// Each group lists the items its units build and its units, the best placed first. A unit that
+// is a comp's main carry is outlined. A click on a unit or an item goes to the comps tab with
+// its name as the filter.
+//
+// With one or two items picked, a group lists only the units that hold a picked item on a tenth
+// of their itemised boards or more, which is the floor the snapshot keeps an item at. A tank
+// leaves when a carry's item is picked. The units that stay are drawn as cards, with how often
+// each holds each picked item and how it places with it. A unit that holds both comes before
+// one that holds one.
+const PICKED_ITEMS = 2;
+state.items = [];
+// A radiant item is picked as its base: the groups count a radiant item as the item it upgrades.
+function pickItem(asked) {
+  const item = (snap().items[asked] || {}).radiant_of || asked;
+  const kept = state.items.filter((other) => other !== item);
+  state.items = kept.length < state.items.length ? kept : [...kept, item].slice(-PICKED_ITEMS);
+}
 function itemGroupsHtml() {
   const s = snap();
   const carried = new Map();
@@ -253,23 +266,21 @@ function itemGroupsHtml() {
     if (comp.carries[0] && !carried.has(comp.carries[0])) carried.set(comp.carries[0], comp);
   }
   const named = (id) => (s.items[id] || { name: id }).name;
-  const picked = state.item;
-  const withPicked = (group, id) => picked && group.held && group.held[id] && group.held[id].items[picked];
-  const uses = (group) => picked && (group.items.includes(picked) || group.units.some((id) => withPicked(group, id)));
+  const picked = state.items;
+  const heldBy = (group, id) => (group.held || {})[id];
+  // What a unit holds of the picked items, as [item, share of its boards, placement with it].
+  const matches = (group, id) => picked.map((item) => [item, ...((heldBy(group, id) || { items: {} }).items[item] || [])]).filter((match) => match.length > 1);
+  const shares = (group, id) => matches(group, id).reduce((sum, match) => sum + match[1], 0);
   const order = (group) => (a, b) => {
-    const [first, second] = [withPicked(group, a), withPicked(group, b)];
-    if (Boolean(first) !== Boolean(second)) return first ? -1 : 1;
-    if (first && first[0] !== second[0]) return second[0] - first[0];
-    const avg = (id) => (first ? withPicked(group, id)[1] : ((group.held || {})[id] || { avg: 9 }).avg);
+    if (picked.length) return matches(group, b).length - matches(group, a).length || shares(group, b) - shares(group, a);
+    const avg = (id) => (heldBy(group, id) || { avg: 9 }).avg;
     return avg(a) - avg(b) || unitOf(a).cost - unitOf(b).cost;
   };
-  const unit = (group) => (id) => {
-    const held = (group.held || {})[id];
+  const tile = (group) => (id) => {
+    const held = heldBy(group, id);
     const comp = carried.get(id);
-    const own = withPicked(group, id);
     const note = [
       held && `Average placement ${held.avg.toFixed(2)} over ${held.boards.toLocaleString()} boards where it holds items.`,
-      own && `Holds ${named(picked)} on ${pct(own[0])} of them, and places ${own[1].toFixed(2)} there.`,
       comp && `Carries ${nameOf(comp)}.`,
       "Click to list the comps that field it.",
     ]
@@ -277,25 +288,40 @@ function itemGroupsHtml() {
       .join("\n");
     return `<span class="to-filter ${comp ? "carrier" : ""}" data-filter="${esc(unitOf(id).name)}">${unitTile(id, "m", { note })}</span>`;
   };
+  const card = (group) => (id) => {
+    const held = heldBy(group, id);
+    const comp = carried.get(id);
+    const lines = matches(group, id)
+      .map(([item, share, avg]) => `<span class="held-line" ${tipOf(`Holds ${named(item)} on ${pct(share)} of its itemised boards, and places ${avg.toFixed(2)} there.`)}>${itemIcon(item)}<b>${pct(share)}</b><span class="note">${avg.toFixed(2)}</span></span>`)
+      .join("");
+    return `<div class="unit-card to-filter ${comp ? "carrier" : ""}" data-filter="${esc(unitOf(id).name)}" ${tipOf("Click to list the comps that field it.")}>
+      ${unitTile(id, "m")}
+      <div class="card-lines">${lines}
+        <span class="note">${held.avg.toFixed(2)} avg over ${held.boards.toLocaleString()}${comp ? ` · carries ${esc(nameOf(comp))}` : ""}</span></div>
+    </div>`;
+  };
   const phrases = groupPhrases();
-  const listed = (group) => group.units.filter((id) => phrases.every((phrase) => unitPasses(id, phrase)));
+  const passing = (group) => group.units.filter((id) => phrases.every((phrase) => unitPasses(id, phrase)));
+  const listed = (group) => passing(group).filter((id) => !picked.length || matches(group, id).length);
+  const hidden = picked.length ? s.item_groups.reduce((count, group) => count + passing(group).length - listed(group).length, 0) : 0;
   const groups = [...s.item_groups]
     .filter((group) => listed(group).length)
-    .sort((a, b) => Number(Boolean(uses(b))) - Number(Boolean(uses(a))))
     .map(
-      (group) => `<div class="group ${uses(group) ? "lit" : ""}">
+      (group) => `<div class="group ${picked.length ? "detailed" : ""}">
       <div class="group-items">${group.items
-        .map((item) => `<span class="to-filter ${item === picked ? "picked" : ""}" data-filter="${esc(named(item))}">${itemIcon(item, { note: "Click to list the comps that build it." })}</span>`)
+        .map((item) => `<span class="to-filter ${picked.includes(item) ? "picked" : ""}" data-filter="${esc(named(item))}">${itemIcon(item, { note: "Click to list the comps that build it." })}</span>`)
         .join("")}</div>
-      <div class="group-units">${listed(group).sort(order(group)).map(unit(group)).join("")}</div>
+      <div class="group-units">${listed(group).sort(order(group)).map(picked.length ? card(group) : tile(group)).join("")}</div>
     </div>`,
     );
-  const info = "Units in one group build alike on real boards, so they can hold each other's items.\nA group lists the items its units hold most, then its units, the best placed first.\nClick an item in the grid to bring the units that hold it to the top. An outlined unit is a comp's main carry.";
-  const ordered = picked
-    ? `<p class="stats">Ordered for <b>${esc(named(picked))}</b> <button id="clear-item" ${tipOf("Go back to the usual order.")}>Clear</button></p>`
+  const info = "Units in one group build alike on real boards, so they can hold each other's items.\nA group lists the items its units hold most, then its units, the best placed first.\nClick one or two items in the grid or the table to list only the units that hold them, each with how often and how it places. An outlined unit is a comp's main carry.";
+  const names = picked.map((item) => `<b>${esc(named(item))}</b>`).join(" or ");
+  const ordered = picked.length
+    ? `<p class="stats">Units that hold ${names} on a tenth of their itemised boards or more${hidden ? `; ${hidden} that do not are hidden` : ""}. ${picked.length < PICKED_ITEMS ? "Pick a second item to add its holders. " : ""}<button id="clear-item" ${tipOf("List every unit again.")}>Clear</button></p>`
     : "";
+  const none = picked.length ? "No unit in an item group holds a picked item that often." : phrases.length ? "No unit in an item group passes the filters." : "No unit has enough itemised boards to group.";
   return `<div id="sheet"><header><h1>${MAXIMIZE} Item groups <span class="info" tabindex="0" ${tipOf(info)}>i</span></h1>${ordered}</header>
-    ${groups.join("") || `<p class="empty">${phrases.length ? "No unit in an item group passes the filters." : "No unit has enough itemised boards to group."}</p>`}</div>`;
+    ${groups.join("") || `<p class="empty">${none}</p>`}</div>`;
 }
 
 // How the boards that hold an item place, one row an item. A kind button lists one kind of item.
@@ -339,7 +365,7 @@ function itemStatsHtml() {
     .filter((stat) => state.statKind !== "emblem" || state.emblemCraft === null || stat.has_recipe === state.emblemCraft)
     .sort((a, b) => (state.statAscending ? -1 : 1) * order(a, b))
     .map(
-      (stat) => `<tr data-slam="${esc(stat.item)}" class="${stat.item === state.item ? "picked" : ""}" ${tipOf(`On ${stat.boards.toLocaleString()} boards. Click to order the item groups for it.`)}>
+      (stat) => `<tr data-slam="${esc(stat.item)}" class="${state.items.includes(stat.item) ? "picked" : ""}" ${tipOf(`On ${stat.boards.toLocaleString()} boards. Click to list the units that hold it.`)}>
         <td class="stat-item">${itemIcon(stat.item)} ${itemName(stat.item)}</td>
         <td class="num">${stat.avg_placement.toFixed(2)}</td><td class="num">${pct(stat.top4)}</td>
         <td class="num">${pct(stat.win_rate)}</td><td class="num">${(stat.share * 100).toFixed(1)}%</td>
@@ -1716,7 +1742,7 @@ el("slams").addEventListener("click", (event) => {
     state.statAscending = sort.dataset.statSort === state.statSort && !state.statAscending;
     state.statSort = sort.dataset.statSort;
   } else if (part) state.component = state.component === part.dataset.component ? null : part.dataset.component;
-  else if (slam) state.item = state.item === slam.dataset.slam ? null : slam.dataset.slam;
+  else if (slam) pickItem(slam.dataset.slam);
   else return;
   renderItems();
 });
@@ -1724,7 +1750,7 @@ el("detail").addEventListener("click", (event) => {
   if (state.view !== "items") return;
   const named = event.target.closest("[data-filter]");
   if (event.target.closest("#clear-item")) {
-    state.item = null;
+    state.items = [];
     renderItems();
   } else if (named) {
     state.view = "comps";

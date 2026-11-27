@@ -181,7 +181,14 @@ body[data-view="planner"] :is(#filters, #switches, #head, #comps, #slams) { disp
 .slams th[data-component] { cursor: pointer; border-radius: 6px; }
 .slams .lit { background: var(--surface0); }
 .slam.picked { border-color: var(--mauve); box-shadow: 0 0 0 1px var(--mauve); }
-.group.lit { box-shadow: inset 3px 0 0 var(--mauve); padding-left: 10px; }
+.group.detailed .group-units { gap: 8px; }
+.unit-card { display: flex; gap: 8px; align-items: flex-start; padding: 6px 10px 6px 6px; background: var(--mantle); border: 1px solid var(--surface0); border-radius: 6px; cursor: pointer; }
+.unit-card:hover { border-color: var(--surface2); }
+.card-lines { display: flex; flex-direction: column; gap: 3px; min-width: 150px; }
+.held-line { display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+.held-line .item-icon { width: 20px; height: 20px; border-radius: 3px; }
+.held-line b { min-width: 34px; }
+.card-lines > .note { font-size: 12px; white-space: nowrap; }
 .group-items .picked img { outline: 2px solid var(--mauve); outline-offset: 1px; }
 #clear-item { font: inherit; color: var(--subtext); background: none; border: 1px solid var(--surface1); border-radius: 4px; padding: 0 6px; margin-left: 6px; cursor: pointer; }
 .plan li button svg { vertical-align: -2px; }
