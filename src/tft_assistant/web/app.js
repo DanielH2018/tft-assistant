@@ -1,5 +1,5 @@
 const SNAPSHOTS = JSON.parse(document.getElementById("snapshots").textContent);
-const state = { snapshot: 0, comp: null, filters: [], filter: "", category: null, sort: "avg" };
+const state = { snapshot: 0, comp: null, filters: [], filter: "", sort: "avg" };
 const el = (id) => document.getElementById(id);
 const esc = (text) =>
   String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -33,7 +33,7 @@ function itemIcon(id, { note = "" } = {}) {
 }
 const itemName = (id) => esc((snap().items[id] || { name: id }).name);
 
-// Everything the filter box searches in a comp: its name, style, level, units, items and traits.
+// Everything the filter box searches in a comp: its name, style, level, units, items, traits and categories.
 function searchedNames(comp) {
   const units = [...comp.core, ...comp.flex.flat().flatMap((p) => p.units)].map((id) => unitOf(id).name);
   const built = [
@@ -41,7 +41,7 @@ function searchedNames(comp) {
     ...comp.key_units.flatMap((key) => key.build.map((note) => note.item)),
     ...comp.specials.map((special) => special.item),
   ].map((id) => (snap().items[id] || { name: id }).name);
-  const names = [nameOf(comp), comp.name, comp.style, `level ${comp.roll_level}`, ...units, ...built, ...comp.traits.map((t) => traitName(t.trait))];
+  const names = [nameOf(comp), comp.name, comp.style, `level ${comp.roll_level}`, ...units, ...built, ...comp.traits.map((t) => traitName(t.trait)), ...categoriesOf(comp).map(categoryName)];
   return names.map((name) => name.toLowerCase());
 }
 
@@ -60,14 +60,15 @@ function visibleComps() {
   return comps
     .filter((entry) => passes.every((passed) => passed.has(entry)))
     .map(([comp]) => comp)
-    .filter((comp) => !state.category || categoriesOf(comp).includes(state.category))
     .sort(SORTS[state.sort]);
 }
 
 // A category groups comps that want the same thing from a game. The snapshot derives each comp's
 // categories by rule, and the reader's edit changes them: a list where `-reroll` takes the comp
 // out of a derived category and any other entry puts it in one.
-const CATEGORY_NAMES = { reroll: "reroll", "fast-9": "fast 9", items: "needs its items" };
+const CATEGORY_NAMES = { reroll: "Reroll", "fast-9": "Fast 9", items: "Item Dependent" };
+// A category of the reader's own is stored in lower case and shown with each word capitalised.
+const capitalised = (words) => words.replace(/(^|\s)\S/g, (first) => first.toUpperCase());
 const CATEGORY_TIPS = {
   reroll: "The comp takes units to three stars, so it rolls at a low level.",
   "fast-9": "The comp levels to 9 before it rolls.",
@@ -75,7 +76,7 @@ const CATEGORY_TIPS = {
 };
 const TRAIT_CATEGORY = "trait:";
 const categoryName = (category) =>
-  category.startsWith(TRAIT_CATEGORY) ? traitName(category.slice(TRAIT_CATEGORY.length)) : CATEGORY_NAMES[category] || category;
+  category.startsWith(TRAIT_CATEGORY) ? traitName(category.slice(TRAIT_CATEGORY.length)) : CATEGORY_NAMES[category] || capitalised(category);
 const categoryTip = (category) =>
   category.startsWith(TRAIT_CATEGORY)
     ? `The comp fields ${categoryName(category)} as a vertical.`
@@ -95,17 +96,6 @@ function categoryCounts() {
   for (const comp of snap().comps) for (const category of categoriesOf(comp)) counts.set(category, (counts.get(category) || 0) + 1);
   const rank = (category) => (category.startsWith(TRAIT_CATEGORY) ? 1 : 0);
   return [...counts].sort(([a], [b]) => rank(a) - rank(b) || categoryName(a).localeCompare(categoryName(b)));
-}
-
-function renderCategories() {
-  const counts = categoryCounts();
-  if (!counts.some(([category]) => category === state.category)) state.category = null;
-  el("categories").innerHTML = counts
-    .map(
-      ([category, comps]) =>
-        `<button data-category="${esc(category)}" class="category ${category === state.category ? "on" : ""}" ${tipOf(categoryTip(category), `${comps} comp${comps === 1 ? "" : "s"}. Click to show only these.`)}>${esc(categoryName(category))}</button>`,
-    )
-    .join("");
 }
 
 // The category the reader named, as its stored form: a known category by its shown name, or else
@@ -242,7 +232,6 @@ function renderList() {
     renderItems();
     return;
   }
-  renderCategories();
   const comps = visibleComps();
   if (!comps.some((comp) => comp.id === state.comp)) state.comp = comps.length ? comps[0].id : null;
   el("head").innerHTML = COLUMNS.map(([label, sort, column]) => {
@@ -610,7 +599,7 @@ function detailHtml(comp) {
     .join("");
   return `<div id="sheet">
     <header><div class="title">${MAXIMIZE}<h1><span class="tier t${comp.tier}">${comp.tier}</span>${esc(nameOf(comp))}</h1>
-      <button id="copy-team" data-tip="${esc(teamCode(comp))}">Copy team code</button><span class="note">${teamNote}: core and picked flex</span></div>
+      <button id="copy-team" ${tipOf(teamCode(comp), `${teamNote}: the core and the picked flex units`)}>Copy team code</button></div>
       <p class="stats"><b>${esc(comp.style)}</b> · avg <b>${comp.avg_placement.toFixed(2)}</b> · top 4 <b>${pct(comp.top4)}</b> · win <b>${pct(comp.win_rate)}</b> · play <b>${(comp.share * 100).toFixed(1)}%</b> · ${comp.boards.toLocaleString()} boards</p>${categoriesHtml(comp)}</header>
     <div class="flow">
       ${section("Core", `<div class="row">${comp.core.map((id) => unitTile(id, "l", { threeStar: threeStar(id) })).join("")}</div>`)}
@@ -853,12 +842,6 @@ el("detail").addEventListener("click", (event) => {
 el("selection").innerHTML = SNAPSHOTS.map((s, index) => `<option value="${index}">${esc(s.label)}</option>`).join("");
 el("selection").addEventListener("change", (event) => {
   state.snapshot = Number(event.target.value);
-  renderList();
-});
-el("categories").addEventListener("click", (event) => {
-  const chip = event.target.closest("[data-category]");
-  if (!chip) return;
-  state.category = state.category === chip.dataset.category ? null : chip.dataset.category;
   renderList();
 });
 // A category change draws the comp's page again, so a failure shows where the page says "saved".

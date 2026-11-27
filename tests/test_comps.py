@@ -22,6 +22,8 @@ from tft_assistant.comp_detail import (
     tempo,
 )
 from tft_assistant.comps import FlexPackage, FlexSlot, find_comps
+from tft_assistant.item_groups import ItemGroup
+from tft_assistant.snapshot import tank_groups_last
 from tft_assistant.static_data import Item
 
 
@@ -270,3 +272,14 @@ def test_a_comp_just_short_of_every_rule_is_in_no_category(report):
     assert categories_of(plain) == ()
     vertical = dataclasses.replace(plain, traits=(CompTrait("T_A", 4, 1, 3, 0.9),))
     assert categories_of(vertical) == ("trait:T_A",)
+
+
+def test_the_groups_tanks_build_in_come_after_the_groups_carries_build_in(report):
+    comp = dataclasses.replace(report.comps[0], key_units=(KeyUnit("C1", CARRY), KeyUnit("T1", TANK), KeyUnit("B1", TANK)))
+    swing = dataclasses.replace(report.comps[1], key_units=(KeyUnit("B1", CARRY),))
+    for_tanks, for_carries = ItemGroup(("Plate",), ("T1", "B1")), ItemGroup(("Edge",), ("C1", "B1"))
+    for_neither = ItemGroup(("Odd",), ("Z9",))
+
+    ordered = tank_groups_last([for_tanks, for_carries, for_neither], [comp, swing])
+
+    assert ordered == [for_carries, for_neither, for_tanks]

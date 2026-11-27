@@ -12,10 +12,10 @@ from typing import Any
 
 from tft_assistant.boards import Board
 from tft_assistant.categories import TRAIT, categories_of
-from tft_assistant.comp_detail import ItemPick, Swap
+from tft_assistant.comp_detail import TANK, ItemPick, Swap
 from tft_assistant.comp_ids import CompIds
 from tft_assistant.comps import Comp, find_comps
-from tft_assistant.item_groups import find_item_groups
+from tft_assistant.item_groups import ItemGroup, find_item_groups
 from tft_assistant.positioning import usual_row
 from tft_assistant.static_data import StaticData
 from tft_assistant.store import Selection
@@ -96,6 +96,22 @@ def _recipes(static: StaticData, built: set[str]) -> dict[str, list[str]]:
     }
     in_play = {part for name in built & set(every) for part in every[name]}
     return {name: parts for name, parts in every.items() if set(parts) <= in_play}
+
+
+def tank_groups_last(groups: Sequence[ItemGroup], comps: Sequence[Comp]) -> list[ItemGroup]:
+    """The groups with the ones tanks build in at the end, each part in the order given.
+
+    A group is a tank group when more of its units are some comp's tank than some comp's carry.
+    The reader looks up a carry's items far more often, so those groups come first.
+    """
+    roles = {(key.unit, key.role == TANK) for comp in comps for key in comp.key_units}
+    tanks = {unit for unit, tank in roles if tank}
+    carries = {unit for unit, tank in roles if not tank}
+
+    def for_tanks(group: ItemGroup) -> bool:
+        return len(tanks & set(group.units)) > len(carries & set(group.units))
+
+    return sorted(groups, key=for_tanks)
 
 
 COMPONENT_ORDER = (
@@ -242,7 +258,7 @@ def build_snapshot(
     A comp takes the id `ids` remembers for it, so it has one id in every snapshot it is in.
     """
     report = find_comps(boards, static)
-    groups = find_item_groups(boards, static)
+    groups = tank_groups_last(find_item_groups(boards, static), report.comps)
     comp_ids = ids.assign(selection.set_number, [comp.core for comp in report.comps])
     comps = [
         _comp(comp, comp_id, name, static)
