@@ -297,17 +297,84 @@ function standing(units, carries) {
   return placed;
 }
 
+const HEXES = Array.from({ length: ROWS }, (_, row) => CORNER_IN.map((column) => `${row},${column}`)).flat();
+
+// The places the reader gave a comp's units, as unit → "row,column". It is the `board` field of the
+// comp's edit, and it keeps a place for a flex unit that is not picked just now.
+function ownPlaces(comp) {
+  try {
+    const kept = JSON.parse((edits && edits[comp.id] && edits[comp.id].board) || "{}");
+    return kept && typeof kept === "object" ? kept : {};
+  } catch {
+    return {};
+  }
+}
+
+// Where the comp's units stand, as "row,column" → unit: each unit the reader placed stands there,
+// and every other unit takes its derived place, or the nearest free hex when that one is taken.
+function placesOf(comp) {
+  const units = teamUnits(comp);
+  const own = ownPlaces(comp);
+  const placed = {};
+  for (const id of units) if (HEXES.includes(own[id]) && !placed[own[id]]) placed[own[id]] = id;
+  const kept = new Set(Object.values(placed));
+  const far = (hex, from) => {
+    const [row, column] = hex.split(",").map(Number);
+    const [fromRow, fromColumn] = from.split(",").map(Number);
+    return Math.abs(row - fromRow) * CORNER_IN.length + Math.abs(column - fromColumn);
+  };
+  for (const [hex, id] of Object.entries(standing(units, comp.carries))) {
+    if (kept.has(id)) continue;
+    const free = HEXES.filter((candidate) => !placed[candidate]).sort((a, b) => far(a, hex) - far(b, hex))[0];
+    if (free) placed[free] = id;
+  }
+  return placed;
+}
+
+// A page that can save edits lets the reader drag a unit to another hex. Dropping it on a unit
+// swaps the two.
 function boardHtml(comp) {
-  const at = standing(teamUnits(comp), comp.carries);
+  const at = placesOf(comp);
   const lines = [0, 1, 2, 3].map((row) => {
     const hexes = CORNER_IN.map((column) => {
       const id = at[`${row},${column}`];
       const unit = id && unitOf(id);
-      return `<span class="hex" ${id ? unitTip(id) : ""}>${unit && unit.icon ? `<img src="${esc(unit.icon)}" alt="">` : ""}</span>`;
+      const image = unit && unit.icon ? `<img src="${esc(unit.icon)}" alt="" draggable="false">` : "";
+      return `<span class="hex" data-hex="${row},${column}" ${id && edits ? `draggable="true"` : ""} ${id ? unitTip(id) : ""}>${image}</span>`;
     });
     return `<div class="line">${hexes.join("")}</div>`;
   });
-  return `<div class="board" ${tipOf("The core and the picked flex units, each in the row of its attack range. The front row is at the top.")}>${lines.join("")}</div>`;
+  const mine = Object.keys(ownPlaces(comp)).length > 0;
+  const how = edits ? "Drag a unit to another hex to place it; the page keeps your places for this comp." : "";
+  const about = mine
+    ? "Your own places for these units. A unit you have not placed stands in the row of its attack range."
+    : "The core and the picked flex units, each in the row of its attack range.";
+  const reset = mine ? `<button id="reset-board" ${tipOf("Forget your places for this comp and show the derived ones.")}>Derived positions</button>` : "";
+  return `<div class="board-box"><div class="board" ${tipOf(about, "The front row is at the top.", how)}>${lines.join("")}</div>
+    <p class="note">${mine ? "your positions" : "derived positions"} ${reset}<span class="edit-state"></span></p></div>`;
+}
+
+// Moves the unit on one hex to another, swaps with a unit already there, and saves every unit's
+// place, so the board stays as the reader left it when the derived places change with the data.
+function moveUnit(comp, from, to) {
+  const at = placesOf(comp);
+  if (from === to || !at[from]) return;
+  [at[from], at[to]] = [at[to], at[from]];
+  const own = ownPlaces(comp);
+  for (const [hex, id] of Object.entries(at)) if (id) own[id] = hex;
+  saveBoard(comp, JSON.stringify(own));
+}
+
+function saveBoard(comp, text) {
+  putEdit(comp.id, "board", text)
+    .then(() => {
+      const box = el("detail").querySelector(".board-box");
+      if (box && state.comp === comp.id) box.outerHTML = boardHtml(comp);
+    })
+    .catch((error) => {
+      const shown = el("detail").querySelector(".board-box .edit-state");
+      if (shown) shown.textContent = `not saved: ${error.message}`;
+    });
 }
 
 const SHOWN_IN_A_GROUP = 9;
@@ -810,6 +877,10 @@ el("detail").addEventListener("click", (event) => {
   }
   const comp = snap().comps.find((candidate) => candidate.id === state.comp);
   if (!comp || event.target.closest(".info")) return;
+  if (event.target.closest("#reset-board")) {
+    saveBoard(comp, "");
+    return;
+  }
   const uncategory = event.target.closest("[data-uncategory]");
   if (uncategory) {
     changeCategory(uncategory.dataset.uncategory, false);
@@ -852,6 +923,28 @@ function changeCategory(category, member) {
     if (shown) shown.textContent = `not saved: ${error.message}`;
   });
 }
+// A unit is dragged from its hex to another hex of the same board.
+let heldHex = null;
+el("detail").addEventListener("dragstart", (event) => {
+  const hex = event.target.closest(".hex[draggable]");
+  if (!hex) return;
+  heldHex = hex.dataset.hex;
+  event.dataTransfer.effectAllowed = "move";
+  event.dataTransfer.setData("text/plain", heldHex);
+  showTip(null);
+});
+el("detail").addEventListener("dragover", (event) => {
+  if (heldHex && event.target.closest(".board .hex")) event.preventDefault();
+});
+el("detail").addEventListener("drop", (event) => {
+  const hex = event.target.closest(".board .hex");
+  const comp = snap().comps.find((candidate) => candidate.id === state.comp);
+  if (!hex || !heldHex || !comp) return;
+  event.preventDefault();
+  moveUnit(comp, heldHex, hex.dataset.hex);
+  heldHex = null;
+});
+el("detail").addEventListener("dragend", () => (heldHex = null));
 el("detail").addEventListener("keydown", (event) => {
   const named = event.target.id === "add-category" && event.key === "Enter" && categoryNamed(event.target.value);
   if (named) changeCategory(named, true);

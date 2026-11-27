@@ -503,7 +503,23 @@ pick. That splits the work in two. `positioning.usual_row` gives each unit its r
 snapshot's unit table carries it. The page's `standing` places the units within the rows,
 because only the page knows which flex units are picked. A comp's `fielded` units are the picks
 a page opens with: its core, then the commonest option of each flex slot, up to its usual
-level. A saved board (slice 5) replaces the derived one.
+level.
+
+### Saved positions
+
+With `tft serve`, the reader drags a unit on a comp's board to another hex, and dropping it on
+a unit swaps the two. The page then saves the place of every unit on the board as the `board`
+field of the comp's edit: a JSON object from unit id to `row,column`. Saving every unit, and not
+only the one that moved, keeps the board as the reader left it when a later crawl changes the
+derived places.
+
+The places are kept per unit, not per board. A comp's board changes with the flex units picked,
+so a place is remembered for a flex unit that is not picked just now, and a unit with no place
+takes its derived hex, or the nearest free one when the reader put something there. *Derived
+positions* under the board clears the field.
+
+This is the first piece of slice 5. Still to come: a planner that starts from an empty board,
+unit suggestions, and boards tagged with a stage.
 
 ### Assistance for the manual parts
 
