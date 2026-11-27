@@ -1,6 +1,6 @@
 [project]
 name = "tft-assistant"
-version = "0.2.3"
+version = "0.2.4"
 description = "A personal second-monitor reference for Teamfight Tactics, built from ranked match data."
 readme = "README.md"
 requires-python = ">=3.12"
