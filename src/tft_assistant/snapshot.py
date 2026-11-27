@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import Any
 
 from tft_assistant.boards import Board
+from tft_assistant.categories import TRAIT, categories_of
 from tft_assistant.comp_detail import ItemPick, Swap
 from tft_assistant.comp_ids import CompIds
 from tft_assistant.comps import Comp, find_comps
@@ -191,6 +192,7 @@ def _comp(comp: Comp, comp_id: str, name: str, static: StaticData) -> dict[str, 
             for up in comp.level_ups
         ],
         "fielded": _fielded(comp),
+        "categories": list(categories_of(comp)),
         "sections": [],
     }
 
@@ -235,6 +237,7 @@ def build_snapshot(
     traits = {trait["trait"] for comp in comps for trait in comp["traits"]}
     traits |= {trait for unit in units for trait in static.units[unit].traits}
     traits |= {special["emblem_of"] for special in specials if special["emblem_of"]}
+    traits |= {name.removeprefix(TRAIT) for comp in comps for name in comp["categories"] if name.startswith(TRAIT)}
 
     return {
         "schema": SCHEMA,

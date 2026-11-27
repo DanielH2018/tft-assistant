@@ -78,7 +78,21 @@ aside {
 #tabs button:hover { color: var(--text); }
 #tabs button.on { color: var(--text); border-bottom-color: var(--mauve); }
 /* Each view shows its own half of the side panel. The filter box and the list belong to the comps. */
-body[data-view="items"] :is(#filters, #head, #comps), body[data-view="comps"] #slams { display: none; }
+body[data-view="items"] :is(#filters, #categories, #head, #comps), body[data-view="comps"] #slams { display: none; }
+#categories { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 10px 8px; }
+#categories:empty { display: none; }
+.category {
+  font: inherit; font-size: 12.5px; color: var(--subtext); background: none; cursor: pointer;
+  border: 1px solid var(--surface1); border-radius: 4px; padding: 1px 7px;
+}
+.category:hover { color: var(--text); border-color: var(--surface2); }
+.category.on { color: var(--crust); background: var(--mauve); border-color: var(--mauve); }
+.categories { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 6px 0 0; }
+#add-category {
+  width: 130px; background: none; color: var(--text); font: inherit; font-size: 12.5px;
+  border: 1px dashed var(--surface1); border-radius: 4px; padding: 1px 7px;
+}
+#add-category:focus { outline: 0; border-color: var(--mauve); }
 #slams { flex: 1; overflow: auto; padding: 4px 10px 10px; }
 .slams { border-collapse: separate; border-spacing: 3px; }
 .slams th, .slams td { width: 44px; height: 44px; padding: 0; text-align: center; }

@@ -4,9 +4,14 @@ import pytest
 from conftest import A_CORE, B_CORE
 
 from tft_assistant.boards import Board, BoardUnit
+from tft_assistant.categories import categories_of
 from tft_assistant.comp_detail import (
+    CARRY,
+    TANK,
+    BuildItem,
     CompTrait,
     ItemPick,
+    KeyUnit,
     SpareComponent,
     SpecialItem,
     Swap,
@@ -239,3 +244,29 @@ def test_a_level_that_too_few_boards_reach_is_not_reported(planted_static):
     members = [board(8, "X1") for _ in range(40)] + [board(9, "Y1") for _ in range(5)]
 
     assert level_ups(members, planted_static) == ()
+
+
+def test_a_comp_is_in_the_categories_of_its_tempo_its_critical_item_and_its_vertical(report):
+    reroll, fast_nine = report.comps
+
+    assert categories_of(reroll) == ("reroll", "items", "trait:T_A")
+    assert categories_of(fast_nine) == ("fast-9", "items", "trait:T_B")
+
+
+def test_a_comp_just_short_of_every_rule_is_in_no_category(report):
+    comp = report.comps[0]
+    carry = next(key for key in comp.key_units if key.role == CARRY)
+    optional = tuple(dataclasses.replace(note, critical=False) for note in carry.build)
+    plain = dataclasses.replace(
+        comp,
+        tempo=dataclasses.replace(comp.tempo, three_stars=(), roll_level=8),
+        key_units=(
+            dataclasses.replace(carry, build=optional),
+            KeyUnit("A1", TANK, (BuildItem("Tank", 0.9, 3.0, 5.0, critical=True, needs=()),)),
+        ),
+        traits=(CompTrait("T_A", 3, 1, 3, 0.9), CompTrait("T_Unique", 4, 1, 1, 0.9)),
+    )
+
+    assert categories_of(plain) == ()
+    vertical = dataclasses.replace(plain, traits=(CompTrait("T_A", 4, 1, 3, 0.9),))
+    assert categories_of(vertical) == ("trait:T_A",)

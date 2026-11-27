@@ -1,5 +1,5 @@
 const SNAPSHOTS = JSON.parse(document.getElementById("snapshots").textContent);
-const state = { snapshot: 0, comp: null, filters: [], filter: "", sort: "avg" };
+const state = { snapshot: 0, comp: null, filters: [], filter: "", category: null, sort: "avg" };
 const el = (id) => document.getElementById(id);
 const esc = (text) =>
   String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -60,7 +60,83 @@ function visibleComps() {
   return comps
     .filter((entry) => passes.every((passed) => passed.has(entry)))
     .map(([comp]) => comp)
+    .filter((comp) => !state.category || categoriesOf(comp).includes(state.category))
     .sort(SORTS[state.sort]);
+}
+
+// A category groups comps that want the same thing from a game. The snapshot derives each comp's
+// categories by rule, and the reader's edit changes them: a list where `-reroll` takes the comp
+// out of a derived category and any other entry puts it in one.
+const CATEGORY_NAMES = { reroll: "reroll", "fast-9": "fast 9", items: "needs its items" };
+const CATEGORY_TIPS = {
+  reroll: "The comp takes units to three stars, so it rolls at a low level.",
+  "fast-9": "The comp levels to 9 before it rolls.",
+  items: "The comp's carry has an item its boards place clearly worse without.",
+};
+const TRAIT_CATEGORY = "trait:";
+const categoryName = (category) =>
+  category.startsWith(TRAIT_CATEGORY) ? traitName(category.slice(TRAIT_CATEGORY.length)) : CATEGORY_NAMES[category] || category;
+const categoryTip = (category) =>
+  category.startsWith(TRAIT_CATEGORY)
+    ? `The comp fields ${categoryName(category)} as a vertical.`
+    : CATEGORY_TIPS[category] || "A category you added.";
+const ownCategories = (comp) =>
+  ((edits && edits[comp.id] && edits[comp.id].categories) || "").split(",").map((entry) => entry.trim()).filter(Boolean);
+function categoriesOf(comp) {
+  const own = ownCategories(comp);
+  const kept = comp.categories.filter((category) => !own.includes(`-${category}`));
+  return [...new Set([...kept, ...own.filter((entry) => !entry.startsWith("-"))])];
+}
+
+// The categories of the selection's comps with the count of comps in each, the fixed ones first
+// and then the traits by name.
+function categoryCounts() {
+  const counts = new Map();
+  for (const comp of snap().comps) for (const category of categoriesOf(comp)) counts.set(category, (counts.get(category) || 0) + 1);
+  const rank = (category) => (category.startsWith(TRAIT_CATEGORY) ? 1 : 0);
+  return [...counts].sort(([a], [b]) => rank(a) - rank(b) || categoryName(a).localeCompare(categoryName(b)));
+}
+
+function renderCategories() {
+  const counts = categoryCounts();
+  if (!counts.some(([category]) => category === state.category)) state.category = null;
+  el("categories").innerHTML = counts
+    .map(
+      ([category, comps]) =>
+        `<button data-category="${esc(category)}" class="category ${category === state.category ? "on" : ""}" ${tipOf(categoryTip(category), `${comps} comp${comps === 1 ? "" : "s"}. Click to show only these.`)}>${esc(categoryName(category))}</button>`,
+    )
+    .join("");
+}
+
+// The category the reader named, as its stored form: a known category by its shown name, or else
+// the text as a category of their own.
+function categoryNamed(text) {
+  const wanted = text.trim().toLowerCase().replace(/,/g, " ").replace(/^-+/, "");
+  const traits = Object.keys(snap().traits).map((id) => `${TRAIT_CATEGORY}${id}`);
+  return [...Object.keys(CATEGORY_NAMES), ...traits].find((category) => categoryName(category).toLowerCase() === wanted) || wanted;
+}
+
+// Puts the comp in the category or takes it out, as the smallest change to the reader's list.
+function setCategory(comp, category, member) {
+  const derived = comp.categories.includes(category);
+  const own = ownCategories(comp).filter((entry) => entry !== category && entry !== `-${category}`);
+  if (member !== derived) own.push(member ? category : `-${category}`);
+  return putEdit(comp.id, "categories", own.join(",")).then(renderList);
+}
+
+function categoriesHtml(comp) {
+  const mine = categoriesOf(comp);
+  if (!edits && !mine.length) return "";
+  const chips = mine.map((category) => {
+    const remove = edits ? `<button data-uncategory="${esc(category)}" data-tip="Take this comp out of the category">×</button>` : "";
+    return `<span class="filter-chip" ${tipOf(categoryTip(category))}>${esc(categoryName(category))}${remove}</span>`;
+  });
+  const known = categoryCounts().filter(([category]) => !mine.includes(category));
+  const add = edits
+    ? `<input id="add-category" list="known-categories" maxlength="40" placeholder="add a category" ${tipOf("Enter puts this comp in the category. A name no category has starts one.")}>
+       <datalist id="known-categories">${known.map(([category]) => `<option value="${esc(categoryName(category))}">`).join("")}</datalist>`
+    : "";
+  return `<p class="categories">${chips.join("")}${add}<span class="note edit-state"></span></p>`;
 }
 
 function renderFilters() {
@@ -166,6 +242,7 @@ function renderList() {
     renderItems();
     return;
   }
+  renderCategories();
   const comps = visibleComps();
   if (!comps.some((comp) => comp.id === state.comp)) state.comp = comps.length ? comps[0].id : null;
   el("head").innerHTML = COLUMNS.map(([label, sort, column]) => {
@@ -534,7 +611,7 @@ function detailHtml(comp) {
   return `<div id="sheet">
     <header><div class="title">${MAXIMIZE}<h1><span class="tier t${comp.tier}">${comp.tier}</span>${esc(nameOf(comp))}</h1>
       <button id="copy-team" data-tip="${esc(teamCode(comp))}">Copy team code</button><span class="note">${teamNote}: core and picked flex</span></div>
-      <p class="stats"><b>${esc(comp.style)}</b> · avg <b>${comp.avg_placement.toFixed(2)}</b> · top 4 <b>${pct(comp.top4)}</b> · win <b>${pct(comp.win_rate)}</b> · play <b>${(comp.share * 100).toFixed(1)}%</b> · ${comp.boards.toLocaleString()} boards</p></header>
+      <p class="stats"><b>${esc(comp.style)}</b> · avg <b>${comp.avg_placement.toFixed(2)}</b> · top 4 <b>${pct(comp.top4)}</b> · win <b>${pct(comp.win_rate)}</b> · play <b>${(comp.share * 100).toFixed(1)}%</b> · ${comp.boards.toLocaleString()} boards</p>${categoriesHtml(comp)}</header>
     <div class="flow">
       ${section("Core", `<div class="row">${comp.core.map((id) => unitTile(id, "l", { threeStar: threeStar(id) })).join("")}</div>`)}
       ${section("Traits", `<div class="row">${traits}</div>`, { width: "wraps" })}
@@ -606,15 +683,20 @@ function notesHtml(comp) {
 
 // An edit is saved when its box loses the focus, under the comp it was written for. A name shows
 // in the list and in the page's heading, so saving one draws both again.
+function putEdit(compId, field, text) {
+  const sent = { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [field]: text }) };
+  return fetch(`${editsOf()}/${compId}`, sent).then((reply) => {
+    if (!reply.ok) throw new Error(`the server answered ${reply.status}`);
+    edits[compId] = { ...edits[compId], [field]: text };
+  });
+}
+
 function saveEdit(compId, box) {
   const field = box.dataset.edit;
-  const text = box.value.trim();
   const state = box.parentElement.querySelector(".edit-state");
   const shown = (words) => state && state.isConnected && (state.textContent = words);
-  fetch(`${editsOf()}/${compId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [field]: text }) })
-    .then((reply) => {
-      if (!reply.ok) throw new Error(`the server answered ${reply.status}`);
-      edits[compId] = { ...edits[compId], [field]: text };
+  putEdit(compId, field, box.value.trim())
+    .then(() => {
       if (field === "name") renderList();
       shown("saved");
     })
@@ -739,6 +821,11 @@ el("detail").addEventListener("click", (event) => {
   }
   const comp = snap().comps.find((candidate) => candidate.id === state.comp);
   if (!comp || event.target.closest(".info")) return;
+  const uncategory = event.target.closest("[data-uncategory]");
+  if (uncategory) {
+    changeCategory(uncategory.dataset.uncategory, false);
+    return;
+  }
   const flex = event.target.closest("[data-flex]");
   const heading = event.target.closest("section > h2");
   const pivot = event.target.closest("[data-open]");
@@ -767,6 +854,24 @@ el("selection").innerHTML = SNAPSHOTS.map((s, index) => `<option value="${index}
 el("selection").addEventListener("change", (event) => {
   state.snapshot = Number(event.target.value);
   renderList();
+});
+el("categories").addEventListener("click", (event) => {
+  const chip = event.target.closest("[data-category]");
+  if (!chip) return;
+  state.category = state.category === chip.dataset.category ? null : chip.dataset.category;
+  renderList();
+});
+// A category change draws the comp's page again, so a failure shows where the page says "saved".
+function changeCategory(category, member) {
+  const comp = snap().comps.find((candidate) => candidate.id === state.comp);
+  setCategory(comp, category, member).catch((error) => {
+    const shown = el("detail").querySelector(".categories .edit-state");
+    if (shown) shown.textContent = `not saved: ${error.message}`;
+  });
+}
+el("detail").addEventListener("keydown", (event) => {
+  const named = event.target.id === "add-category" && event.key === "Enter" && categoryNamed(event.target.value);
+  if (named) changeCategory(named, true);
 });
 el("head").addEventListener("click", (event) => {
   const column = event.target.closest("button");
@@ -824,7 +929,7 @@ el("detail").addEventListener("change", (event) => {
   if (event.target.dataset.edit) saveEdit(state.comp, event.target);
 });
 document.addEventListener("keydown", (event) => {
-  if (event.target.dataset.edit) return;
+  if (event.target.dataset.edit || event.target.id === "add-category") return;
   if (state.view === "comps" && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
     event.preventDefault();
     move(event.key === "ArrowDown" ? 1 : -1);
