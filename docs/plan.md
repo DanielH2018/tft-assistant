@@ -426,6 +426,33 @@ derived lines stay under it to check against, and clearing the box leaves only t
 A match records no per-round data, so nothing here is a stage-by-stage plan from the data: the
 lines say what the final boards imply, and the stages are the reader's to write.
 
+### Comp categories
+
+A category groups comps that want the same thing from a game. `categories.py` derives each
+comp's categories from its boards, and the snapshot carries them as the comp's `categories`:
+
+| Category | The comp is in it when |
+|---|---|
+| `reroll` | its boards take a unit to three stars |
+| `fast-9` | it takes no unit to three stars and rolls at level 9 or later |
+| `items` | its carry has an item marked critical |
+| `trait:<id>` | a trait with more than one breakpoint has 4 or more units on its usual board |
+
+The rules name no unit, trait or item of one set. On the 18.7 matches the 26 comps give 12
+`reroll`, 2 `fast-9`, 21 `items` and 9 traits. `items` holds four comps in five, so it separates
+little on this patch.
+
+The comps tab shows one chip for each category above the list, and a chip lists only its comps.
+A comp page shows its categories under its statistics. With `tft serve`, each has a button that
+takes the comp out, and a box puts the comp in a category by name. A name no category has starts
+one of the reader's own. The changes are the `categories` field of the comp's edit: a
+comma-separated list where `-reroll` takes the comp out of a derived category and any other
+entry puts it in one. Putting back what was taken out removes the entry, so the field holds only
+what differs from the rules.
+
+Augments and encounters join these categories once Set 19 matches exist to check them against:
+a condition names the categories it helps, and choosing it moves their comps up.
+
 ### Comp names
 
 A comp is named `<main trait> <main carry>`. The main trait is the comp's largest vertical, a
