@@ -4,7 +4,8 @@ The page is a static file and stays one: everything outside `/api/` is a file un
 directory. `/api/edits` reads and writes the edit store. The server checks nobody's identity,
 so a deployment puts it behind a login.
 
-An icon's name is a digest of its picture, so a browser may keep one for good. The page names
+An icon's name is a digest of its picture, and a board file's of its content, so a browser may
+keep either for good. The page names
 the icons of its own build, so a browser asks whether the page changed each time it loads it.
 
     GET /api/edits/<set>              every edit of the set: {comp id: {field: text}}
@@ -27,6 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from tft_assistant.edits import Edits
+from tft_assistant.explorer import EXPLORER_DIR
 from tft_assistant.icons import ICON_DIR
 
 _SET_EDITS = re.compile(r"/api/edits/(\d{1,4})")
@@ -55,8 +57,8 @@ class _Handler(SimpleHTTPRequestHandler):
         super().send_response(code, message)
         if self.path.startswith("/api/"):
             return
-        found_icon = code == HTTPStatus.OK and self.path.startswith(f"/{ICON_DIR}/")
-        self.send_header("Cache-Control", "public, max-age=31536000, immutable" if found_icon else "no-cache")
+        named_by_content = code == HTTPStatus.OK and self.path.startswith((f"/{ICON_DIR}/", f"/{EXPLORER_DIR}/"))
+        self.send_header("Cache-Control", "public, max-age=31536000, immutable" if named_by_content else "no-cache")
 
     def do_GET(self) -> None:
         if not self.path.startswith("/api/"):

@@ -160,10 +160,227 @@ function categoriesHtml(comp) {
   return `<p class="categories">${chips.join("")}${add}<span class="note edit-state"></span></p>`;
 }
 
+// ── The explorer ─────────────────────────────────────────────────────────────────────────────
+// The explorer filters every board of the selection and says how units, items and traits do on
+// the boards that pass. The boards are a file beside the page, which the page loads when the tab
+// first opens: a line a board, as `explorer.py` writes them. A filter is one of:
+//   a unit's name          boards that field the unit
+//   an item's name         boards where a unit holds the item
+//   a trait's name         boards where the trait reaches a breakpoint; "4 elderwood" asks for 4
+//   "level 8"              boards at that level
+//   "unit: item"           boards where that unit holds that item
+Object.assign(state, { exploreFilters: [], exploreFilter: "", exploreSort: "play", exploreAscending: false, exploreHolder: true });
+const explored = new Map();
+// A row needs this many boards and this share of the boards that pass, so one board does not
+// read as a 1.00 average.
+const EXPLORE_BOARDS = 20;
+const EXPLORE_SHARE = 0.005;
+const EXPLORE_ROWS = 40;
+
+// The traits a board has active, as trait → the breakpoint its count reaches. An emblem counts on
+// a unit that lacks its trait.
+function boardTraits(units) {
+  const s = snap();
+  const counts = new Map();
+  const seen = new Set();
+  for (const unit of units) {
+    const own = s.units[unit.id].traits;
+    if (!seen.has(unit.id)) for (const trait of own) counts.set(trait, (counts.get(trait) || 0) + 1);
+    seen.add(unit.id);
+    for (const item of unit.items) {
+      const trait = s.items[item].emblem_of;
+      if (trait && !own.includes(trait)) counts.set(trait, (counts.get(trait) || 0) + 1);
+    }
+  }
+  const active = new Map();
+  for (const [trait, count] of counts) {
+    const reached = ((s.traits[trait] || {}).breakpoints || []).filter((at) => at <= count).pop();
+    if (reached) active.set(trait, reached);
+  }
+  return active;
+}
+
+function decodeBoards(doc) {
+  const s = snap();
+  const symbols = new Map([...doc.alphabet].map((symbol, number) => [symbol, number]));
+  const two = (line, at) => symbols.get(line[at]) * symbols.size + symbols.get(line[at + 1]);
+  return doc.boards
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => {
+      const units = [];
+      for (let at = 2; at < line.length; ) {
+        const code = symbols.get(line[at + 2]);
+        const held = code % 4;
+        const id = doc.units[two(line, at)];
+        const items = [];
+        for (let n = 0; n < held; n += 1) {
+          const item = doc.items[two(line, at + 3 + 2 * n)];
+          if (s.items[item]) items.push(s.items[item].radiant_of && s.items[s.items[item].radiant_of] ? s.items[item].radiant_of : item);
+        }
+        if (s.units[id]) units.push({ id, stars: Math.floor(code / 4), items });
+        at += 3 + 2 * held;
+      }
+      return { placement: Number(line[0]), level: symbols.get(line[1]), units, traits: boardTraits(units) };
+    });
+}
+
+function loadExplorer() {
+  const path = snap().explorer;
+  if (!path || explored.has(path)) return;
+  explored.set(path, "loading");
+  fetch(path)
+    .then((reply) => (reply.ok ? reply.json() : Promise.reject(new Error(`the server answered ${reply.status}`))))
+    .then((doc) => explored.set(path, decodeBoards(doc)))
+    .catch(() => explored.set(path, "failed"))
+    .then(() => state.view === "explorer" && renderList());
+}
+
+// The thing a name names: the one whose name is the text, or starts with it, or holds it, the
+// shortest name first.
+function named(table, text, nameOf_) {
+  const found = Object.keys(table)
+    .map((id) => [id, nameOf_(id).toLowerCase()])
+    .filter(([, name]) => name.includes(text))
+    .sort((a, b) => Number(b[1] === text) - Number(a[1] === text) || Number(b[1].startsWith(text)) - Number(a[1].startsWith(text)) || a[1].length - b[1].length);
+  return found.length ? found[0][0] : null;
+}
+const explorableUnits = () => Object.fromEntries(Object.entries(snap().units).filter(([, unit]) => unit.traits.length));
+function exploreCondition(phrase) {
+  const s = snap();
+  const text = phrase.toLowerCase().trim();
+  if (!text) return null;
+  const level = text.match(/^(?:level|lvl)\s*(\d+)$/);
+  if (level) return { kind: "level", level: Number(level[1]) };
+  if (text.includes(":")) {
+    const [unitText, itemText] = text.split(":").map((part) => part.trim());
+    const unit = named(explorableUnits(), unitText, (id) => unitOf(id).name);
+    const item = itemText && named(s.items, itemText, itemName);
+    return unit && item ? { kind: "holds", unit, item } : null;
+  }
+  const counted = text.match(/^(\d+)\s+(.+)$/);
+  if (counted) {
+    const trait = named(s.traits, counted[2], traitName);
+    return trait ? { kind: "trait", trait, at: Number(counted[1]) } : null;
+  }
+  const unit = named(explorableUnits(), text, (id) => unitOf(id).name);
+  if (unit) return { kind: "unit", unit };
+  const item = named(s.items, text, itemName);
+  if (item) return { kind: "item", item };
+  const trait = named(s.traits, text, traitName);
+  return trait ? { kind: "trait", trait, at: 1 } : null;
+}
+function boardPasses(board, condition) {
+  if (condition.kind === "level") return board.level === condition.level;
+  if (condition.kind === "unit") return board.units.some((unit) => unit.id === condition.unit);
+  if (condition.kind === "item") return board.units.some((unit) => unit.items.includes(condition.item));
+  if (condition.kind === "holds") return board.units.some((unit) => unit.id === condition.unit && unit.items.includes(condition.item));
+  return (board.traits.get(condition.trait) || 0) >= condition.at;
+}
+
+// How many boards hold each thing and how they place, as key → [boards, placements summed, top 4s, wins].
+function tally(counts, key, board) {
+  const row = counts.get(key) || [0, 0, 0, 0];
+  row[0] += 1;
+  row[1] += board.placement;
+  row[2] += Number(board.placement <= 4);
+  row[3] += Number(board.placement === 1);
+  counts.set(key, row);
+}
+function exploreStats(boards, holder) {
+  const all = new Map();
+  const units = new Map();
+  const items = new Map();
+  const traits = new Map();
+  for (const board of boards) {
+    tally(all, "all", board);
+    for (const id of new Set(board.units.map((unit) => unit.id))) tally(units, id, board);
+    const held = new Set(board.units.filter((unit) => !holder || unit.id === holder).flatMap((unit) => unit.items));
+    for (const item of held) tally(items, item, board);
+    for (const [trait, at] of board.traits) tally(traits, `${at} ${trait}`, board);
+  }
+  return { all: all.get("all") || [0, 0, 0, 0], units, items, traits };
+}
+
+const EXPLORE_COLUMNS = [
+  ["play", "Play", (a, b) => b[1][0] - a[1][0]],
+  ["avg", "Avg", (a, b) => a[1][1] / a[1][0] - b[1][1] / b[1][0]],
+  ["top4", "Top 4", (a, b) => b[1][2] / b[1][0] - a[1][2] / a[1][0]],
+  ["win", "Win", (a, b) => b[1][3] / b[1][0] - a[1][3] / a[1][0]],
+];
+// One table of the explorer. `show` gives a row's picture and name, and `ask` the filter a click adds.
+function exploreTable(title, counts, total, show, ask) {
+  const overall = total[1] / total[0];
+  const floor = Math.max(EXPLORE_BOARDS, EXPLORE_SHARE * total[0]);
+  const order = EXPLORE_COLUMNS.find(([key]) => key === state.exploreSort)[2];
+  const rows = [...counts]
+    .filter(([, row]) => row[0] >= floor)
+    .sort((a, b) => (state.exploreAscending ? -1 : 1) * order(a, b))
+    .slice(0, EXPLORE_ROWS)
+    .map(([key, row]) => {
+      const avg = row[1] / row[0];
+      const apart = avg - overall;
+      return `<tr data-explore="${esc(ask(key))}" ${tipOf(`On ${row[0].toLocaleString()} of these ${total[0].toLocaleString()} boards.`, "Click to add it to the filters.")}>
+        <td><span class="explore-name">${show(key)}</span></td>
+        <td>${pct(row[0] / total[0])}</td>
+        <td>${avg.toFixed(2)} <span class="${apart < -0.005 ? "better" : apart > 0.005 ? "worse" : "note"}">${apart > 0 ? "+" : ""}${apart.toFixed(2)}</span></td>
+        <td>${pct(row[2] / row[0])}</td><td>${pct(row[3] / row[0])}</td></tr>`;
+    });
+  const head = EXPLORE_COLUMNS.map(([key, label]) => {
+    const arrow = key === state.exploreSort ? `<span class="arrow">${state.exploreAscending ? "▲" : "▼"}</span>` : "";
+    return `<th class="${key === state.exploreSort ? "sorted" : ""}"><button data-explore-sort="${key}">${label}${arrow}</button></th>`;
+  }).join("");
+  return `<table class="explore-table"><caption>${title}</caption><thead><tr><th></th>${head}</tr></thead>
+    <tbody>${rows.join("") || `<tr><td colspan="5" class="note">Nothing is on ${Math.ceil(floor)} of these boards.</td></tr>`}</tbody></table>`;
+}
+
+function renderExplorer() {
+  showTip(null);
+  loadExplorer();
+  const s = snap();
+  const boards = explored.get(s.explorer);
+  const shell = (body) => `<div id="sheet"><header><h1>${MAXIMIZE} Explorer</h1></header>${body}</div>`;
+  const help = `<p class="note">Type a filter and press Enter. A filter is a unit, an item, a trait (<code>4 elderwood</code> asks for that count), <code>level 8</code>, or <code>unit: item</code> for a unit that holds an item. A click on a row adds it.</p>`;
+  if (!Array.isArray(boards)) {
+    const why = !s.explorer
+      ? "This page was built without its boards."
+      : boards === "failed"
+        ? "The boards did not load. A page opened from a file cannot load them: the explorer needs the page's server."
+        : "Loading the boards…";
+    el("explore").innerHTML = help;
+    el("detail").innerHTML = shell(`<p class="empty">${why}</p>`);
+    return;
+  }
+  const conditions = [...state.exploreFilters, state.exploreFilter].map(exploreCondition).filter(Boolean);
+  const passing = boards.filter((board) => conditions.every((condition) => boardPasses(board, condition)));
+  // With one unit in the filters, the items table can list what that unit holds.
+  const one = [...new Set(conditions.filter((condition) => condition.kind === "unit" || condition.kind === "holds").map((condition) => condition.unit))];
+  const holder = one.length === 1 && state.exploreHolder ? one[0] : null;
+  const { all, units, items, traits } = exploreStats(passing, holder);
+  const whose = one.length === 1
+    ? `<label class="switch" ${tipOf("On: only the items that unit holds. Off: the items any unit on the board holds.")}><input id="explore-holder" type="checkbox" ${state.exploreHolder ? "checked" : ""}><i></i>Items on ${esc(unitOf(one[0]).name)} only</label>`
+    : "";
+  el("explore").innerHTML = all[0]
+    ? `<p class="big">${all[0].toLocaleString()} boards</p>
+       <p class="note">of ${boards.length.toLocaleString()} in ${esc(s.label)}: ${pct(all[0] / boards.length)}</p>
+       <dl><dt>Average placement</dt><dd>${(all[1] / all[0]).toFixed(2)}</dd><dt>Top 4</dt><dd>${pct(all[2] / all[0])}</dd><dt>Win</dt><dd>${pct(all[3] / all[0])}</dd></dl>${whose}${help}`
+    : `<p class="big">No board</p><p class="note">No board of ${boards.length.toLocaleString()} passes every filter.</p>${help}`;
+  const traitOf = (key) => key.slice(key.indexOf(" ") + 1);
+  const tables = all[0]
+    ? `<div class="explore-tables">
+        ${exploreTable("Units", units, all, (id) => `${unitTile(id, "s")}${esc(unitOf(id).name)}`, (id) => unitOf(id).name)}
+        ${exploreTable(holder ? `Items on ${esc(unitOf(holder).name)}` : "Items", items, all, (item) => `${itemIcon(item)}${itemName(item)}`, (item) => (holder ? `${unitOf(holder).name}: ${itemName(item)}` : itemName(item)))}
+        ${exploreTable("Traits", traits, all, (key) => `${(s.traits[traitOf(key)] || {}).icon ? `<img src="${esc(s.traits[traitOf(key)].icon)}" alt="">` : ""}${parseInt(key, 10)} ${esc(traitName(traitOf(key)))}`, (key) => `${parseInt(key, 10)} ${traitName(traitOf(key))}`)}
+      </div>`
+    : `<p class="empty">Remove a filter to see boards.</p>`;
+  el("detail").innerHTML = shell(tables);
+  fitWidth();
+}
+
 // The filter box belongs to the view: the comps view filters its comps, and the items view
 // filters the units of the item groups. Each keeps its own filters and its own typed text.
 Object.assign(state, { groupFilters: [], groupFilter: "" });
-const filterKeys = () => (state.view === "items" ? ["groupFilters", "groupFilter"] : ["filters", "filter"]);
+const filterKeys = () => ({ items: ["groupFilters", "groupFilter"], explorer: ["exploreFilters", "exploreFilter"] })[state.view] || ["filters", "filter"];
 // A unit passes a filter that is part of its name, of one of its traits' names or of its cost:
 // "4", "4 cost" and "cost 4" all list the 4-cost units.
 function unitPasses(id, phrase) {
@@ -177,9 +394,9 @@ const groupPhrases = () => [...state.groupFilters, state.groupFilter].filter((ph
 function renderFilters() {
   const [kept] = filterKeys();
   el("chips").innerHTML = state[kept]
-    .map((filter, index) => `<span class="filter-chip">${esc(filter)}<button data-remove="${index}" data-tip="Remove this filter">×</button></span>`)
+    .map((filter, index) => `<span class="filter-chip ${state.view === "explorer" && !exploreCondition(filter) ? "unmatched" : ""}">${esc(filter)}<button data-remove="${index}" data-tip="Remove this filter">×</button></span>`)
     .join("");
-  const asks = state.view === "items" ? "unit, cost or trait" : "unit, trait, item or level";
+  const asks = { items: "unit, cost or trait", explorer: "unit, item, trait, level 8, or unit: item" }[state.view] || "unit, trait, item or level";
   el("filter").placeholder = state[kept].length ? "add a filter" : asks;
   renderList();
 }
@@ -188,7 +405,7 @@ function renderFilters() {
 // "items" is the slam grid beside the item groups. "planner" is the roster beside a board the
 // reader fills. The browser keeps the view across a reload.
 const VIEW = "tft-assistant.view";
-state.view = ["items", "planner"].includes(localStorage.getItem(VIEW)) ? localStorage.getItem(VIEW) : "comps";
+state.view = ["items", "planner", "explorer"].includes(localStorage.getItem(VIEW)) ? localStorage.getItem(VIEW) : "comps";
 // Shows one comp on the comps view. The list's filters go when they would leave the comp out,
 // because the list opens its first comp in place of one it does not hold.
 function openComp(id) {
@@ -418,6 +635,10 @@ function renderList() {
   }
   if (state.view === "planner") {
     renderPlanner();
+    return;
+  }
+  if (state.view === "explorer") {
+    renderExplorer();
     return;
   }
   fitNames();
@@ -1706,6 +1927,26 @@ el("detail").addEventListener("click", (event) => {
   if (!card) return;
   const [compId, place] = card.dataset.load.split(":");
   loadSaved(compId, Number(place));
+});
+
+// The explorer: a click on a row adds it to the filters, and a click on a column sorts by it.
+el("detail").addEventListener("click", (event) => {
+  if (state.view !== "explorer") return;
+  const row = event.target.closest("[data-explore]");
+  const sort = event.target.closest("[data-explore-sort]");
+  if (sort) {
+    state.exploreAscending = sort.dataset.exploreSort === state.exploreSort && !state.exploreAscending;
+    state.exploreSort = sort.dataset.exploreSort;
+    renderExplorer();
+  } else if (row && !state.exploreFilters.includes(row.dataset.explore)) {
+    state.exploreFilters.push(row.dataset.explore);
+    renderFilters();
+  }
+});
+el("explore").addEventListener("change", (event) => {
+  if (event.target.id !== "explore-holder") return;
+  state.exploreHolder = event.target.checked;
+  renderExplorer();
 });
 
 // A unit is dragged from its hex to another hex of the same board.

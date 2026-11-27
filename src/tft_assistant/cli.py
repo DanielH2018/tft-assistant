@@ -14,6 +14,7 @@ from tft_assistant.boards import boards
 from tft_assistant.build import build_site
 from tft_assistant.comp_ids import CompIds
 from tft_assistant.crawl import MIN_PLAYERS, crawl
+from tft_assistant import explorer
 from tft_assistant.edits import Edits
 from tft_assistant.icons import mirror
 from tft_assistant.refresh import refresh
@@ -159,7 +160,9 @@ def build_page(store: Store, set_number: int, out: Path) -> None:
                 floors=store.floors(),
             )
         )
+        snapshots[-1]["explorer"] = explorer.write(found, static, out)
         print(f"built {label}: {len(found)} boards, {len(snapshots[-1]['comps'])} comps")
+    explorer.prune(out, [snapshot["explorer"] for snapshot in snapshots])
     print(mirror(snapshots, out))
     print(f"wrote {build_site(snapshots, out)}")
 

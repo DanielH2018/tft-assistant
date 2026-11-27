@@ -93,7 +93,31 @@ aside {
 #tabs button.on { color: var(--text); border-bottom-color: var(--mauve); }
 /* Each view shows its own half of the side panel. The filter box and the list belong to the comps. */
 body[data-view="items"] :is(#switches, #head, #comps, #roster), body[data-view="comps"] :is(#slams, #roster),
-body[data-view="planner"] :is(#filters, #switches, #head, #comps, #slams) { display: none; }
+body[data-view="planner"] :is(#filters, #switches, #head, #comps, #slams),
+body[data-view="explorer"] :is(#switches, #head, #comps, #slams, #roster), body:not([data-view="explorer"]) #explore { display: none; }
+#explore { flex: 1; overflow: auto; padding: 4px 10px 10px; }
+#explore .big { font-size: 22px; font-weight: 700; margin: 6px 0 0; }
+#explore dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 8px 0; font-variant-numeric: tabular-nums; }
+#explore dt { color: var(--subtext); } #explore dd { margin: 0; }
+#explore code { background: var(--crust); padding: 0 4px; border-radius: 3px; }
+.filter-chip.unmatched { text-decoration: line-through; color: var(--red); }
+.explore-tables { display: flex; flex-wrap: wrap; gap: 8px 28px; align-items: flex-start; }
+.explore-table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.explore-table caption { text-align: left; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; padding: 0 0 4px; }
+.explore-table th { padding: 2px 6px; text-align: right; }
+.explore-table th:first-child { text-align: left; }
+.explore-table th button { all: unset; cursor: pointer; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.explore-table th.sorted button { color: var(--mauve); }
+.explore-table .arrow { font-size: 8px; margin-left: 3px; vertical-align: 1px; }
+.explore-table td { padding: 2px 6px; border-top: 1px solid var(--crust); text-align: right; white-space: nowrap; }
+.explore-table td:first-child { text-align: left; }
+.explore-table tbody tr { cursor: pointer; }
+.explore-table tbody tr:hover { background: var(--surface0); }
+.explore-name { display: flex; align-items: center; gap: 7px; max-width: 210px; overflow: hidden; text-overflow: ellipsis; }
+.explore-name .item-icon, .explore-name img { width: 22px; height: 22px; border-radius: 4px; flex: none; }
+.explore-name .unit { flex: none; }
+.better { color: var(--green); } .worse { color: var(--red); }
+
 #roster { flex: 1; overflow: auto; padding: 4px 10px 10px; }
 .roster-cost { display: flex; flex-wrap: wrap; gap: 4px 2px; align-items: center; padding: 6px 0; border-top: 1px solid var(--surface0); }
 .roster-cost > .note { width: 100%; }

@@ -32,10 +32,15 @@ def test_a_browser_keeps_an_icon_for_good_and_asks_again_for_the_page(site, tmp_
     (tmp_path / "site" / "icons").mkdir()
     (tmp_path / "site" / "icons" / "0123.png").write_bytes(b"a picture")
 
-    kept = {path: httpx.get(f"{site}/{path}").headers["Cache-Control"] for path in ("icons/0123.png", "index.html", "icons/gone.png")}
+    (tmp_path / "site" / "explorer").mkdir()
+    (tmp_path / "site" / "explorer" / "0123.json").write_bytes(b"{}")
+
+    paths = ("icons/0123.png", "explorer/0123.json", "index.html", "icons/gone.png")
+    kept = {path: httpx.get(f"{site}/{path}").headers["Cache-Control"] for path in paths}
 
     assert kept == {
         "icons/0123.png": "public, max-age=31536000, immutable",
+        "explorer/0123.json": "public, max-age=31536000, immutable",
         "index.html": "no-cache",
         "icons/gone.png": "no-cache",
     }

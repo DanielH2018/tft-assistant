@@ -698,6 +698,33 @@ saved board; a click puts one back on the working board, and a button deletes on
 page shows the boards saved for it, and a click opens one in the planner. An early board is a
 saved board with a stage, attached to its comp.
 
+### The explorer
+
+The *Explorer* tab filters every board of the selection and says how units, items and traits do
+on the boards that pass. It answers what the comp list cannot, such as how a unit does with one
+item.
+
+The query runs in the browser. A build writes each selection's boards to
+`explorer/<digest>.json` beside the page (`explorer.py`): a line a board, about 52 bytes, with
+its placement, level, units, stars and items, and nothing about the player. 108,760 boards are
+5.7 MB. The page loads the file when the tab first opens. The file is named by its content, so
+two selections of the same matches share one and a browser keeps it. A page opened from a file
+cannot load it, and says so. The other choice was a query in the API. It would have put the
+match store's memory in the server that otherwise serves files and a small edit store.
+
+A filter is a unit, an item, a trait (`4 elderwood` asks for that count), `level 8`, or
+`unit: item` for a unit that holds an item. A filter that names nothing is struck through and
+ignored. The side panel shows the boards that pass, with their average placement, top 4 and win
+rates. The pane has three tables, Units, Items and Traits. A row gives its play rate under the
+filter, its placement, the difference from the average of the boards that pass, top 4 and win.
+A click on a row adds it as a filter, and a column sorts both ways. With one unit in the
+filters, a switch limits the items table to the items that unit holds.
+
+A row needs 20 boards and 0.5% of the boards that pass. The browser counts traits from the
+units and the emblems they hold, so a trait a game grants another way is not counted. A radiant
+item counts as its base, and an item the snapshot's item table lacks, one on fewer than 50
+boards that no comp names, is left out.
+
 ### Assistance for the manual parts
 
 Every manual field starts from a derived proposal. The board editor scores candidate units on
