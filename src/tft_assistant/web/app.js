@@ -387,29 +387,129 @@ function holdersOf(unit) {
   return (group ? group.units : []).filter((id) => unitOf(id).cost < cost).sort((a, b) => unitOf(a).cost - unitOf(b).cost);
 }
 
-// The stage plan a comp's own numbers propose, a line for each thing they can say: the components
-// to take, who holds the carry's items until the carry arrives, when to roll, and where boards end.
+// The stage plan a comp's own numbers propose, a line for each thing they can say, as [kind, line]:
+// the components to take, who holds the carry's items until the carry arrives, when to roll, and
+// where boards end. The kind names a line across builds, while its words change with the data.
 function proposedPlan(comp) {
   const names = (ids) => ids.map((id) => unitOf(id).name).join(", ");
   const carry = comp.carries[0];
   const holders = carry ? holdersOf(carry).slice(0, 3) : [];
   const ends = comp.levels.filter(([, share]) => share >= 0.15).sort((a, b) => b[1] - a[1]);
   return [
-    comp.take.length && `Take ${comp.take.map((id) => (snap().items[id] || { name: id }).name).join(", ")} first.`,
-    holders.length && `Until ${unitOf(carry).name} arrives, ${names(holders)} can hold its items.`,
-    comp.three_stars.length
-      ? `Roll at level ${comp.roll_level} for 3-star ${names(comp.three_stars)}.`
-      : `Level to ${comp.roll_level} before rolling.`,
-    ends.length && `Boards end at ${ends.map(([level, share]) => `level ${level} (${pct(share)})`).join(" or ")}.`,
-  ].filter(Boolean);
+    ["take", comp.take.length && `Take ${comp.take.map((id) => (snap().items[id] || { name: id }).name).join(", ")} first.`],
+    ["holders", holders.length && `Until ${unitOf(carry).name} arrives, ${names(holders)} can hold its items.`],
+    [
+      "roll",
+      comp.three_stars.length
+        ? `Roll at level ${comp.roll_level} for 3-star ${names(comp.three_stars)}.`
+        : `Level to ${comp.roll_level} before rolling.`,
+    ],
+    ["ends", ends.length && `Boards end at ${ends.map(([level, share]) => `level ${level} (${pct(share)})`).join(" or ")}.`],
+  ].filter(([, line]) => line);
 }
 
-// The derived plan is always shown. The reader's own plan is a box above it, on a page a server
-// keeps edits for, and leaves the derived lines in place to check against.
+// What the reader changed in a comp's notes: lines of their own, the derived lines they removed,
+// and the derived lines they reworded. The `plan` field of the comp's edit holds it as JSON.
+// Two older forms are read as lines of the reader's own: a `plan` of plain text, and the free
+// text of the `notes` field, which the next save moves into `plan`.
+const textLines = (text) => (text || "").split("\n").map((line) => line.trim()).filter(Boolean);
+function ownPlan(comp) {
+  const edit = (edits && edits[comp.id]) || {};
+  const before = textLines(edit.notes);
+  const none = { own: [], hidden: [], changed: {} };
+  try {
+    const kept = JSON.parse(edit.plan || "{}");
+    if (kept && typeof kept === "object" && !Array.isArray(kept)) {
+      const mine = { ...none, ...kept };
+      return { ...mine, own: [...mine.own, ...before] };
+    }
+  } catch {
+    // Plain text from before the notes had lines.
+  }
+  return { ...none, own: [...textLines(edit.plan), ...before] };
+}
+
+// The plan's lines in order: the reader's own, then each derived line they left in, in their
+// words where they reworded it. A line's key says which it is: `own:2` or a derived line's kind.
+function planLines(comp) {
+  const mine = ownPlan(comp);
+  const own = mine.own.map((text, at) => ({ key: `own:${at}`, text }));
+  const derived = proposedPlan(comp)
+    .filter(([kind]) => !mine.hidden.includes(kind))
+    .map(([kind, text]) => ({ key: kind, text: mine.changed[kind] || text }));
+  return [...own, ...derived];
+}
+
+// Sets the line with this key to `text`, or removes it when `text` is empty. A derived line that
+// goes back to its own words is no longer a change.
+function withPlanLine(comp, key, text) {
+  const mine = ownPlan(comp);
+  const own = [...mine.own];
+  const hidden = mine.hidden.filter((kind) => kind !== key);
+  const changed = { ...mine.changed };
+  if (key.startsWith("own:")) {
+    const at = Number(key.slice(4));
+    if (text) own[at] = text;
+    else own.splice(at, 1);
+  } else {
+    delete changed[key];
+    const derived = new Map(proposedPlan(comp)).get(key);
+    if (!text) hidden.push(key);
+    else if (text !== derived) changed[key] = text;
+  }
+  return { own, hidden, changed };
+}
+
+let planEditing = null;
+const PLAN_LINE = 300;
+
+// Every line is in one list. On a page a server keeps edits for, a box above the list adds a
+// line on Enter, and each line has a button to reword it and one to remove it.
 function planHtml(comp) {
-  const own = edits ? `<textarea data-edit="plan" maxlength="2000" rows="3" placeholder="Your own plan for this comp, stage by stage">${esc((edits[comp.id] || {}).plan || "")}</textarea>
-    <span class="note edit-state"></span>` : "";
-  return `<div class="notes">${own}<ul class="plan">${proposedPlan(comp).map((line) => `<li>${esc(line)}</li>`).join("")}</ul></div>`;
+  const mine = ownPlan(comp);
+  const line = ({ key, text }) => {
+    if (!edits) return `<li>${esc(text)}</li>`;
+    if (planEditing === `${comp.id}:${key}`) {
+      return `<li><input class="plan-edit" data-plan-key="${key}" value="${esc(text)}" maxlength="${PLAN_LINE}" ${tipOf("Enter keeps the change. Escape leaves the line as it was.")}></li>`;
+    }
+    return `<li><span>${esc(text)}</span><button data-plan-edit="${key}" data-tip="Reword this line">edit</button><button data-plan-remove="${key}" data-tip="Remove this line">×</button></li>`;
+  };
+  const entry = edits
+    ? `<input id="plan-entry" maxlength="${PLAN_LINE}" placeholder="Add a note" ${tipOf("Enter adds the note to the top of the list.")}>`
+    : "";
+  const restore =
+    edits && (mine.hidden.length || Object.keys(mine.changed).length)
+      ? `<button id="plan-restore" ${tipOf("Bring back the derived lines you removed or reworded. Your own lines stay.")}>Restore the derived lines</button>`
+      : "";
+  return `<div class="notes plan-box">${entry}<ul class="plan">${planLines(comp).map(line).join("")}</ul>
+    <p class="note">${restore}<span class="edit-state"></span></p></div>`;
+}
+
+// Saves the reader's changes to the plan and draws the plan again. A plan with no change left
+// is saved as nothing, so the comp's edit holds no `plan` at all.
+function savePlan(comp, mine, focus = "") {
+  const unchanged = !mine.own.length && !mine.hidden.length && !Object.keys(mine.changed).length;
+  const moved = edits[comp.id] && edits[comp.id].notes ? { notes: "" } : {};
+  putEdits(comp.id, { plan: unchanged ? "" : JSON.stringify(mine), ...moved })
+    .then(() => {
+      planEditing = null;
+      drawPlan(comp, focus);
+    })
+    .catch((error) => {
+      const shown = el("detail").querySelector(".plan-box .edit-state");
+      if (shown) shown.textContent = `not saved: ${error.message}`;
+    });
+}
+
+function drawPlan(comp, focus = "") {
+  const box = el("detail").querySelector(".plan-box");
+  if (!box || state.comp !== comp.id) return;
+  box.outerHTML = planHtml(comp);
+  const next = focus && el("detail").querySelector(focus);
+  if (next) {
+    next.focus();
+    if (next.select && focus === ".plan-edit") next.select();
+  }
 }
 
 function keyUnitsHtml(comp) {
@@ -665,7 +765,7 @@ function detailHtml(comp) {
     )
     .join("");
   return `<div id="sheet">
-    <header><div class="title">${MAXIMIZE}<h1><span class="tier t${comp.tier}">${comp.tier}</span>${esc(nameOf(comp))}</h1>
+    <header><div class="title">${MAXIMIZE}<h1><span class="tier t${comp.tier}">${comp.tier}</span>${nameHtml(comp)}</h1>
       <button id="copy-team" ${tipOf(teamCode(comp), `${teamNote}: the core and the picked flex units`)}>Copy team code</button></div>
       <p class="stats"><b>${esc(comp.style)}</b> · avg <b>${comp.avg_placement.toFixed(2)}</b> · top 4 <b>${pct(comp.top4)}</b> · win <b>${pct(comp.win_rate)}</b> · play <b>${(comp.share * 100).toFixed(1)}%</b> · ${comp.boards.toLocaleString()} boards</p>${categoriesHtml(comp)}</header>
     <div class="flow">
@@ -705,8 +805,8 @@ function detailHtml(comp) {
       }
     </div>
     ${section("Positioning", `<div>${boardHtml(comp)}</div>`)}
-    ${section("Plan", planHtml(comp), { info: "The lines are derived from the comp's boards: its item priority, its carry's item group, what it three-stars and the levels its boards end at.\nYour own plan, when the page can save one, goes in the box above them." })}
-    ${edits ? section("Notes", notesHtml(comp)) : ""}</div>`;
+    ${section("Notes", planHtml(comp), { info: "The lines are derived from the comp's boards: its item priority, its carry's item group, what it three-stars and the levels its boards end at.\nWhen the page can save, type a line and press Enter to add it, and use a line's buttons to reword or remove it. A derived line you leave alone keeps following the data." })}
+    </div>`;
 }
 
 // What the reader has written about each comp of this set, as comp id → field → text. It stays
@@ -728,36 +828,40 @@ function loadEdits() {
 // The name a comp goes by: the one the reader gave it, or else the one the analysis derived.
 const nameOf = (comp) => (edits && edits[comp.id] && edits[comp.id].name) || comp.name;
 
-// The name box is empty until the reader names the comp, and shows the derived name as its hint.
-function notesHtml(comp) {
-  const own = edits[comp.id] || {};
-  return `<div class="notes">
-    <input data-edit="name" maxlength="60" value="${esc(own.name || "")}" placeholder="${esc(comp.name)}" ${tipOf("Your own name for this comp. Empty goes back to the derived one.")}>
-    <textarea data-edit="notes" id="notes" maxlength="4000" rows="3" placeholder="What to remember about this comp">${esc(own.notes || "")}</textarea>
-    <span id="notes-state" class="note edit-state"></span></div>`;
+// On a page a server keeps edits for, a click on the name in the comp's heading turns it into a
+// box. Enter or leaving the box keeps the name, Escape drops the change, and an empty box goes
+// back to the derived name.
+let naming = null;
+function nameHtml(comp) {
+  if (!edits) return esc(nameOf(comp));
+  if (naming !== comp.id) {
+    return `<span id="comp-name" tabindex="0" ${tipOf("Click to rename this comp.")}>${esc(nameOf(comp))}</span>`;
+  }
+  const own = (edits[comp.id] || {}).name || "";
+  return `<input id="name-edit" maxlength="60" value="${esc(own || comp.name)}" placeholder="${esc(comp.name)}" ${tipOf("Enter keeps the name. Escape leaves it as it was. Empty goes back to the derived name.")}>`;
 }
 
-// An edit is saved when its box loses the focus, under the comp it was written for. A name shows
-// in the list and in the page's heading, so saving one draws both again.
-function putEdit(compId, field, text) {
-  const sent = { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [field]: text }) };
+function keepName(comp, box) {
+  if (naming !== comp.id) return;
+  naming = null;
+  const typed = box.value.trim();
+  const name = typed === comp.name ? "" : typed;
+  if (name === ((edits[comp.id] || {}).name || "")) return renderDetail();
+  putEdit(comp.id, "name", name)
+    .then(renderList)
+    .catch(() => renderDetail());
+}
+
+// Saves fields of a comp's edit in one request, and keeps the page's copy in step.
+function putEdits(compId, fields) {
+  const sent = { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(fields) };
   return fetch(`${editsOf()}/${compId}`, sent).then((reply) => {
     if (!reply.ok) throw new Error(`the server answered ${reply.status}`);
-    edits[compId] = { ...edits[compId], [field]: text };
+    edits[compId] = { ...edits[compId], ...fields };
   });
 }
+const putEdit = (compId, field, text) => putEdits(compId, { [field]: text });
 
-function saveEdit(compId, box) {
-  const field = box.dataset.edit;
-  const state = box.parentElement.querySelector(".edit-state");
-  const shown = (words) => state && state.isConnected && (state.textContent = words);
-  putEdit(compId, field, box.value.trim())
-    .then(() => {
-      if (field === "name") renderList();
-      shown("saved");
-    })
-    .catch((error) => shown(`not saved: ${error.message}`));
-}
 
 function move(step) {
   const comps = visibleComps();
@@ -877,6 +981,29 @@ el("detail").addEventListener("click", (event) => {
   }
   const comp = snap().comps.find((candidate) => candidate.id === state.comp);
   if (!comp || event.target.closest(".info")) return;
+  if (event.target.closest("#comp-name")) {
+    naming = comp.id;
+    renderDetail();
+    const box = el("name-edit");
+    box.focus();
+    box.select();
+    return;
+  }
+  const planEdit = event.target.closest("[data-plan-edit]");
+  const planRemove = event.target.closest("[data-plan-remove]");
+  if (planEdit) {
+    planEditing = `${comp.id}:${planEdit.dataset.planEdit}`;
+    drawPlan(comp, ".plan-edit");
+    return;
+  }
+  if (planRemove) {
+    savePlan(comp, withPlanLine(comp, planRemove.dataset.planRemove, ""));
+    return;
+  }
+  if (event.target.closest("#plan-restore")) {
+    savePlan(comp, { ...ownPlan(comp), hidden: [], changed: {} });
+    return;
+  }
   if (event.target.closest("#reset-board")) {
     saveBoard(comp, "");
     return;
@@ -925,6 +1052,10 @@ function changeCategory(category, member) {
 }
 // A unit is dragged from its hex to another hex of the same board.
 let heldHex = null;
+el("detail").addEventListener("focusout", (event) => {
+  const comp = snap().comps.find((candidate) => candidate.id === state.comp);
+  if (comp && event.target.id === "name-edit") keepName(comp, event.target);
+});
 el("detail").addEventListener("dragstart", (event) => {
   const hex = event.target.closest(".hex[draggable]");
   if (!hex) return;
@@ -946,6 +1077,24 @@ el("detail").addEventListener("drop", (event) => {
 });
 el("detail").addEventListener("dragend", () => (heldHex = null));
 el("detail").addEventListener("keydown", (event) => {
+  const comp = snap().comps.find((candidate) => candidate.id === state.comp);
+  const box = event.target;
+  if (comp && box.id === "name-edit" && event.key === "Enter") {
+    keepName(comp, box);
+  } else if (comp && box.id === "name-edit" && event.key === "Escape") {
+    naming = null;
+    renderDetail();
+  } else if (comp && box.id === "comp-name" && event.key === "Enter") {
+    box.click();
+  } else if (comp && box.id === "plan-entry" && event.key === "Enter" && box.value.trim()) {
+    const mine = ownPlan(comp);
+    savePlan(comp, { ...mine, own: [box.value.trim(), ...mine.own] }, "#plan-entry");
+  } else if (comp && box.classList.contains("plan-edit") && event.key === "Enter") {
+    savePlan(comp, withPlanLine(comp, box.dataset.planKey, box.value.trim()));
+  } else if (comp && box.classList.contains("plan-edit") && event.key === "Escape") {
+    planEditing = null;
+    drawPlan(comp);
+  }
   const named = event.target.id === "add-category" && event.key === "Enter" && categoryNamed(event.target.value);
   if (named) changeCategory(named, true);
 });
@@ -1001,11 +1150,8 @@ el("slams").addEventListener("click", (event) => {
   localStorage.setItem(VIEW, "comps");
   renderFilters();
 });
-el("detail").addEventListener("change", (event) => {
-  if (event.target.dataset.edit) saveEdit(state.comp, event.target);
-});
 document.addEventListener("keydown", (event) => {
-  if (event.target.dataset.edit || event.target.id === "add-category") return;
+  if (event.target.closest("#detail") && event.target.matches("input, textarea")) return;
   if (state.view === "comps" && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
     event.preventDefault();
     move(event.key === "ArrowDown" ? 1 : -1);
