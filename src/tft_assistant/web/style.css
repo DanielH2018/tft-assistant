@@ -236,6 +236,9 @@ table.items .rank { color: var(--muted); width: 16px; }
 .board .line:nth-child(even) { margin-left: 20px; }
 .board .hex { width: 38px; height: 38px; border-radius: 50%; background: var(--crust); border: 1px solid var(--surface0); overflow: hidden; }
 .board .hex img { width: 100%; height: 100%; object-fit: cover; }
+#comp-name { cursor: text; border-bottom: 1px dashed transparent; }
+#comp-name:hover, #comp-name:focus { border-bottom-color: var(--surface2); outline: 0; }
+#name-edit { font: inherit; color: var(--text); background: var(--crust); border: 1px solid var(--mauve); border-radius: 4px; padding: 0 6px; width: 16em; outline: 0; }
 .board .hex[draggable] { cursor: grab; }
 .board-box .note { margin: 4px 0 0; }
 #reset-board { font: inherit; color: var(--subtext); background: none; border: 1px solid var(--surface1); border-radius: 4px; padding: 0 6px; margin-left: 6px; cursor: pointer; }
@@ -243,3 +246,11 @@ table.items .rank { color: var(--muted); width: 16px; }
 .empty { color: var(--muted); padding: 40px; }
 .plan { margin: 2px 0 0; padding-left: 18px; color: var(--subtext); }
 .plan li { margin: 1px 0; }
+.plan li button {
+  font: inherit; font-size: 12px; color: var(--muted); background: none; border: 0; cursor: pointer; padding: 0 5px;
+}
+.plan li button:hover { color: var(--text); }
+.plan li button[data-plan-remove]:hover { color: var(--red); }
+.plan-box .plan-edit { width: min(100%, 560px); padding: 2px 6px; }
+#plan-restore { font: inherit; color: var(--subtext); background: none; border: 1px solid var(--surface1); border-radius: 4px; padding: 0 6px; cursor: pointer; }
+#plan-restore:hover { color: var(--text); border-color: var(--surface2); }

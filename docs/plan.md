@@ -405,23 +405,27 @@ and the browser keeps a maximized page across a reload.
 ### Edits
 
 `tft serve` serves the built page and an API over the edit store (`serve.py`, `edits.py`). The
-page asks `api/edits/<set>` once when it opens, and a comp page then ends with a *Notes* box. A
-note is saved when the box loses the focus, with `PUT api/edits/<set>/<comp id>`, and an empty
-note removes the edit. A page that gets no answer, such as one opened from a file or served by
-a plain file server, shows no box, so the page still works as a static file.
+page asks `api/edits/<set>` once when it opens, and a comp page can then be changed where it is
+read: its name, its notes, its categories and its board. Each change is saved at once with
+`PUT api/edits/<set>/<comp id>`, and a field set to nothing removes it. A page that gets no
+answer, such as one opened from a file or served by a plain file server, shows nothing to
+change, so the page still works as a static file.
+
+A click on the name in a comp's heading turns it into a box. Enter or leaving the box keeps the
+name, Escape drops the change, and an empty box goes back to the derived name.
 
 An edit is keyed by set, comp id and field, which is why a comp's id has to hold between runs
 (*How comps are derived*, step 5). The store takes the fields `edits.FIELDS` names, each with a
-longest text: `name`, `notes` and `plan`. The API takes JSON only: another site's page can post a
+longest text: `name`, `plan`, `categories`, `board` and `notes`. The API takes JSON only: another site's page can post a
 form with the reader's login, and cannot send JSON without the browser asking the server first.
 
 The edit store and the comp ids its rows are keyed by are the files no API gives back. Both sit
 under `keep/` in the state directory, and a deployment keeps that directory on storage that is
 backed up, apart from the match store.
 
-### Stage plans
+### Notes
 
-A comp page has a *Plan* section. Its lines are derived in the page from the snapshot, one for
+A comp page has a *Notes* section, called *Plan* until 2026-11-27. Its lines are derived in the page from the snapshot, one for
 each thing the comp's boards can say:
 
 - the components to take first, from the item priority;
@@ -430,8 +434,19 @@ each thing the comp's boards can say:
 - the levels its boards end at, for each level 15% of them or more end at.
 
 The derived lines need no server, so a page opened from a file shows them. With `tft serve`, a
-box above them takes the reader's own plan, which is the `plan` field of the comp's edit. The
-derived lines stay under it to check against, and clearing the box leaves only them.
+box above the list adds a line of the reader's own on Enter, at the top. Every line, derived or
+not, has a button to reword it and one to remove it.
+
+The `plan` field of the comp's edit holds only what the reader changed, as JSON: `own`, their
+lines; `hidden`, the kinds of the derived lines they removed; and `changed`, their words for a
+derived line by its kind. A derived line has a kind (`take`, `holders`, `roll`, `ends`) because
+its words change with every build. A derived line the reader left alone therefore keeps
+following the data, and one they reworded keeps their words. *Restore the derived lines* clears
+`hidden` and `changed`, and a plan with no change left is stored as nothing.
+
+Two older forms are read as lines of the reader's own: a `plan` of plain text, and the free text
+of the `notes` field, which a separate *Notes* box wrote until 2026-11-27. The next save of the
+comp's notes moves that text into `plan` and clears `notes`.
 
 A match records no per-round data, so nothing here is a stage-by-stage plan from the data: the
 lines say what the final boards imply, and the stages are the reader's to write.
