@@ -193,7 +193,8 @@ condition                   an augment or an encounter
 
 The side panel has two tabs, and the browser keeps the open one across a reload. *Comps* is the
 list beside one comp's page. *Items* puts the slam grid in the side panel and the item groups
-in the pane beside it.
+in the pane beside it. The groups tanks build in come last (`snapshot.tank_groups_last`): a
+group is one of those when more of its units are some comp's tank than some comp's carry.
 
 The slam grid has a row and a column for each component, and the item two components build
 stands where they cross. The components run in the owner's order, across and down: sword, bow,
@@ -451,8 +452,10 @@ The rules name no unit, trait or item of one set. On the 18.7 matches the 26 com
 `reroll`, 2 `fast-9`, 21 `items` and 9 traits. `items` holds four comps in five, so it separates
 little on this patch.
 
-The comps tab shows one chip for each category above the list, and a chip lists only its comps.
-A comp page shows its categories under its statistics. With `tft serve`, each has a button that
+The filter box finds comps by category, as it does by unit or item: `reroll` lists the reroll
+comps. A row of chips above the list did the same until the owner asked for it to go on
+2026-11-27. A comp page shows its categories under its statistics as tags, each word
+capitalised: `Reroll`, `Fast 9`, `Item Dependent` for `items`, and the trait's name. With `tft serve`, each has a button that
 takes the comp out, and a box puts the comp in a category by name. A name no category has starts
 one of the reader's own. The changes are the `categories` field of the comp's edit: a
 comma-separated list where `-reroll` takes the comp out of a derived category and any other
