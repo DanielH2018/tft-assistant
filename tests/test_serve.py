@@ -25,11 +25,11 @@ def test_the_page_is_served_beside_the_api(site):
     assert httpx.get(f"{site}/index.html").text == "<p>the page</p>"
 
 
-def test_a_note_put_on_a_comp_is_read_back_with_its_set_and_no_other(site):
-    put = httpx.put(f"{site}/api/edits/19/{COMP}", json={"notes": "roll at 8"})
+def test_edits_put_on_a_comp_are_read_back_with_its_set_and_no_other(site):
+    put = httpx.put(f"{site}/api/edits/19/{COMP}", json={"name": "Reroll A", "notes": "roll at 8"})
 
     assert put.status_code == 204
-    assert httpx.get(f"{site}/api/edits/19").json() == {COMP: {"notes": "roll at 8"}}
+    assert httpx.get(f"{site}/api/edits/19").json() == {COMP: {"name": "Reroll A", "notes": "roll at 8"}}
     assert httpx.get(f"{site}/api/edits/20").json() == {}
 
 
