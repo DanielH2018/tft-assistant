@@ -101,6 +101,34 @@ body[data-view="planner"] :is(#filters, #switches, #head, #comps, #slams) { disp
 .pick:hover, .pick.on { opacity: 1; }
 .pick.on img { outline: 2px solid var(--mauve); outline-offset: 1px; }
 .planner-board .hex[data-tip] { cursor: grab; }
+.save-form { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 6px; }
+.save-form input, .save-form select, .save-form button { font: inherit; font-size: 12.5px; color: var(--text); background: var(--crust); border: 1px solid var(--surface1); border-radius: 4px; padding: 3px 7px; }
+.save-form input { width: 150px; }
+.save-form select { max-width: 190px; }
+.save-form button { cursor: pointer; }
+.save-form button:disabled { opacity: 0.4; cursor: default; }
+.saved-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; cursor: pointer; }
+.saved-row:hover .saved-name { color: var(--mauve); }
+.saved-name { min-width: 110px; }
+.saved-cards { display: flex; flex-wrap: wrap; gap: 10px; }
+.saved-card { cursor: pointer; }
+.saved-card:hover .board { border-color: var(--mauve); }
+.saved-card .note { margin: 3px 0 0; }
+.board.mini { gap: 2px; padding: 5px 14px 5px 5px; }
+.board.mini .line { gap: 2px; }
+.board.mini .line:nth-child(even) { margin-left: 12px; }
+.board.mini .hex { width: 22px; height: 22px; }
+.suggest { display: flex; align-items: center; gap: 8px; padding: 3px 0; cursor: pointer; }
+.suggest > * { flex: none; }
+.suggest:hover .suggest-name { color: var(--mauve); }
+.suggest-name { width: 110px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.suggest .note { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.emblems { gap: 4px; }
+.emblem { position: relative; cursor: pointer; opacity: 0.45; line-height: 0; }
+.emblem:hover, .emblem.on { opacity: 1; }
+.emblem .item-icon { width: 26px; height: 26px; border-radius: 4px; }
+.emblem.on .item-icon { outline: 2px solid var(--mauve); outline-offset: 1px; }
+.emblem b { position: absolute; right: -4px; bottom: -4px; min-width: 14px; height: 14px; line-height: 14px; text-align: center; font-size: 10px; border-radius: 7px; background: var(--mauve); color: var(--crust); }
 .closest { display: flex; align-items: center; gap: 8px; padding: 3px 0; cursor: pointer; }
 .closest > * { flex: none; }
 .closest:hover .closest-name { color: var(--mauve); }

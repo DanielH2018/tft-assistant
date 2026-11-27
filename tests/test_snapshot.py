@@ -63,7 +63,7 @@ def test_every_unit_item_and_trait_a_comp_names_is_in_the_lookup_tables(snapshot
         "row": 0,
     }
     assert snapshot["traits"]["T"] == {"name": "Trait", "icon": None, "breakpoints": [2, 4]}
-    assert snapshot["items"]["Edge"] == {"name": "Edge", "icon": None, "recipe": ["Sword", "Glove"]}
+    assert snapshot["items"]["Edge"] == {"name": "Edge", "icon": None, "recipe": ["Sword", "Glove"], "emblem_of": None}
 
 
 def test_the_recipes_are_every_item_of_the_components_in_play_built_or_not(planted_boards, planted_static, tmp_path):

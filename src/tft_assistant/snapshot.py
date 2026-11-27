@@ -324,6 +324,8 @@ def build_snapshot(
     items |= {item for comp in comps for spare in comp["spare"] for item in [spare["component"], *spare["uses"]]}
     items |= {special["item"] for special in specials} | {item for special in specials for item in special["beside"]}
     items |= {note["item"] for comp in comps for key in comp["key_units"] for note in key["build"]}
+    # The planner offers every emblem of the set, held on a board or not.
+    items |= {name for name, item in static.items.items() if item.emblem_of in static.traits}
     stats = find_item_stats(boards, static)
     items |= {stat.item for stat in stats}
     recipes = _recipes(static, items)
@@ -331,6 +333,7 @@ def build_snapshot(
     traits = {trait["trait"] for comp in comps for trait in comp["traits"]}
     traits |= {trait for unit in units for trait in static.units[unit].traits}
     traits |= {special["emblem_of"] for special in specials if special["emblem_of"]}
+    traits |= {static.items[item].emblem_of for item in items if item in static.items and static.items[item].emblem_of in static.traits}
     traits |= {name.removeprefix(TRAIT) for comp in comps for name in comp["categories"] if name.startswith(TRAIT)}
 
     return {
@@ -381,6 +384,7 @@ def build_snapshot(
                 "name": static.items[item].name,
                 "icon": static.items[item].icon,
                 "recipe": [static.items[part].name if part in static.items else part for part in static.items[item].components],
+                "emblem_of": static.items[item].emblem_of,
             }
             for item in sorted(items)
             if item in static.items
