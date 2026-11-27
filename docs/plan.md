@@ -382,6 +382,25 @@ Figures the operator does not read during a game are in hover cards, not on the 
 share of boards and placement, a unit's share at a level, and an emblem's or artifact's share
 of boards.
 
+### Icons
+
+A build copies every icon its snapshots name into `icons/` beside the page (`icons.mirror`), and
+the snapshots name the copies. The page's own server then serves them, over the connection the
+page came on. Community Dragon serves an icon with an hour's cache life, so a browser asked a
+second host about every icon again each hour: 188 icons, about 2.7 MB, for the 26 comps of
+patch 18.7.
+
+A copy is named by a digest of its picture, so its address changes when the picture does. The
+server tells a browser to keep an icon for a year, and to ask whether the page changed each time
+it loads it: a kept page would name icons a later build removed. A build downloads an icon at
+most once a week, keeps the download in the cache directory, and removes the copies no snapshot
+names. An icon that cannot be downloaded keeps its Community Dragon address, so the page still
+shows it.
+
+The copies are the 128-pixel pictures as Community Dragon serves them. The page draws them at
+16 to 48 pixels, so smaller copies would cut the first load, at the cost of an image library in
+the build. Not done: after the first load a browser has them all.
+
 ### Hover cards
 
 One box is the hover card of the whole page. It shows at once, under the thing the pointer is

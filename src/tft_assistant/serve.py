@@ -4,6 +4,9 @@ The page is a static file and stays one: everything outside `/api/` is a file un
 directory. `/api/edits` reads and writes the edit store. The server checks nobody's identity,
 so a deployment puts it behind a login.
 
+An icon's name is a digest of its picture, so a browser may keep one for good. The page names
+the icons of its own build, so a browser asks whether the page changed each time it loads it.
+
     GET /api/edits/<set>              every edit of the set: {comp id: {field: text}}
     PUT /api/edits/<set>/<comp id>    {field: text, ...}; an empty text removes the field
 """
@@ -19,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from tft_assistant.edits import Edits
+from tft_assistant.icons import ICON_DIR
 
 _SET_EDITS = re.compile(r"/api/edits/(\d{1,4})")
 _COMP_EDITS = re.compile(r"/api/edits/(\d{1,4})/([0-9a-f]{10})")
@@ -26,6 +30,9 @@ _LARGEST_BODY = 64 * 1024
 
 
 class _Handler(SimpleHTTPRequestHandler):
+    # A page shows some two hundred icons, and a proxy in front asks for them over one connection.
+    protocol_version = "HTTP/1.1"
+
     def __init__(self, *args: Any, edits: Edits, **kwargs: Any) -> None:
         self._edits = edits
         super().__init__(*args, **kwargs)
@@ -38,6 +45,13 @@ class _Handler(SimpleHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
+
+    def send_response(self, code: int, message: str | None = None) -> None:
+        super().send_response(code, message)
+        if self.path.startswith("/api/"):
+            return
+        found_icon = code == HTTPStatus.OK and self.path.startswith(f"/{ICON_DIR}/")
+        self.send_header("Cache-Control", "public, max-age=31536000, immutable" if found_icon else "no-cache")
 
     def do_GET(self) -> None:
         if not self.path.startswith("/api/"):
