@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 from sklearn.cluster import AgglomerativeClustering
@@ -21,11 +21,23 @@ _ITEM_FLOOR = 0.10
 
 
 @dataclass(frozen=True)
+class Held:
+    """How one unit places on the boards where it holds two or more finished items."""
+
+    boards: int
+    avg_placement: float
+    items: dict[str, tuple[float, float]]
+    """Each item it holds on a tenth of those boards or more: the share of them, and its average placement there."""
+
+
+@dataclass(frozen=True)
 class ItemGroup:
     items: tuple[str, ...]
     """The items the group's units hold most often, most common first."""
     units: tuple[str, ...]
     """Cheapest first."""
+    held: dict[str, Held] = field(default_factory=dict)
+    """Each unit's placements, which order the units for a reader who asks which holds an item best."""
 
 
 def find_item_groups(
@@ -42,12 +54,25 @@ def find_item_groups(
     """
     held: dict[str, Counter[str]] = defaultdict(Counter)
     builds: Counter[str] = Counter()
+    placed: Counter[str] = Counter()
+    placed_with: dict[str, Counter[str]] = defaultdict(Counter)
     for board in boards:
         for unit in board.units:
             build = static.finished_items(unit.items)
             if len(build) >= 2 and unit.character_id in static.units:
                 builds[unit.character_id] += 1
                 held[unit.character_id].update(build)
+                placed[unit.character_id] += board.placement
+                for item in build:
+                    placed_with[unit.character_id][item] += board.placement
+
+    def how(unit: str) -> Held:
+        often = {item: count for item, count in held[unit].items() if count / builds[unit] >= _ITEM_FLOOR}
+        return Held(
+            builds[unit],
+            placed[unit] / builds[unit],
+            {item: (count / builds[unit], placed_with[unit][item] / count) for item, count in sorted(often.items())},
+        )
 
     units = sorted(unit for unit, count in builds.items() if count >= min_builds)
     if len(units) < 2:
@@ -66,6 +91,7 @@ def find_item_groups(
             ItemGroup(
                 tuple(items[index] for index in np.argsort(-typical)[:_TOP_ITEMS] if typical[index] >= _ITEM_FLOOR),
                 tuple(sorted(members, key=lambda unit: (static.units[unit].cost, unit))),
+                {unit: how(unit) for unit in members},
             )
         )
     return tuple(sorted(groups, key=lambda group: (-len(group.units), group.units)))

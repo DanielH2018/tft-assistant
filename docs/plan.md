@@ -224,10 +224,20 @@ other component names, so the components in play are the ones the comps' own ite
 The number on an item is how many comps of tier B or better build it, counted from each comp's
 item priority, its key units' builds and its emblems. An item a third of those comps build is
 outlined as safe. An item none builds is dimmed. A hover card names the comps and the unit that
-holds the item in each, and a click opens the comps tab filtered by the item.
+holds the item in each.
 
-Each item group is one row: the items its units hold most, then its units from the cheapest. A
-unit that is a comp's main carry is outlined, and a click opens the most played comp it carries.
+A click on a component lights its row and column. A click on an item picks it, which orders
+the item groups for it and stays on the tab; a second click, or *Clear*, undoes it.
+
+Each item group is one row: the items its units hold most, then its units, the best placed
+first. A group's `held` field gives each unit its average placement over the boards where it
+holds two or more finished items, and for each item it holds on a tenth of them or more, the
+share of those boards and its placement there (`item_groups.Held`). With an item picked, the
+groups whose units hold it come first and are marked, and within every group the units that
+hold it lead, by share and then by their placement with it. A unit that is a comp's main carry
+is outlined. A click on a unit or an item of a group opens the comps tab with its name as the
+filter. The group's `units` stay cheapest first in the snapshot, which is the order a holder
+chain reads in.
 
 With the list hidden, the comp page has the whole window and the tabs are out of reach until
 the list is back.

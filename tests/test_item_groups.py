@@ -31,8 +31,8 @@ STATIC = StaticData(
 )
 
 
-def board(*units):
-    return Board("NA1_1", 4, 8, 30, tuple(BoardUnit(name, 2, tuple(items)) for name, items in units), {})
+def board(*units, placement=4):
+    return Board("NA1_1", placement, 8, 30, tuple(BoardUnit(name, 2, tuple(items)) for name, items in units), {})
 
 
 def groups_of(boards, **options):
@@ -68,3 +68,15 @@ def test_a_unit_with_too_few_builds_joins_no_group():
     boards.append(board(("Rare", MAGE)))
 
     assert [units for units, _ in groups_of(boards)] == [("Mage2", "Mage5"), ("Tank1", "Tank4")]
+
+
+def test_a_group_knows_how_each_unit_places_overall_and_with_each_item():
+    mage = [("Mage5", MAGE), ("Mage2", MAGE[1:])]
+    boards = [board(*mage, ("Tank4", TANK), ("Tank1", TANK[:2]), placement=2) for _ in range(3)]
+    boards += [board(*mage, ("Tank4", TANK[:2]), ("Tank1", TANK[:2]), placement=6)]
+
+    tanks = next(group for group in find_item_groups(boards, STATIC, min_builds=3) if "Tank4" in group.units)
+
+    assert (tanks.held["Tank4"].boards, tanks.held["Tank4"].avg_placement) == (4, 3.0)
+    assert tanks.held["Tank4"].items["Visage"] == (0.75, 2.0)
+    assert tanks.held["Tank4"].items["Plate"] == (1.0, 3.0)

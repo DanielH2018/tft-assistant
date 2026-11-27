@@ -1,5 +1,5 @@
 const SNAPSHOTS = JSON.parse(document.getElementById("snapshots").textContent);
-const state = { snapshot: 0, comp: null, filters: [], filter: "", sort: "avg" };
+const state = { snapshot: 0, comp: null, filters: [], filter: "", sort: "avg", component: null, item: null };
 const el = (id) => document.getElementById(id);
 const esc = (text) =>
   String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -175,44 +175,76 @@ function slamGridHtml() {
   const components = s.components || [];
   const cell = (first, second) => {
     const item = made.get([first, second].sort().join("+"));
-    if (!item) return `<td></td>`;
+    const lit = first === state.component || second === state.component ? "lit" : "";
+    if (!item) return `<td class="${lit}"></td>`;
     const built = users.get(item) || [];
     const tone = built.length >= strong.length / 3 ? "safe" : built.length ? "" : "unused";
     const lines = built.slice(0, 8).map(([comp, holder]) => `${nameOf(comp)} → ${unitOf(holder).name}`);
     const note = built.length
-      ? `Built by ${built.length} of ${strong.length} comps of tier B or better:\n${lines.join("\n")}${built.length > 8 ? "\n…" : ""}\nClick to list them.`
+      ? `Built by ${built.length} of ${strong.length} comps of tier B or better:\n${lines.join("\n")}${built.length > 8 ? "\n…" : ""}\nClick to bring the units that hold it to the top of the item groups.`
       : "No comp of tier B or better builds it.";
-    return `<td class="slam ${tone}" data-item="${esc(name(item))}">${itemIcon(item, { note })}<b>${built.length || ""}</b></td>`;
+    return `<td class="slam ${tone} ${lit} ${item === state.item ? "picked" : ""}" data-slam="${esc(item)}">${itemIcon(item, { note })}<b>${built.length || ""}</b></td>`;
   };
-  const head = `<tr><th></th>${components.map((id) => `<th>${itemIcon(id)}</th>`).join("")}</tr>`;
-  const rows = components.map(
-    (row, at) => `<tr><th>${itemIcon(row)}</th>${components.map((column, across) => (across < at ? `<td></td>` : cell(row, column))).join("")}</tr>`,
-  );
+  const part = (id) =>
+    `<th class="${id === state.component ? "lit" : ""}" data-component="${esc(id)}">${itemIcon(id, { note: "Click to light up its row and column." })}</th>`;
+  const head = `<tr><th></th>${components.map(part).join("")}</tr>`;
+  const rows = components.map((row, at) => {
+    const blank = (column) => `<td class="${row === state.component || column === state.component ? "lit" : ""}"></td>`;
+    return `<tr>${part(row)}${components.map((column, across) => (across < at ? blank(column) : cell(row, column))).join("")}</tr>`;
+  });
   return `<table class="slams">${head}${rows.join("")}</table>`;
 }
 
-// Each group lists the items its units build and the units, cheapest first. A unit that is a comp's
-// main carry is outlined, and a click on it opens the most played comp it carries.
+// Each group lists the items its units build and its units, the best placed first. With an item
+// picked in the slam grid, the groups whose units hold it come first, and within every group the
+// units that hold it most often lead. A unit that is a comp's main carry is outlined. A click on
+// a unit or an item goes to the comps tab with its name as the filter.
 function itemGroupsHtml() {
   const s = snap();
   const carried = new Map();
   for (const comp of [...s.comps].sort(SORTS.play)) {
     if (comp.carries[0] && !carried.has(comp.carries[0])) carried.set(comp.carries[0], comp);
   }
-  const unit = (id) => {
-    const comp = carried.get(id);
-    if (!comp) return unitTile(id, "m");
-    const note = `Carries ${nameOf(comp)}: average placement ${comp.avg_placement.toFixed(2)}, played ${pct(comp.share)}. Click to open it.`;
-    return `<span class="carrier" data-open="${comp.id}">${unitTile(id, "m", { note })}</span>`;
+  const named = (id) => (s.items[id] || { name: id }).name;
+  const picked = state.item;
+  const withPicked = (group, id) => picked && group.held && group.held[id] && group.held[id].items[picked];
+  const uses = (group) => picked && (group.items.includes(picked) || group.units.some((id) => withPicked(group, id)));
+  const order = (group) => (a, b) => {
+    const [first, second] = [withPicked(group, a), withPicked(group, b)];
+    if (Boolean(first) !== Boolean(second)) return first ? -1 : 1;
+    if (first && first[0] !== second[0]) return second[0] - first[0];
+    const avg = (id) => (first ? withPicked(group, id)[1] : ((group.held || {})[id] || { avg: 9 }).avg);
+    return avg(a) - avg(b) || unitOf(a).cost - unitOf(b).cost;
   };
-  const groups = s.item_groups.map(
-    (group) => `<div class="group">
-      <div class="group-items">${group.items.map((item) => itemIcon(item)).join("")}</div>
-      <div class="group-units">${group.units.map(unit).join("")}</div>
+  const unit = (group) => (id) => {
+    const held = (group.held || {})[id];
+    const comp = carried.get(id);
+    const own = withPicked(group, id);
+    const note = [
+      held && `Average placement ${held.avg.toFixed(2)} over ${held.boards.toLocaleString()} boards where it holds items.`,
+      own && `Holds ${named(picked)} on ${pct(own[0])} of them, and places ${own[1].toFixed(2)} there.`,
+      comp && `Carries ${nameOf(comp)}.`,
+      "Click to list the comps that field it.",
+    ]
+      .filter(Boolean)
+      .join("\n");
+    return `<span class="to-filter ${comp ? "carrier" : ""}" data-filter="${esc(unitOf(id).name)}">${unitTile(id, "m", { note })}</span>`;
+  };
+  const groups = [...s.item_groups]
+    .sort((a, b) => Number(Boolean(uses(b))) - Number(Boolean(uses(a))))
+    .map(
+      (group) => `<div class="group ${uses(group) ? "lit" : ""}">
+      <div class="group-items">${group.items
+        .map((item) => `<span class="to-filter ${item === picked ? "picked" : ""}" data-filter="${esc(named(item))}">${itemIcon(item, { note: "Click to list the comps that build it." })}</span>`)
+        .join("")}</div>
+      <div class="group-units">${[...group.units].sort(order(group)).map(unit(group)).join("")}</div>
     </div>`,
-  );
-  const info = "Units in one group build alike on real boards, so they can hold each other's items.\nA group lists the items its units hold most, then its units from the cheapest.\nAn outlined unit is a comp's main carry.";
-  return `<div id="sheet"><header><h1>${MAXIMIZE} Item groups <span class="info" tabindex="0" ${tipOf(info)}>i</span></h1></header>
+    );
+  const info = "Units in one group build alike on real boards, so they can hold each other's items.\nA group lists the items its units hold most, then its units, the best placed first.\nClick an item in the grid to bring the units that hold it to the top. An outlined unit is a comp's main carry.";
+  const ordered = picked
+    ? `<p class="stats">Ordered for <b>${esc(named(picked))}</b> <button id="clear-item" ${tipOf("Go back to the usual order.")}>Clear</button></p>`
+    : "";
+  return `<div id="sheet"><header><h1>${MAXIMIZE} Item groups <span class="info" tabindex="0" ${tipOf(info)}>i</span></h1>${ordered}</header>
     ${groups.join("") || `<p class="empty">No unit has enough itemised boards to group.</p>`}</div>`;
 }
 
@@ -467,6 +499,7 @@ function withPlanLine(comp, key, text) {
   return { own, hidden, changed };
 }
 
+const PENCIL = `<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10.6 2.4 13.6 5.4 5.4 13.6 2 14 2.4 10.6Z"/><path d="M9 4 12 7"/></svg>`;
 let planEditing = null;
 const PLAN_LINE = 300;
 
@@ -479,7 +512,7 @@ function planHtml(comp) {
     if (planEditing === `${comp.id}:${key}`) {
       return `<li><input class="plan-edit" data-plan-key="${key}" value="${esc(text)}" maxlength="${PLAN_LINE}" ${tipOf("Enter keeps the change. Escape leaves the line as it was.")}></li>`;
     }
-    return `<li><span>${esc(text)}</span><button data-plan-edit="${key}" data-tip="Reword this line">edit</button><button data-plan-remove="${key}" data-tip="Remove this line">×</button></li>`;
+    return `<li><span>${esc(text)}</span><button data-plan-edit="${key}" data-tip="Reword this line" aria-label="Reword this line">${PENCIL}</button><button data-plan-remove="${key}" data-tip="Remove this line">×</button></li>`;
   };
   const entry = edits
     ? `<input id="plan-entry" maxlength="${PLAN_LINE}" placeholder="Add a note" ${tipOf("Enter adds the note to the top of the list.")}>`
@@ -1319,14 +1352,29 @@ el("tabs").addEventListener("click", (event) => {
   if (tab) setView(tab.dataset.view);
 });
 // A click on a slam lists the comps that build it: the comps view, filtered by the item's name.
+// A click on a component lights its row and column, and a click on an item orders the item
+// groups for it. A second click on either undoes it.
 el("slams").addEventListener("click", (event) => {
-  const slam = event.target.closest("[data-item]");
-  if (!slam) return;
-  state.filters = [slam.dataset.item];
-  el("filter").value = state.filter = "";
-  state.view = "comps";
-  localStorage.setItem(VIEW, "comps");
-  renderFilters();
+  const part = event.target.closest("[data-component]");
+  const slam = event.target.closest("[data-slam]");
+  if (part) state.component = state.component === part.dataset.component ? null : part.dataset.component;
+  else if (slam) state.item = state.item === slam.dataset.slam ? null : slam.dataset.slam;
+  else return;
+  renderItems();
+});
+el("detail").addEventListener("click", (event) => {
+  if (state.view !== "items") return;
+  const named = event.target.closest("[data-filter]");
+  if (event.target.closest("#clear-item")) {
+    state.item = null;
+    renderItems();
+  } else if (named) {
+    state.filters = [named.dataset.filter];
+    el("filter").value = state.filter = "";
+    state.view = "comps";
+    localStorage.setItem(VIEW, "comps");
+    renderFilters();
+  }
 });
 document.addEventListener("keydown", (event) => {
   if (event.target.closest("#detail") && event.target.matches("input, textarea")) return;
