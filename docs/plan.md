@@ -209,7 +209,7 @@ condition                   an augment or an encounter
 
 ### The Items tab
 
-The side panel has two tabs, and the browser keeps the open one across a reload. *Comps* is the
+The side panel has three tabs, and the browser keeps the open one across a reload. *Planner* has its own section below. *Comps* is the
 list beside one comp's page. *Items* puts the slam grid in the side panel and the item groups
 in the pane beside it. The groups tanks build in come last (`snapshot.tank_groups_last`): a
 group is one of those when more of its units are some comp's tank than some comp's carry.
@@ -551,8 +551,28 @@ so a place is remembered for a flex unit that is not picked just now, and a unit
 takes its derived hex, or the nearest free one when the reader put something there. *Derived
 positions* under the board clears the field.
 
-This is the first piece of slice 5. Still to come: a planner that starts from an empty board,
-unit suggestions, and boards tagged with a stage.
+### The planner
+
+The *Planner* tab is a board the reader fills from the roster. The side panel lists the units a
+player can buy by cost: the ones Riot's team planner lists that have a trait (`snapshot.roster`),
+which leaves out a training dummy or an anvil. The snapshot's unit and trait tables carry the
+whole roster for it, where they used to carry only the units some comp fields.
+
+A click on a roster unit puts it on the board, in the free hex of its usual row nearest the
+centre, and a second click takes it off. On the board a unit drags to another hex, a drop on a
+unit swaps the two, and a click takes it off. The pane shows:
+
+- the traits the units field, each with its count and next breakpoint, the ones that reach a
+  breakpoint first;
+- a team code for the board, the first ten units;
+- the comps whose core the board holds most of, each with the core units still missing, and a
+  click opens the comp.
+
+The board is kept in the browser, one for each set, so it needs no server and a page opened
+from a file has it too. It is one working board, not a list of saved ones.
+
+Still to come in slice 5: unit suggestions, saved boards with a name and a stage, and emblems
+on the planner's units.
 
 ### Assistance for the manual parts
 

@@ -114,6 +114,15 @@ def tank_groups_last(groups: Sequence[ItemGroup], comps: Sequence[Comp]) -> list
     return sorted(groups, key=for_tanks)
 
 
+def roster(static: StaticData) -> list[str]:
+    """The units a player can buy: the ones Riot's team planner lists that have a trait.
+
+    The static data also holds what a board cannot field by choice, such as a training dummy
+    or an anvil. The page's planner offers these units, whether or not a comp fields them.
+    """
+    return sorted(name for name, unit in static.units.items() if unit.planner_code and unit.traits)
+
+
 COMPONENT_ORDER = (
     "BFSword",
     "RecurveBow",
@@ -272,6 +281,7 @@ def build_snapshot(
     units |= {special["holder"] for special in specials}
     units |= {swap["unit"] for special in specials for swap in [*special["adds"], *special["drops"]]}
     units |= {s["unit"] for comp in comps for up in comp["level_ups"] for s in [*up["adds"], *up["drops"]]}
+    units |= set(roster(static))
     units |= {key["unit"] for comp in comps for key in comp["key_units"]}
     items = {pick["item"] for comp in comps for pick in comp["items"]} | {i for g in groups for i in g.items}
     items |= {item for comp in comps for item in comp["take"]}

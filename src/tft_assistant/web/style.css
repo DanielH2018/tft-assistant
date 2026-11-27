@@ -78,7 +78,21 @@ aside {
 #tabs button:hover { color: var(--text); }
 #tabs button.on { color: var(--text); border-bottom-color: var(--mauve); }
 /* Each view shows its own half of the side panel. The filter box and the list belong to the comps. */
-body[data-view="items"] :is(#filters, #head, #comps), body[data-view="comps"] #slams { display: none; }
+body[data-view="items"] :is(#filters, #head, #comps, #roster), body[data-view="comps"] :is(#slams, #roster),
+body[data-view="planner"] :is(#filters, #head, #comps, #slams) { display: none; }
+#roster { flex: 1; overflow: auto; padding: 4px 10px 10px; }
+.roster-cost { display: flex; flex-wrap: wrap; gap: 4px 2px; align-items: center; padding: 6px 0; border-top: 1px solid var(--surface0); }
+.roster-cost > .note { width: 100%; }
+.pick { cursor: pointer; opacity: 0.55; }
+.pick:hover, .pick.on { opacity: 1; }
+.pick.on img { outline: 2px solid var(--mauve); outline-offset: 1px; }
+.planner-board .hex[data-tip] { cursor: grab; }
+.closest { display: flex; align-items: center; gap: 8px; padding: 3px 0; cursor: pointer; }
+.closest > * { flex: none; }
+.closest:hover .closest-name { color: var(--mauve); }
+.closest-name { width: 190px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#clear-plan { font: inherit; color: var(--subtext); background: none; border: 1px solid var(--surface1); border-radius: 4px; padding: 2px 8px; cursor: pointer; }
+#clear-plan:hover { color: var(--text); border-color: var(--surface2); }
 .categories { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 6px 0 0; }
 #add-category {
   width: 130px; background: none; color: var(--text); font: inherit; font-size: 12.5px;
@@ -179,11 +193,11 @@ section.folded { grid-template-columns: 1fr; }
 #maximize span { display: block; }
 #maximize svg { display: block; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 body.maximized #maximize .grow, body:not(.maximized) #maximize .shrink { display: none; }
-#copy-team {
+#copy-team, #copy-plan {
   font: inherit; font-size: 12.5px; color: var(--crust); background: var(--mauve); border: 0; border-radius: 4px;
   padding: 3px 10px; cursor: pointer; font-weight: 600;
 }
-#copy-team:hover { background: var(--blue); }
+:is(#copy-team, #copy-plan):hover { background: var(--blue); }
 .package { cursor: pointer; }
 .package:hover { border-color: var(--surface2); }
 .package.picked { border-color: var(--mauve); background: var(--surface0); }
