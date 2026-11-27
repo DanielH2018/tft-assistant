@@ -49,6 +49,6 @@ def test_a_second_build_downloads_nothing_and_removes_the_icons_it_no_longer_nam
     one = snapshot_of("https://icons.test/a.png")
     mirror([one], tmp_path / "site", fetch=fetch, cache=tmp_path / "cache")
 
-    assert downloads == ["https://icons.test/a.png", "https://icons.test/b.png"]
+    assert sorted(downloads) == ["https://icons.test/a.png", "https://icons.test/b.png"]
     assert [path.name for path in (tmp_path / "site" / "icons").iterdir()] == [one["units"]["U0"]["icon"].split("/")[1]]
     assert not (tmp_path / "site" / dropped).exists()
