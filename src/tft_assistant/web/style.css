@@ -99,6 +99,12 @@ body[data-view="items"] :is(#filters, #head, #comps), body[data-view="comps"] #s
 .group-units { display: flex; flex-wrap: wrap; gap: 6px 2px; min-width: 0; }
 .carrier { cursor: pointer; }
 .carrier img { outline: 2px solid var(--mauve); outline-offset: 1px; }
+.notes { display: flex; flex-direction: column; gap: 2px; width: min(100%, 640px); }
+.notes textarea {
+  width: 100%; resize: vertical; background: var(--crust); color: var(--text); font: inherit;
+  border: 1px solid var(--surface1); border-radius: 4px; padding: 6px 8px;
+}
+.notes textarea:focus { outline: 0; border-color: var(--mauve); }
 
 .tier { display: inline-block; width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 4px; font-weight: 700; color: var(--crust); }
 .tS { background: var(--red); } .tA { background: var(--peach); } .tB { background: var(--yellow); } .tC { background: var(--grey); }

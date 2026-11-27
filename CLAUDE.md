@@ -24,5 +24,5 @@ live API showed, and it overrides any assumption about Riot's payload.
 - A release publishes the image, and a deployment follows releases. To release, raise `version`
   in `pyproject.toml`, run `uv lock`, and merge that. Then tag the merge commit `v<version>` and
   push the tag. CI refuses a tag that is not the project's version.
-- `TFT_STATE_DIR` moves the match store, the comp ids and the static-data cache into one
-  directory, which is how the image keeps them on its `/data` volume (`paths.state_path`).
+- `TFT_STATE_DIR` moves the match store, the comp ids, the edits and the static-data cache into
+  one directory, which is how the image keeps them on its `/data` volume (`paths.state_path`).
