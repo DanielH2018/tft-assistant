@@ -7,7 +7,7 @@ from conftest import A_CORE
 
 from tft_assistant.build import build_site
 from tft_assistant.comp_ids import CompIds
-from tft_assistant.snapshot import SCHEMA, build_snapshot
+from tft_assistant.snapshot import SCHEMA, build_snapshot, components_in_order
 from tft_assistant.static_data import Item
 from tft_assistant.store import Selection
 
@@ -80,6 +80,26 @@ def test_the_recipes_are_every_item_of_the_components_in_play_built_or_not(plant
     assert recipes["Edge"] == ["Sword", "Glove"]
     assert recipes["Unbuilt"] == ["Sword", "Bow"]
     assert "Earlier set" not in recipes
+
+
+def test_components_keep_the_owners_order_whatever_prefix_a_set_gives_them(planted_static):
+    recipes = {
+        "Emblem": ["S19_Spatula", "S19_GiantsBelt"],
+        "Edge": ["S19_SparringGloves", "S19_BFSword"],
+        "Odd": ["Zed part", "Alpha part"],
+        "Guard": ["S19_ChainVest", "S19_RecurveBow"],
+    }
+
+    assert components_in_order(recipes, planted_static) == [
+        "S19_BFSword",
+        "S19_RecurveBow",
+        "S19_ChainVest",
+        "S19_GiantsBelt",
+        "S19_SparringGloves",
+        "S19_Spatula",
+        "Alpha part",
+        "Zed part",
+    ]
 
 
 def test_a_comp_is_fielded_as_its_core_and_commonest_flex_units_up_to_its_usual_level(snapshot):

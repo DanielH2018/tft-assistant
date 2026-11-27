@@ -181,7 +181,7 @@ function slamGridHtml() {
   }
   const made = new Map(Object.entries(s.recipes || {}).map(([item, parts]) => [[...parts].sort().join("+"), item]));
   const name = (id) => (s.items[id] || { name: id }).name;
-  const components = [...new Set(Object.values(s.recipes || {}).flat())].sort((a, b) => name(a).localeCompare(name(b)));
+  const components = s.components || [];
   const cell = (first, second) => {
     const item = made.get([first, second].sort().join("+"));
     if (!item) return `<td></td>`;
