@@ -1,5 +1,5 @@
 const SNAPSHOTS = JSON.parse(document.getElementById("snapshots").textContent);
-const state = { snapshot: 0, comp: null, filters: [], filter: "", sort: "avg", component: null, item: null };
+const state = { snapshot: 0, comp: null, filters: [], filter: "", sort: "avg", column: "c-tier", ascending: false, component: null, item: null };
 const el = (id) => document.getElementById(id);
 const esc = (text) =>
   String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -60,7 +60,7 @@ function visibleComps() {
   return comps
     .filter((entry) => passes.every((passed) => passed.has(entry)))
     .map(([comp]) => comp)
-    .sort(SORTS[state.sort]);
+    .sort((a, b) => (state.ascending ? -1 : 1) * SORTS[state.sort](a, b));
 }
 
 // A category groups comps that want the same thing from a game. The snapshot derives each comp's
@@ -277,9 +277,11 @@ function renderList() {
     renderPlanner();
     return;
   }
+  fitNames();
   el("head").innerHTML = COLUMNS.map(([label, sort, column]) => {
-    const cell = `class="${column} ${sort === state.sort ? "sorted" : ""}"`;
-    return sort ? `<button data-sort="${sort}" ${cell}>${label}</button>` : `<span ${cell}>${label}</span>`;
+    const cell = `class="${column} ${column === state.column ? "sorted" : ""}"`;
+    const arrow = column === state.column ? `<span class="arrow">${state.ascending ? "▲" : "▼"}</span>` : "";
+    return sort ? `<button data-sort="${sort}" data-column="${column}" ${cell}>${label}${arrow}</button>` : `<span ${cell}>${label}</span>`;
   }).join("");
   el("comps").innerHTML = comps
     .map(
@@ -605,6 +607,8 @@ function pivotsFrom(comp, unit, group) {
     });
 }
 
+// Each column's own order is the one the page calls descending: the best or the most first.
+// A second click on the sorted column turns it round.
 const SORTS = {
   play: (a, b) => b.share - a.share,
   avg: (a, b) => a.avg_placement - b.avg_placement,
@@ -628,6 +632,23 @@ const COLUMNS = [
 // The detail content keeps one size. It is laid out at the pane's width and wraps to it, and the
 // pane scrolls down when the content is taller. Only a pane too narrow for the widest thing that
 // cannot wrap draws the content smaller, so nothing reaches past the pane's right edge.
+// The Comp column is as wide as the longest name in the snapshot, so a comp renamed to a longer
+// name widens it. The names of every comp count, not only the listed ones, so the column keeps
+// its width while a filter changes the list.
+const NAME_WIDTHS = [90, 360];
+const pen = document.createElement("canvas").getContext("2d");
+let nameWidth = 0;
+function fitNames() {
+  const row = getComputedStyle(el("comps"));
+  pen.font = `${row.fontWeight} ${row.fontSize} ${row.fontFamily}`;
+  const longest = Math.max(0, ...snap().comps.map((comp) => pen.measureText(nameOf(comp)).width));
+  const width = Math.ceil(Math.min(Math.max(longest + 2, NAME_WIDTHS[0]), NAME_WIDTHS[1]));
+  if (width === nameWidth) return;
+  nameWidth = width;
+  document.documentElement.style.setProperty("--name-width", `${width}px`);
+  applyListWidth();
+}
+
 function fitWidth() {
   const sheet = el("sheet");
   if (!sheet) return;
@@ -921,19 +942,25 @@ function move(step) {
 const LIST_WIDTH = "tft-assistant.list-width";
 const LIST_RESTORE = "tft-assistant.list-restore";
 const NARROWEST_LIST = 260;
-// The list is never wider than the width that shows all of its columns, which the stylesheet
-// states. A wider list would only add empty space and take it from the comp page.
-const FULL_LIST = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--full-list"));
+// The list is never wider than the width that shows all of its columns: the Comp column's width
+// and what the stylesheet states for the rest. A wider list would only add empty space and take
+// it from the comp page.
+const OTHER_COLUMNS = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--other-columns"));
 // The comp page's least width leaves the list its full width in a window 1,024 pixels wide.
 const NARROWEST_DETAIL = 300;
 const storedWidth = (key) => (localStorage.getItem(key) ? Number(localStorage.getItem(key)) : "");
-function setListWidth(asked) {
-  const width = asked === "" ? "" : Math.min(asked, FULL_LIST);
-  if (width === "") document.body.style.removeProperty("--list-width");
-  else document.body.style.setProperty("--list-width", `${width}px`);
-  localStorage.setItem(LIST_WIDTH, width);
-  document.body.classList.toggle("maximized", width === 0);
+// The browser keeps the width that was asked for, so a list dragged to its full width has it
+// again after a longer name widens the Comp column.
+function applyListWidth() {
+  const asked = storedWidth(LIST_WIDTH);
+  if (asked === "") document.body.style.removeProperty("--list-width");
+  else document.body.style.setProperty("--list-width", `${Math.min(asked, OTHER_COLUMNS + nameWidth)}px`);
+  document.body.classList.toggle("maximized", asked === 0);
   fitWidth();
+}
+function setListWidth(asked) {
+  localStorage.setItem(LIST_WIDTH, asked);
+  applyListWidth();
 }
 function maximize(from) {
   if (from !== 0) localStorage.setItem(LIST_RESTORE, from);
@@ -943,7 +970,7 @@ const MAXIMIZE = `<button id="maximize">
   <span class="grow" data-tip="Give the comp page the whole window"><svg viewBox="0 0 16 16"><path d="M9.5 2H14v4.5M14 2 9 7M6.5 14H2V9.5M2 14l5-5"/></svg></span>
   <span class="shrink" data-tip="Bring the list back"><svg viewBox="0 0 16 16"><path d="M13.5 7H9V2.5M9 7l5-5M2.5 9H7v4.5M7 9l-5 5"/></svg></span>
 </button>`;
-setListWidth(storedWidth(LIST_WIDTH));
+applyListWidth();
 addEventListener("resize", fitWidth);
 
 // A drag that passes the middle of the narrowest list maximizes the comp page, and a drag back
@@ -1316,6 +1343,8 @@ el("detail").addEventListener("keydown", (event) => {
 el("head").addEventListener("click", (event) => {
   const column = event.target.closest("button");
   if (column) {
+    state.ascending = column.dataset.column === state.column && !state.ascending;
+    state.column = column.dataset.column;
     state.sort = column.dataset.sort;
     renderList();
   }

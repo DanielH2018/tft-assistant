@@ -349,7 +349,9 @@ A player finds a unit four levels above its cost, so a 1-cost reroll comp rolls 
 3-cost one at level 7. The snapshot carries that level as `roll_level`.
 
 The comp list shows the roll level as its Level column, and the detail pane's heading shows the
-style. The list sorts by a click on a column header and opens sorted by tier.
+style. The list sorts by a click on a column header and opens sorted by tier. A column's own order
+puts the best or the most first, and the header shows a down arrow for it. A second click on
+the sorted column reverses the order and the arrow.
 
 The filter box holds several filters at once. Enter keeps the typed filter as a chip and starts
 another, Backspace in the empty box removes the last chip, and each chip has an X. The list
@@ -419,15 +421,17 @@ it. The other searched for the largest scale that fit the height, which drew a o
 at 0.78 of full size with half the pane's width unused. The operator's rule is that the height
 may overflow and the width may not.
 
-The list's columns have fixed widths and never move. A list too narrow for all of them drops
-whole columns from the right: Play, Win, Top 4, Avg, Core, then Level. Win is the share of a
-comp's boards that place first. The list opens 708 pixels wide, which shows every column,
-wherever that leaves the comp page 520 pixels. In a narrower window it opens narrower. The
+The list's columns never move. Every column has a fixed width but Comp, which is as wide as the
+longest name in the snapshot, between 90 and 360 pixels: a comp renamed to a longer name widens
+it. A list too narrow for all of them drops whole columns from the right: Play, Win, Top 4, Avg,
+Core, then Level. A row wraps and shows its first line only, which is what drops them. Win is
+the share of a comp's boards that place first. The list opens at the width that shows every
+column, wherever that leaves the comp page 520 pixels. In a narrower window it opens narrower. The
 border between the list and the detail pane drags right until the list shows every column and
 no further, because a wider list only adds empty space. In a narrow window it also stops where
 the comp page is 300 pixels wide, so the list reaches every column in any window 1,024 pixels
-wide or more. The stylesheet's `--full-list` states the width, and the script reads it. The
-browser keeps the width, and a double-click on the border resets it. The detail pane marks the
+wide or more. The stylesheet's `--full-list` adds the Comp column's width, which the script measures, to the
+width of the rest. The browser keeps the width that was asked for, and a double-click on the border resets it. The detail pane marks the
 three-starred units on their pictures.
 
 A button in the comp page's top left corner maximizes the page: the list goes to no width and
