@@ -168,7 +168,7 @@ condition                   an augment or an encounter
 5. Each analysis matches its cores to the cores a file remembers, by overlap, so a comp keeps its
    id from run to run and has one id in every snapshot of a page (`comp_ids.py`). Two cores are
    one comp when they share at least 60% of the units either has: a core of five that swaps one
-   unit keeps its id, and one that swaps two does not. The file is `comp-ids.json` beside the
+   unit keeps its id, and one that swaps two does not. The file is `keep/comp-ids.json` beside the
    match store, with one table per set. A comp's name is derived again in each snapshot, so one
    id can read under two names in two selections. On 108,760 stored boards the patch snapshot
    and the 3-day snapshot share 24 of 26 ids; ids made from the core alone shared 17.
@@ -385,6 +385,23 @@ border past the middle of the narrowest list, 130 pixels, maximizes the page too
 back out brings the list back. The button's face follows the list's width, so it reads the same
 after a click and after a drag. The arrow keys still move through the list while it is hidden,
 and the browser keeps a maximized page across a reload.
+
+### Edits
+
+`tft serve` serves the built page and an API over the edit store (`serve.py`, `edits.py`). The
+page asks `api/edits/<set>` once when it opens, and a comp page then ends with a *Notes* box. A
+note is saved when the box loses the focus, with `PUT api/edits/<set>/<comp id>`, and an empty
+note removes the edit. A page that gets no answer, such as one opened from a file or served by
+a plain file server, shows no box, so the page still works as a static file.
+
+An edit is keyed by set, comp id and field, which is why a comp's id has to hold between runs
+(*How comps are derived*, step 5). The store takes the fields `edits.FIELDS` names, each with a
+longest text, and `notes` is the first. The API takes JSON only: another site's page can post a
+form with the reader's login, and cannot send JSON without the browser asking the server first.
+
+The edit store and the comp ids its rows are keyed by are the files no API gives back. Both sit
+under `keep/` in the state directory, and a deployment keeps that directory on storage that is
+backed up, apart from the match store.
 
 ### Comp names
 

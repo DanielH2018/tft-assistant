@@ -1,4 +1,9 @@
-"""Where the tool keeps what it writes: the match store, the comp ids and the static-data cache."""
+"""Where the tool keeps what it writes.
+
+The match store, the static-data cache and the page come back from an API or a build. The edits
+and the comp ids they are keyed by do not, so they sit apart under `keep/`, which is the one
+directory an unattended run has to back up.
+"""
 
 from __future__ import annotations
 

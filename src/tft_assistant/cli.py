@@ -15,9 +15,11 @@ from tft_assistant.build import build_site
 from tft_assistant.comp_ids import CompIds
 from tft_assistant.comps import CompReport, find_comps
 from tft_assistant.crawl import crawl
+from tft_assistant.edits import Edits
 from tft_assistant.item_groups import find_item_groups
 from tft_assistant.refresh import refresh
 from tft_assistant.riot import REGION_OF_PLATFORM, RiotClient, load_key
+from tft_assistant.serve import server
 from tft_assistant.sets import GameSet, latest_set_number
 from tft_assistant.snapshot import build_snapshot
 from tft_assistant.static_data import StaticData
@@ -207,9 +209,15 @@ def main() -> None:
     commands.add_parser(
         "item-groups", parents=[selected], help="group units by the items they hold in a selection's boards"
     )
+    served = commands.add_parser("serve", help="serve the built page and the edits made on it, until stopped")
+    served.add_argument("--site", type=Path, default=Path("site"), help="directory that holds index.html")
+    served.add_argument("--port", type=int, default=8080)
     args = parser.parse_args()
 
-    if args.command == "build":
+    if args.command == "serve":
+        print(f"serving {args.site} and the edits on port {args.port}")
+        server(args.site, Edits(), args.port).serve_forever()
+    elif args.command == "build":
         build_page(Store(), args.set_number, args.out)
     elif args.command == "crawl":
         crawl_platforms(RiotClient(load_key()), Store(), args.platforms, args.days_back, args.minutes)

@@ -24,6 +24,7 @@ uv run tft crawl      # store the matches of the NA, EUW and KR apex ladders
 uv run tft comps --patch 18.7          # comps of a patch; --since, --until and --platform narrow it
 uv run tft build --out site            # write site/index.html from the stored matches
 uv run tft refresh --out site          # build, then crawl and build again every hour, until stopped
+uv run tft serve --site site           # serve the page on port 8080, and keep the notes written on it
 uv run pytest
 ```
 
@@ -47,7 +48,7 @@ docker run -e RIOT_API_KEY -v tft-data:/data ghcr.io/danielh2018/tft-assistant
 | `/data` | The one directory the run writes: the match store, the static-data cache and the page under `site/`. `TFT_STATE_DIR` names it. |
 | `RIOT_API_KEY` | The key, given at run time. The image holds none. |
 | User | The image runs as user 10001 and works as any other user that can write `/data`. |
-| Serving | The run serves nothing. Any static file server pointed at `/data/site` serves the page. |
+| Serving | The run serves nothing. Any static file server pointed at `/data/site` serves the page. `tft serve --site /data/site` serves it too, and keeps the notes a reader writes on it under `/data/keep`, beside the comp ids the notes are keyed by. That directory is the one thing here no API gives back, so back it up. The server checks nobody's identity: put it behind a login. |
 
 ## Riot's terms
 

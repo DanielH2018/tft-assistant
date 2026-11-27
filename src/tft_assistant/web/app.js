@@ -522,7 +522,42 @@ function detailHtml(comp) {
           : ""
       }
     </div>
-    ${section("Positioning", `<div>${boardHtml(comp)}</div>`)}</div>`;
+    ${section("Positioning", `<div>${boardHtml(comp)}</div>`)}
+    ${edits ? section("Notes", notesHtml(comp)) : ""}</div>`;
+}
+
+// What the reader has written about each comp of this set, as comp id → field → text. It stays
+// null on a page no server keeps edits for, such as one opened from a file, and the page then
+// shows nothing to edit. Every snapshot of a page is of one set, so one request covers them all.
+let edits = null;
+const editsOf = () => `api/edits/${snap().selection.set}`;
+function loadEdits() {
+  fetch(editsOf())
+    .then((reply) => (reply.ok ? reply.json() : null))
+    .then((found) => {
+      if (!found) return;
+      edits = found;
+      if (state.view === "comps") renderDetail();
+    })
+    .catch(() => {});
+}
+
+function notesHtml(comp) {
+  const text = (edits[comp.id] || {}).notes || "";
+  return `<div class="notes"><textarea id="notes" maxlength="4000" rows="3" placeholder="What to remember about this comp">${esc(text)}</textarea>
+    <span id="notes-state" class="note"></span></div>`;
+}
+
+// A note is saved when the box loses the focus, under the comp it was written for.
+function saveNotes(compId, text) {
+  const shown = (words) => el("notes-state") && (el("notes-state").textContent = words);
+  fetch(`${editsOf()}/${compId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ notes: text }) })
+    .then((reply) => {
+      if (!reply.ok) throw new Error(`the server answered ${reply.status}`);
+      edits[compId] = { ...edits[compId], notes: text };
+      shown("saved");
+    })
+    .catch((error) => shown(`not saved: ${error.message}`));
 }
 
 function move(step) {
@@ -724,11 +759,18 @@ el("slams").addEventListener("click", (event) => {
   localStorage.setItem(VIEW, "comps");
   renderFilters();
 });
+el("detail").addEventListener("change", (event) => {
+  if (event.target.id === "notes") saveNotes(state.comp, event.target.value);
+});
 document.addEventListener("keydown", (event) => {
+  if (event.target.tagName === "TEXTAREA") return;
   if (state.view === "comps" && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
     event.preventDefault();
     move(event.key === "ArrowDown" ? 1 : -1);
   }
 });
-if (SNAPSHOTS.length) renderList();
+if (SNAPSHOTS.length) {
+  renderList();
+  loadEdits();
+}
 else el("detail").innerHTML = `<p class="empty">No snapshot yet. A snapshot needs 1,000 boards of the live patch, and a new store gets them within its first crawl.</p>`;

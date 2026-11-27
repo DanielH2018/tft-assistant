@@ -15,7 +15,7 @@ from pathlib import Path
 
 from tft_assistant.paths import state_path
 
-DEFAULT_PATH = state_path("comp-ids.json", "~/.local/share/tft-assistant/comp-ids.json")
+DEFAULT_PATH = state_path("keep/comp-ids.json", "~/.local/share/tft-assistant/comp-ids.json")
 
 _SAME_COMP = 0.6
 """Two cores are one comp when the units they share are at least this share of the units either has.
