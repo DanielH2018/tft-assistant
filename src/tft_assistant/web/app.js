@@ -499,11 +499,31 @@ function detailHtml(comp) {
   // average is the mean of those boards and the rest, weighted by the share, so the rest follows.
   const placementWithout = (special, comp) =>
     special.share < 1 ? (comp.avg_placement - special.share * special.avg_placement) / (1 - special.share) : null;
+  // What an emblem does for the comp as it is usually fielded: the count of its trait with the
+  // emblem on a unit that lacks the trait, and whether that count is a breakpoint the comp does
+  // not reach without it.
+  const emblemReach = (special) => {
+    const trait = special.emblem_of;
+    if (!trait) return "";
+    const breakpoints = (snap().traits[trait] || {}).breakpoints || [];
+    const without = comp.fielded.filter((id) => unitOf(id).traits.includes(trait)).length;
+    const tierAt = (count) => breakpoints.filter((need) => need <= count).length;
+    const next = breakpoints.find((need) => need > without + 1);
+    const gain =
+      tierAt(without + 1) > tierAt(without)
+        ? "a breakpoint the usual board does not reach"
+        : next
+          ? `no breakpoint: the next is ${next}`
+          : "no breakpoint: the trait has none above it";
+    const tip = tipOf(`${without} ${traitName(trait)} on the usual board, ${without + 1} with the emblem`, breakpoints.length && `Breakpoints: ${breakpoints.join(" / ")}`, gain);
+    return `<span class="part reach ${tierAt(without + 1) > tierAt(without) ? "good" : ""}" ${tip}><span class="note">makes</span>${without + 1} ${esc(traitName(trait))}</span>`;
+  };
   const specials = comp.specials
     .map(
       (special) => `<div class="special">
         <span class="what" ${tipOf(onBoards(special))}>${itemIcon(special.item, { note: onBoards(special) })} ${itemName(special.item)} <span class="note">${special.kind}</span></span>
         <span class="figures">${placementGap(special.avg_placement, placementWithout(special, comp))}</span>
+        ${emblemReach(special)}
         <span class="part"><span class="note">on</span>${unitTile(special.holder, "s")} ${esc(unitOf(special.holder).name)} <span class="note">${pct(special.holder_share)}</span></span>
         ${special.beside.length ? `<span class="part"><span class="note">beside</span>${special.beside.map((item) => itemIcon(item)).join("")}</span>` : ""}
         ${special.adds.length ? `<span class="part"><span class="note">comes in</span>${smallTiles(special.adds)}</span>` : ""}
