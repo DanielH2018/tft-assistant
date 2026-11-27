@@ -245,6 +245,12 @@ with the item and the boards without. A Fae Emblem on Kayle brings Lillia in and
 out. Each figure is a correlation, because a player who was offered an emblem made other choices
 too.
 
+An emblem's row also says what it makes: the count of its trait with the emblem on a unit that
+lacks the trait, beside the comp as it is usually fielded. The row is marked when that count is
+a breakpoint the usual board does not reach, and its hover card gives the count without the
+emblem, the trait's breakpoints and, when the emblem reaches none, the next one. The snapshot
+carries the trait as the row's `emblem_of`.
+
 The static data marks no item as an artifact, so the set file gives the start of an artifact's
 API name. The list's filter box searches item names as well: the items of the item priority, of
 the key units' builds and of this section. A filter that is part of one name, such as
