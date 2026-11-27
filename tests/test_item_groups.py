@@ -63,6 +63,17 @@ def test_a_radiant_item_counts_as_its_base_and_emblems_and_components_do_not_cou
     ]
 
 
+def test_a_unit_holding_thiefs_gloves_counts_toward_no_group():
+    gloves = ["TFT_Item_ThiefsGloves", "Deathcap", "Gauntlet"]
+    boards = [board(("Tank4", TANK), ("Tank1", TANK), ("Mage5", MAGE), ("Mage2", MAGE)) for _ in range(3)]
+    boards += [board(("Tank1", gloves), ("Rare", gloves)) for _ in range(5)]
+
+    assert groups_of(boards) == [
+        (("Mage2", "Mage5"), set(MAGE)),
+        (("Tank1", "Tank4"), set(TANK)),
+    ]
+
+
 def test_a_unit_with_too_few_builds_joins_no_group():
     boards = [board(("Tank4", TANK), ("Tank1", TANK), ("Mage5", MAGE), ("Mage2", MAGE)) for _ in range(3)]
     boards.append(board(("Rare", MAGE)))

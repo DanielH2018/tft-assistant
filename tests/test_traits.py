@@ -119,3 +119,15 @@ def test_every_set_in_the_real_document_loads_with_units_that_have_known_traits(
         assert len(playable) >= 50, mutator
         assert all(trait in static.traits for unit in playable for trait in unit.traits), mutator
         assert any(item.emblem_of for item in static.items.values()), mutator
+
+
+def test_a_radiant_item_finds_its_base_when_riot_spells_the_two_names_in_different_case():
+    radiant = {"apiName": "I_BladeRadiant", "name": "Radiant blade", "composition": []}
+    with_radiant = {
+        "setData": [{**SET, "items": [*SET["items"], "I_BladeRadiant"]}],
+        "items": [*DOCUMENT["items"], radiant],
+    }
+
+    static = StaticData.from_document(with_radiant, "TFTSet99")
+
+    assert static.items["I_BladeRadiant"].radiant_of == "I_Blade"

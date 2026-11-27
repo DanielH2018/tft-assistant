@@ -110,9 +110,9 @@ def _is_defensive(recipe: Sequence[str], defensive: set[str], offensive: set[str
     return any(part in defensive for part in recipe) and not any(part in offensive for part in recipe)
 
 
-def _radiant_base(item: dict[str, Any], by_name: dict[str | None, str]) -> str | None:
+def _radiant_base(item: dict[str, Any], by_name: dict[str, str]) -> str | None:
     name = item.get("name") or ""
-    return by_name.get(name.removeprefix("Radiant ")) if name.startswith("Radiant ") else None
+    return by_name.get(name.removeprefix("Radiant ").lower()) if name.startswith("Radiant ") else None
 
 
 @dataclass(frozen=True)
@@ -188,7 +188,7 @@ class StaticData:
             for unit in entry["champions"]
         }
         records = [item for item in source["items"] if item["apiName"] in set(entry["items"])]
-        by_name = {item.get("name"): item["apiName"] for item in records}
+        by_name = {(item.get("name") or "").lower(): item["apiName"] for item in records}
         built_from = {part for item in records for part in item.get("composition") or ()}
         items = {
             item["apiName"]: Item(

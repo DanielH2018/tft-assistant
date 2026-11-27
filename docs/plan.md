@@ -249,6 +249,34 @@ chain reads in.
 With the list hidden, the comp page has the whole window and the tabs are out of reach until
 the list is back.
 
+### Item stats
+
+Under the grid, the Items tab lists how the boards that hold each item place: average
+placement, top 4 rate, win rate and play rate (`item_stats.py`). A board that holds two copies
+counts once, and an item on fewer than 50 boards has no row. A column sorts both ways, as in the
+comp list, and a click on a row orders the item groups for that item.
+
+A row of buttons lists one kind of item: Craftable, Artifact, Emblem, Radiant or Other. An item
+has one kind. An emblem is under Emblem whether two components make it or a game hands it out,
+so Craftable holds no emblem, and a second row of buttons under Emblem tells the craftable from
+the uncraftable. Other holds the loose components and whatever fits no kind.
+
+The figures say how boards with an item did, not what the item did for them. A board holds an
+artifact or a radiant item because it was ahead or was offered one. Riot's policy forbids
+showing win rates of augments, not of items.
+
+### Filtering the item groups
+
+On the Items tab the filter box filters the units of the item groups, by name, trait or cost:
+`4`, `4 cost` and `cost 4` all list the 4-cost units. Enter keeps a filter and starts another, a
+unit has to pass every one, and a group with no unit left is not drawn. The comps view and the
+Items tab each keep their own filters.
+
+A unit that holds Thief's Gloves counts toward no item group. The item fills the unit's other
+slots with items of its own choosing, so that unit's items say nothing of how the unit is built.
+The rule reads the item's API name, `ThiefsGloves`, which is the same in every set, plain and
+radiant.
+
 ### What the data supports
 
 | Want | From final boards |

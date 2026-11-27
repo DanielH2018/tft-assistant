@@ -1,4 +1,7 @@
+import socket
+import struct
 import threading
+import time
 
 import httpx
 import pytest
@@ -36,6 +39,35 @@ def test_a_browser_keeps_an_icon_for_good_and_asks_again_for_the_page(site, tmp_
         "index.html": "no-cache",
         "icons/gone.png": "no-cache",
     }
+
+
+def test_the_health_answer_is_small_and_says_whether_the_site_has_a_page(site, tmp_path):
+    with_page = httpx.get(f"{site}/api/health")
+    (tmp_path / "site" / "index.html").unlink()
+    without = httpx.get(f"{site}/api/health")
+
+    assert (with_page.status_code, with_page.json()) == (200, {"page": True})
+    assert (without.status_code, without.json()) == (503, {"page": False})
+
+
+def test_a_client_that_hangs_up_mid_answer_costs_one_log_line_and_no_traceback(site, tmp_path, capfd):
+    (tmp_path / "site" / "index.html").write_bytes(b"x" * 20_000_000)
+    host, port = site.removeprefix("http://").split(":")
+
+    with socket.create_connection((host, int(port))) as client:
+        client.sendall(b"GET /index.html HTTP/1.1\r\nHost: test\r\n\r\n")
+        client.recv(1024)
+        client.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
+    logged = ""
+    for _ in range(50):
+        logged += capfd.readouterr().err
+        if "hung up" in logged:
+            break
+        time.sleep(0.1)
+
+    assert "hung up before the answer was sent" in logged
+    assert "Traceback" not in logged
+    assert httpx.get(f"{site}/api/health").status_code == 200
 
 
 def test_edits_put_on_a_comp_are_read_back_with_its_set_and_no_other(site):

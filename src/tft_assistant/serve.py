@@ -9,12 +9,17 @@ the icons of its own build, so a browser asks whether the page changed each time
 
     GET /api/edits/<set>              every edit of the set: {comp id: {field: text}}
     PUT /api/edits/<set>/<comp id>    {field: text, ...}; an empty text removes the field
+    GET /api/health                   200 once the site has a page, 503 before
+
+A probe asks `/api/health`, not the page. The page is megabytes, and a prober that reads the
+first kilobytes and hangs up leaves the server writing to a closed connection.
 """
 
 from __future__ import annotations
 
 import json
 import re
+import sys
 from functools import partial
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -57,6 +62,10 @@ class _Handler(SimpleHTTPRequestHandler):
         if not self.path.startswith("/api/"):
             super().do_GET()
             return
+        if self.path == "/api/health":
+            built = (Path(self.directory) / "index.html").exists()
+            self._reply(HTTPStatus.OK if built else HTTPStatus.SERVICE_UNAVAILABLE, {"page": built})
+            return
         asked = _SET_EDITS.fullmatch(self.path)
         if asked:
             self._reply(HTTPStatus.OK, self._edits.of_set(int(asked[1])))
@@ -89,9 +98,18 @@ class _Handler(SimpleHTTPRequestHandler):
         self._reply(HTTPStatus.NO_CONTENT)
 
 
+class _Server(ThreadingHTTPServer):
+    def handle_error(self, request: Any, client_address: Any) -> None:
+        """Say in one line that a client hung up; anything else keeps its traceback."""
+        if isinstance(sys.exception(), ConnectionError):
+            print(f"{client_address[0]} hung up before the answer was sent", file=sys.stderr)
+        else:
+            super().handle_error(request, client_address)
+
+
 def server(site: Path, edits: Edits, port: int) -> ThreadingHTTPServer:
     """A server of the page under `site` and of `edits`, bound to `port` and not yet serving.
 
     Port 0 takes any free port, and `server_address` then names it.
     """
-    return ThreadingHTTPServer(("", port), partial(_Handler, directory=str(site), edits=edits))
+    return _Server(("", port), partial(_Handler, directory=str(site), edits=edits))

@@ -16,6 +16,7 @@ from tft_assistant.comp_detail import TANK, ItemPick, Swap
 from tft_assistant.comp_ids import CompIds
 from tft_assistant.comps import Comp, find_comps
 from tft_assistant.item_groups import ItemGroup, find_item_groups
+from tft_assistant.item_stats import find_item_stats
 from tft_assistant.positioning import usual_row
 from tft_assistant.riot import APEX_TIERS
 from tft_assistant.static_data import StaticData
@@ -323,6 +324,8 @@ def build_snapshot(
     items |= {item for comp in comps for spare in comp["spare"] for item in [spare["component"], *spare["uses"]]}
     items |= {special["item"] for special in specials} | {item for special in specials for item in special["beside"]}
     items |= {note["item"] for comp in comps for key in comp["key_units"] for note in key["build"]}
+    stats = find_item_stats(boards, static)
+    items |= {stat.item for stat in stats}
     recipes = _recipes(static, items)
     items |= set(recipes) | {part for parts in recipes.values() for part in parts}
     traits = {trait["trait"] for comp in comps for trait in comp["traits"]}
@@ -347,6 +350,19 @@ def build_snapshot(
         "unclassified": report.unclassified,
         "comps": comps,
         "item_groups": [_group(group) for group in groups],
+        "item_stats": [
+            {
+                "item": stat.item,
+                "kind": stat.kind,
+                "has_recipe": stat.has_recipe,
+                "boards": stat.boards,
+                "share": round(stat.share, 4),
+                "avg_placement": round(stat.avg_placement, 3),
+                "top4": round(stat.top4, 3),
+                "win_rate": round(stat.win_rate, 3),
+            }
+            for stat in stats
+        ],
         "recipes": recipes,
         "components": components_in_order(recipes, static),
         "units": {
