@@ -98,6 +98,21 @@ def _recipes(static: StaticData, built: set[str]) -> dict[str, list[str]]:
     return {name: parts for name, parts in every.items() if set(parts) <= in_play}
 
 
+def _group(group: ItemGroup) -> dict[str, Any]:
+    return {
+        "items": list(group.items),
+        "units": list(group.units),
+        "held": {
+            unit: {
+                "boards": held.boards,
+                "avg": round(held.avg_placement, 3),
+                "items": {item: [round(share, 3), round(avg, 3)] for item, (share, avg) in held.items.items()},
+            }
+            for unit, held in group.held.items()
+        },
+    }
+
+
 def tank_groups_last(groups: Sequence[ItemGroup], comps: Sequence[Comp]) -> list[ItemGroup]:
     """The groups with the ones tanks build in at the end, each part in the order given.
 
@@ -310,7 +325,7 @@ def build_snapshot(
         "boards": report.boards,
         "unclassified": report.unclassified,
         "comps": comps,
-        "item_groups": [{"items": list(group.items), "units": list(group.units)} for group in groups],
+        "item_groups": [_group(group) for group in groups],
         "recipes": recipes,
         "components": components_in_order(recipes, static),
         "units": {
