@@ -41,7 +41,7 @@ function searchedNames(comp) {
     ...comp.key_units.flatMap((key) => key.build.map((note) => note.item)),
     ...comp.specials.map((special) => special.item),
   ].map((id) => (snap().items[id] || { name: id }).name);
-  const names = [comp.name, comp.style, `level ${comp.roll_level}`, ...units, ...built, ...comp.traits.map((t) => traitName(t.trait))];
+  const names = [nameOf(comp), comp.name, comp.style, `level ${comp.roll_level}`, ...units, ...built, ...comp.traits.map((t) => traitName(t.trait))];
   return names.map((name) => name.toLowerCase());
 }
 
@@ -111,7 +111,7 @@ function slamGridHtml() {
     if (!item) return `<td></td>`;
     const built = users.get(item) || [];
     const tone = built.length >= strong.length / 3 ? "safe" : built.length ? "" : "unused";
-    const lines = built.slice(0, 8).map(([comp, holder]) => `${comp.name} → ${unitOf(holder).name}`);
+    const lines = built.slice(0, 8).map(([comp, holder]) => `${nameOf(comp)} → ${unitOf(holder).name}`);
     const note = built.length
       ? `Built by ${built.length} of ${strong.length} comps of tier B or better:\n${lines.join("\n")}${built.length > 8 ? "\n…" : ""}\nClick to list them.`
       : "No comp of tier B or better builds it.";
@@ -135,7 +135,7 @@ function itemGroupsHtml() {
   const unit = (id) => {
     const comp = carried.get(id);
     if (!comp) return unitTile(id, "m");
-    const note = `Carries ${comp.name}: average placement ${comp.avg_placement.toFixed(2)}, played ${pct(comp.share)}. Click to open it.`;
+    const note = `Carries ${nameOf(comp)}: average placement ${comp.avg_placement.toFixed(2)}, played ${pct(comp.share)}. Click to open it.`;
     return `<span class="carrier" data-open="${comp.id}">${unitTile(id, "m", { note })}</span>`;
   };
   const groups = s.item_groups.map(
@@ -176,7 +176,7 @@ function renderList() {
     .map(
       (comp) => `<li data-id="${comp.id}" class="comp-row ${comp.id === state.comp ? "selected" : ""}">
         <span class="c-tier"><span class="tier t${comp.tier}">${comp.tier}</span></span>
-        <span class="c-name">${esc(comp.name)}</span>
+        <span class="c-name">${esc(nameOf(comp))}</span>
         <span class="c-level">${comp.roll_level}</span>
         <span class="c-core">${comp.core.map((id) => unitTile(id, "s")).join("")}</span>
         <span class="c-avg num">${comp.avg_placement.toFixed(2)}</span>
@@ -294,7 +294,7 @@ function pivotsFrom(comp, unit, group) {
     .slice(0, SHOWN_IN_A_GROUP)
     .map((id) => {
       const target = carried.get(id);
-      const note = `Carries ${target.name}: average placement ${target.avg_placement.toFixed(2)}, played ${pct(target.share)}`;
+      const note = `Carries ${nameOf(target)}: average placement ${target.avg_placement.toFixed(2)}, played ${pct(target.share)}`;
       return `<span class="pivot" data-open="${target.id}">${unitTile(id, "s", { note })}</span>`;
     });
 }
@@ -304,7 +304,7 @@ const SORTS = {
   avg: (a, b) => a.avg_placement - b.avg_placement,
   top4: (a, b) => b.top4 - a.top4,
   win: (a, b) => b.win_rate - a.win_rate,
-  name: (a, b) => a.name.localeCompare(b.name),
+  name: (a, b) => nameOf(a).localeCompare(nameOf(b)),
   level: (a, b) => a.roll_level - b.roll_level || a.avg_placement - b.avg_placement,
 };
 // The stylesheet gives each column a fixed width and hides columns from the right as the list narrows.
@@ -483,7 +483,7 @@ function detailHtml(comp) {
     )
     .join("");
   return `<div id="sheet">
-    <header><div class="title">${MAXIMIZE}<h1><span class="tier t${comp.tier}">${comp.tier}</span>${esc(comp.name)}</h1>
+    <header><div class="title">${MAXIMIZE}<h1><span class="tier t${comp.tier}">${comp.tier}</span>${esc(nameOf(comp))}</h1>
       <button id="copy-team" data-tip="${esc(teamCode(comp))}">Copy team code</button><span class="note">${teamNote}: core and picked flex</span></div>
       <p class="stats"><b>${esc(comp.style)}</b> · avg <b>${comp.avg_placement.toFixed(2)}</b> · top 4 <b>${pct(comp.top4)}</b> · win <b>${pct(comp.win_rate)}</b> · play <b>${(comp.share * 100).toFixed(1)}%</b> · ${comp.boards.toLocaleString()} boards</p></header>
     <div class="flow">
@@ -537,24 +537,32 @@ function loadEdits() {
     .then((found) => {
       if (!found) return;
       edits = found;
-      if (state.view === "comps") renderDetail();
+      renderList();
     })
     .catch(() => {});
 }
 
+// The name a comp goes by: the one the reader gave it, or else the one the analysis derived.
+const nameOf = (comp) => (edits && edits[comp.id] && edits[comp.id].name) || comp.name;
+
+// The name box is empty until the reader names the comp, and shows the derived name as its hint.
 function notesHtml(comp) {
-  const text = (edits[comp.id] || {}).notes || "";
-  return `<div class="notes"><textarea id="notes" maxlength="4000" rows="3" placeholder="What to remember about this comp">${esc(text)}</textarea>
+  const own = edits[comp.id] || {};
+  return `<div class="notes">
+    <input data-edit="name" maxlength="60" value="${esc(own.name || "")}" placeholder="${esc(comp.name)}" ${tipOf("Your own name for this comp. Empty goes back to the derived one.")}>
+    <textarea data-edit="notes" id="notes" maxlength="4000" rows="3" placeholder="What to remember about this comp">${esc(own.notes || "")}</textarea>
     <span id="notes-state" class="note"></span></div>`;
 }
 
-// A note is saved when the box loses the focus, under the comp it was written for.
-function saveNotes(compId, text) {
+// An edit is saved when its box loses the focus, under the comp it was written for. A name shows
+// in the list and in the page's heading, so saving one draws both again.
+function saveEdit(compId, field, text) {
   const shown = (words) => el("notes-state") && (el("notes-state").textContent = words);
-  fetch(`${editsOf()}/${compId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ notes: text }) })
+  fetch(`${editsOf()}/${compId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [field]: text }) })
     .then((reply) => {
       if (!reply.ok) throw new Error(`the server answered ${reply.status}`);
-      edits[compId] = { ...edits[compId], notes: text };
+      edits[compId] = { ...edits[compId], [field]: text };
+      if (field === "name") renderList();
       shown("saved");
     })
     .catch((error) => shown(`not saved: ${error.message}`));
@@ -760,10 +768,10 @@ el("slams").addEventListener("click", (event) => {
   renderFilters();
 });
 el("detail").addEventListener("change", (event) => {
-  if (event.target.id === "notes") saveNotes(state.comp, event.target.value);
+  if (event.target.dataset.edit) saveEdit(state.comp, event.target.dataset.edit, event.target.value.trim());
 });
 document.addEventListener("keydown", (event) => {
-  if (event.target.tagName === "TEXTAREA") return;
+  if (event.target.dataset.edit) return;
   if (state.view === "comps" && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
     event.preventDefault();
     move(event.key === "ArrowDown" ? 1 : -1);

@@ -396,7 +396,7 @@ a plain file server, shows no box, so the page still works as a static file.
 
 An edit is keyed by set, comp id and field, which is why a comp's id has to hold between runs
 (*How comps are derived*, step 5). The store takes the fields `edits.FIELDS` names, each with a
-longest text, and `notes` is the first. The API takes JSON only: another site's page can post a
+longest text: `name` and `notes`. The API takes JSON only: another site's page can post a
 form with the reader's login, and cannot send JSON without the browser asking the server first.
 
 The edit store and the comp ids its rows are keyed by are the files no API gives back. Both sit
@@ -413,8 +413,12 @@ Elderwood units after a two-unit trait.
 Two comps that would share a name are told apart by the trait their two carries share, which
 replaces the carry: `Elderwood Executioners` beside `Elderwood Ezreal`. Comps that still share a
 name each take the costliest core unit the others lack. The carry trait is used only on a clash,
-because a carry's name identifies a comp better than a second trait does. Naming a comp by hand
-arrives with the edits of slice 4.
+because a carry's name identifies a comp better than a second trait does.
+
+A reader can name a comp by hand, in the box above its notes. The name is an edit, so it
+needs `tft serve`. It replaces the derived name in the list, in the page's heading and in the
+hover cards that name the comp, and the filter box finds the comp by either name. Clearing
+the box goes back to the derived name.
 
 A key unit lists the units of its item group that cost less than it does, cheapest first, as the
 units that can hold its items.
