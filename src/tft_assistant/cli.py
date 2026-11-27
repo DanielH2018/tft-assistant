@@ -8,22 +8,22 @@ from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from tft_assistant.boards import boards
 from tft_assistant.build import build_site
 from tft_assistant.comp_ids import CompIds
-from tft_assistant.comps import CompReport, find_comps
 from tft_assistant.crawl import crawl
 from tft_assistant.edits import Edits
-from tft_assistant.item_groups import find_item_groups
 from tft_assistant.refresh import refresh
 from tft_assistant.riot import REGION_OF_PLATFORM, RiotClient, load_key
 from tft_assistant.serve import server
 from tft_assistant.sets import GameSet, latest_set_number
-from tft_assistant.snapshot import build_snapshot
 from tft_assistant.static_data import StaticData
 from tft_assistant.store import Store
+
+if TYPE_CHECKING:
+    from tft_assistant.comps import CompReport
 
 MIN_BOARDS = 1000
 """A selection with fewer boards gets no snapshot: clustering that few finds noise, not comps."""
@@ -129,6 +129,8 @@ def comp_lines(report: CompReport, static: StaticData, top: int) -> list[str]:
 
 def build_page(store: Store, set_number: int, out: Path) -> None:
     """Analyse each standing selection of a set that has enough boards, and write the page."""
+    from tft_assistant.snapshot import build_snapshot  # here, so serve and crawl load no numpy
+
     game_set = GameSet.load(set_number)
     static = game_set.roster()
     now, snapshots, built = datetime.now(UTC), [], {}
@@ -233,6 +235,9 @@ def main() -> None:
 
         refresh(crawl_and_prune, lambda: build_page(store, args.set_number, args.out), cycle_seconds=args.minutes * 60)
     elif args.command in ("comps", "item-groups"):
+        from tft_assistant.comps import find_comps  # here, so serve and crawl load no numpy
+        from tft_assistant.item_groups import find_item_groups
+
         game_set = GameSet.load(args.set_number)
         selection = game_set.selection(
             patch=args.patch, since=args.since, until=args.until, platforms=tuple(args.platforms or ())
