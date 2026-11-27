@@ -17,6 +17,7 @@ from tft_assistant.comp_ids import CompIds
 from tft_assistant.comps import Comp, find_comps
 from tft_assistant.item_groups import ItemGroup, find_item_groups
 from tft_assistant.positioning import usual_row
+from tft_assistant.riot import APEX_TIERS
 from tft_assistant.static_data import StaticData
 from tft_assistant.store import Selection
 
@@ -127,6 +128,15 @@ def tank_groups_last(groups: Sequence[ItemGroup], comps: Sequence[Comp]) -> list
         return len(tanks & set(group.units)) > len(carries & set(group.units))
 
     return sorted(groups, key=for_tanks)
+
+
+def below_master(floors: dict[str, str], selection: Selection) -> list[list[str]]:
+    """The selection's platforms whose latest crawl went below Master, each with the tier it reached."""
+    return [
+        [platform, tier]
+        for platform, tier in sorted(floors.items())
+        if tier not in APEX_TIERS and (not selection.platforms or platform in selection.platforms)
+    ]
 
 
 def roster(static: StaticData) -> list[str]:
@@ -276,10 +286,14 @@ def build_snapshot(
     built_at: datetime,
     newest_match: datetime | None,
     ids: CompIds,
+    floors: dict[str, str],
 ) -> dict[str, Any]:
     """Analyse the boards of one selection into the document the page reads.
 
     A comp takes the id `ids` remembers for it, so it has one id in every snapshot it is in.
+    `floors` is each platform's lowest tier in its latest crawl. The snapshot names the
+    platforms whose crawl went below Master, so the page can say its data is not all from
+    the top of the ladder.
     """
     report = find_comps(boards, static)
     groups = tank_groups_last(find_item_groups(boards, static), report.comps)
@@ -322,6 +336,7 @@ def build_snapshot(
         },
         "built_at": built_at.isoformat(),
         "newest_match": newest_match.isoformat() if newest_match else None,
+        "below_master": below_master(floors, selection),
         "boards": report.boards,
         "unclassified": report.unclassified,
         "comps": comps,

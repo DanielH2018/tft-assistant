@@ -148,7 +148,14 @@ def build_page(store: Store, set_number: int, out: Path) -> None:
         built[selection] = label
         snapshots.append(
             build_snapshot(
-                label, selection, found, static, built_at=now, newest_match=store.newest(selection), ids=CompIds()
+                label,
+                selection,
+                found,
+                static,
+                built_at=now,
+                newest_match=store.newest(selection),
+                ids=CompIds(),
+                floors=store.floors(),
             )
         )
         print(f"built {label}: {len(found)} boards, {len(snapshots[-1]['comps'])} comps")

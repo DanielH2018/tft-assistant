@@ -31,6 +31,10 @@ CREATE TABLE IF NOT EXISTS matches (
     payload    BLOB NOT NULL
 );
 CREATE INDEX IF NOT EXISTS matches_by_selection ON matches (set_number, queue_id, started_at);
+CREATE TABLE IF NOT EXISTS ladder_floors (
+    platform TEXT PRIMARY KEY,
+    tier     TEXT NOT NULL
+);
 """
 
 
@@ -87,6 +91,16 @@ class Store:
         )
         with self._lock, self._db:
             self._db.execute("INSERT OR IGNORE INTO matches VALUES (?, ?, ?, ?, ?, ?)", row)
+
+    def note_floor(self, platform: str, tier: str) -> None:
+        """Remember the lowest tier a platform's latest crawl listed players from."""
+        with self._lock, self._db:
+            self._db.execute("INSERT OR REPLACE INTO ladder_floors VALUES (?, ?)", [platform, tier])
+
+    def floors(self) -> dict[str, str]:
+        """Each platform's lowest tier in its latest crawl. A platform never crawled is absent."""
+        with self._lock:
+            return dict(self._db.execute("SELECT platform, tier FROM ladder_floors ORDER BY platform"))
 
     def prune(self, before: datetime) -> int:
         """Delete every match that started before a moment, and return how many went.

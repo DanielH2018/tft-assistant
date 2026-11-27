@@ -7,7 +7,7 @@ from conftest import A_CORE
 
 from tft_assistant.build import build_site
 from tft_assistant.comp_ids import CompIds
-from tft_assistant.snapshot import SCHEMA, build_snapshot, components_in_order
+from tft_assistant.snapshot import SCHEMA, below_master, build_snapshot, components_in_order
 from tft_assistant.static_data import Item
 from tft_assistant.store import Selection
 
@@ -23,6 +23,7 @@ def built(boards, static, ids_file):
         built_at=NOW,
         newest_match=NOW,
         ids=CompIds(ids_file),
+        floors={},
     )
 
 
@@ -140,3 +141,10 @@ def test_the_page_embeds_its_snapshots_as_json_that_reads_back_unchanged(snapsho
     embedded = page.split('<script id="snapshots" type="application/json">')[1].split("</script>")[0]
     assert json.loads(embedded) == [snapshot, awkward]
     assert "/*STYLE*/" not in page and "/*SCRIPT*/" not in page and "/*SNAPSHOTS*/" not in page
+
+
+def test_a_snapshot_names_the_platforms_of_its_selection_that_were_crawled_below_master():
+    floors = {"euw1": "emerald I", "kr": "diamond II", "na1": "master"}
+
+    assert below_master(floors, Selection(19, 1100)) == [["euw1", "emerald I"], ["kr", "diamond II"]]
+    assert below_master(floors, Selection(19, 1100, platforms=("kr", "na1"))) == [["kr", "diamond II"]]

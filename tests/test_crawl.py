@@ -51,10 +51,13 @@ def test_crawl_stops_listing_players_when_the_budget_ends():
 def test_a_crawl_goes_below_master_only_until_it_has_listed_enough_players():
     client = FakeClient({"a": [], "b": []}, diamond_pages=[["c", "d"], ["e", "f"], ["g", "h"]])
 
-    thin = crawl(client, Store(":memory:"), "na1", since=0, budget_seconds=60, min_players=5)
-    full = crawl(client, Store(":memory:"), "na1", since=0, budget_seconds=60, min_players=2)
+    store = Store(":memory:")
+    thin = crawl(client, store, "na1", since=0, budget_seconds=60, min_players=5)
+    floor_when_thin = store.floors()
+    full = crawl(client, store, "na1", since=0, budget_seconds=60, min_players=2)
 
     assert (thin.players_listed, thin.lowest_tier) == (6, "diamond I")
     assert "down to diamond I" in thin.line()
     assert (full.players_listed, full.lowest_tier) == (2, "challenger")
     assert "down to" not in full.line()
+    assert (floor_when_thin, store.floors()) == ({"na1": "diamond I"}, {"na1": "challenger"})

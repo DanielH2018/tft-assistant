@@ -260,7 +260,11 @@ function renderList() {
   for (const tab of el("tabs").children) tab.classList.toggle("on", tab.dataset.view === state.view);
   const s = snap();
   const age = s.newest_match ? `newest match ${hoursAgo(s.newest_match)}` : "no matches";
-  el("health").textContent = `${s.boards.toLocaleString()} boards · ${pct(s.unclassified)} unclassified · ${age}`;
+  // A crawl goes below Master when the top of the ladder is thin, as it is when a set starts.
+  const ranks = (s.below_master || []).map(([platform, tier]) => `${capitalised(tier.split(" ")[0])} ${tier.split(" ")[1] || ""} on ${platform.toUpperCase()}`.replace("  ", " "));
+  const floor = ranks.length ? ` · ranks down to ${ranks.join(", ")}` : "";
+  el("health").textContent = `${s.boards.toLocaleString()} boards · ${pct(s.unclassified)} unclassified · ${age}${floor}`;
+  el("health").title = ranks.length ? "The latest crawl found too few players in Master and above, so it read lower ranks too." : "";
   // Every view has an open comp, the one the comps tab shows: a click that opens a comp from
   // another tab changes it and goes there.
   const comps = visibleComps();

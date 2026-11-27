@@ -55,8 +55,24 @@ def crawl(
 
     The walk covers Master and above. It goes on below Master only while it has listed fewer
     than `min_players` players, so the lower tiers fill in when the top of the ladder is thin
-    and drop out again as it fills.
+    and drop out again as it fills. The store keeps the lowest tier it listed, for the page to
+    say where its matches came from.
     """
+    report = _walk(client, store, platform, since, budget_seconds, min_players, clock)
+    if report.lowest_tier:
+        store.note_floor(platform, report.lowest_tier)
+    return report
+
+
+def _walk(
+    client: RiotClient,
+    store: Store,
+    platform: str,
+    since: int,
+    budget_seconds: float,
+    min_players: int,
+    clock: Callable[[], float],
+) -> CrawlReport:
     report = CrawlReport(platform)
     started = clock()
     for players in client.ladder(platform, below_master=lambda: report.players_listed < min_players):
