@@ -67,11 +67,28 @@ def test_league_routes_by_platform_and_matches_route_by_region():
     league = httpx.Response(200, json={"entries": [{"puuid": "p", "leaguePoints": 900}]})
     client, requests = client_answering([league, league, league, httpx.Response(200, json=["KR_1"])], FakeTime())
 
-    players = list(client.apex_players("kr"))
+    players = [player for listed in client.ladder("kr") for player in listed]
     client.match_ids("kr", players[0].puuid, since=0)
 
     assert [p.tier for p in players] == ["challenger", "grandmaster", "master"]
     assert [r.url.host for r in requests] == ["kr.api.riotgames.com"] * 3 + ["asia.api.riotgames.com"]
+
+
+def test_the_ladder_reads_a_lower_tier_page_by_page_and_only_while_asked_to():
+    apex = httpx.Response(200, json={"entries": []})
+    page = httpx.Response(200, json=[{"puuid": "d", "leaguePoints": 40}])
+    empty = httpx.Response(200, json=[])
+    client, requests = client_answering([apex, apex, apex, page, empty, page], FakeTime())
+    wanted = iter([True, True, True, False])
+
+    tiers = [[player.tier for player in listed] for listed in client.ladder("kr", below_master=lambda: next(wanted))]
+
+    assert tiers == [[], [], [], ["diamond I"], ["diamond II"]]
+    assert [(r.url.path, r.url.params.get("page")) for r in requests[3:]] == [
+        ("/tft/league/v1/entries/DIAMOND/I", "1"),
+        ("/tft/league/v1/entries/DIAMOND/I", "2"),
+        ("/tft/league/v1/entries/DIAMOND/II", "1"),
+    ]
 
 
 def test_a_refused_key_raises_without_retrying():

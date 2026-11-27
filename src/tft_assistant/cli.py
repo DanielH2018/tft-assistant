@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any
 from tft_assistant.boards import boards
 from tft_assistant.build import build_site
 from tft_assistant.comp_ids import CompIds
-from tft_assistant.crawl import crawl
+from tft_assistant.crawl import MIN_PLAYERS, crawl
 from tft_assistant.edits import Edits
 from tft_assistant.refresh import refresh
 from tft_assistant.riot import REGION_OF_PLATFORM, RiotClient, load_key
@@ -77,7 +77,7 @@ def describe_match(match: dict[str, Any]) -> list[str]:
 
 
 def probe(client: RiotClient, platform: str) -> list[str]:
-    players = list(client.apex_players(platform))
+    players = [player for listed in client.ladder(platform) for player in listed]
     lines = [f"{platform} players by tier: {dict(Counter(p.tier for p in players))}"]
     since = int(time.time()) - 2 * 86400
     for player in players:
@@ -156,14 +156,22 @@ def build_page(store: Store, set_number: int, out: Path) -> None:
 
 
 def crawl_platforms(
-    client: RiotClient, store: Store, platforms: list[str] | None, days_back: float, minutes: float
+    client: RiotClient,
+    store: Store,
+    platforms: list[str] | None,
+    days_back: float,
+    minutes: float,
+    min_players: int,
 ) -> None:
     """Crawl each platform's ladder at once, every platform when none is named, and report what the store holds."""
     since = int(time.time() - days_back * 86400)
     platforms = platforms or sorted(REGION_OF_PLATFORM)
     with ThreadPoolExecutor(len(platforms)) as pool:
         reports = pool.map(
-            lambda platform: crawl(client, store, platform, since=since, budget_seconds=minutes * 60), platforms
+            lambda platform: crawl(
+                client, store, platform, since=since, budget_seconds=minutes * 60, min_players=min_players
+            ),
+            platforms,
         )
         for report in reports:
             print(report.line())
@@ -185,10 +193,16 @@ def main() -> None:
     crawled.add_argument("--platform", action="append", choices=sorted(REGION_OF_PLATFORM), dest="platforms")
     crawled.add_argument("--days-back", type=float, default=2.0, help="how far back a match may have started")
     crawled.add_argument("--minutes", type=float, default=60.0, help="time budget per platform")
+    crawled.add_argument(
+        "--min-players",
+        type=int,
+        default=MIN_PLAYERS,
+        help="go below Master on a platform until this many players are listed",
+    )
     built = argparse.ArgumentParser(add_help=False)
     built.add_argument("--set", type=int, dest="set_number", default=latest_set_number())
     built.add_argument("--out", type=Path, default=Path("site"), help="directory that receives index.html")
-    commands.add_parser("crawl", parents=[crawled], help="store the matches of each platform's apex ladder")
+    commands.add_parser("crawl", parents=[crawled], help="store the matches of each platform's ladder, from the top")
     commands.add_parser("build", parents=[built], help="analyse the standing selections and write the page")
     refresh_args = commands.add_parser(
         "refresh",
@@ -222,14 +236,14 @@ def main() -> None:
     elif args.command == "build":
         build_page(Store(), args.set_number, args.out)
     elif args.command == "crawl":
-        crawl_platforms(RiotClient(load_key()), Store(), args.platforms, args.days_back, args.minutes)
+        crawl_platforms(RiotClient(load_key()), Store(), args.platforms, args.days_back, args.minutes, args.min_players)
     elif args.command == "refresh":
         client, store = RiotClient(load_key()), Store()
         # A match the crawl still looks back for is never pruned, or each cycle would fetch it again.
         keep_days = max(args.keep_days, args.days_back)
 
         def crawl_and_prune() -> None:
-            crawl_platforms(client, store, args.platforms, args.days_back, args.minutes)
+            crawl_platforms(client, store, args.platforms, args.days_back, args.minutes, args.min_players)
             gone = store.prune(datetime.now(UTC) - timedelta(days=keep_days))
             print(f"pruned {gone} matches that started more than {keep_days:g} days ago")
 

@@ -73,6 +73,24 @@ Community Dragon ──► static data (units, traits, items, roles, icons)
   and a field Riot adds for a set is available without a second crawl.
 - Edits merge in the browser. The pages stay static, and an edit shows without a rebuild.
 
+### Which ranks the crawl reads
+
+A crawl walks one platform's ladder from the top: Challenger, Grandmaster, Master. Those are
+the ranks the page is meant to show. It goes on below Master, Diamond I first and a page of
+players at a time, only while it has listed fewer than `--min-players` players, 1,000 unless
+told otherwise (`crawl.MIN_PLAYERS`).
+
+A new set starts with nobody in Master, and Challenger and Grandmaster stay empty for its first
+weeks. Without the lower tiers a crawl then lists no player and the page has no comps. With
+them, the first days read Diamond and whatever tier it takes to list 1,000 players, and the
+lower tiers drop out by themselves as Master fills: late in Set 18 an hour's crawl listed about
+2,800 Master-and-above players per platform and never reached Diamond.
+
+The rule counts players, not matches, because a crawl learns how many matches it has only
+after it has spent the requests. A crawl's report line says how far down it went: `down to
+diamond II`. The store does not record which rank a match came from, so the page cannot say it
+yet; a match holds eight players of mixed ranks.
+
 ### The unattended run
 
 `tft refresh` keeps a deployment current. It builds the page from the matches the store holds,
@@ -622,7 +640,7 @@ launch.
 - The repository is public. A deployment stays private, because Riot forbids public use of an
   app on a personal key. The key, crawled data, personal notes and deployment hostnames stay out
   of the repository. Icons are fetched at build time.
-- The crawl covers NA, EUW and KR, Master and above.
+- The crawl covers NA, EUW and KR, Master and above, and lower ranks while fewer than 1,000 players are listed there.
 - SQLite holds the matches and the edits.
 - The unlock file is seeded from a guide once per set and then corrected by hand. It lives in
   the repository, because unlock conditions are facts about the game.
