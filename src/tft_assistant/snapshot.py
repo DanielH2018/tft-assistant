@@ -239,6 +239,16 @@ def _comp(comp: Comp, comp_id: str, name: str, static: StaticData) -> dict[str, 
             ]
             for slot in comp.flex
         ],
+        "subcomps": [
+            {
+                "units": list(sub.units),
+                "share": sub.share,
+                "avg_placement": sub.avg_placement,
+                "top4": sub.top4,
+                "win_rate": sub.win_rate,
+            }
+            for sub in comp.subcomps
+        ],
         "traits": [
             {"trait": trait.name, "units": trait.units, "tier": trait.tier, "tiers": trait.tiers}
             for trait in comp.traits
@@ -312,6 +322,7 @@ def build_snapshot(
 
     units = {unit for comp in comps for unit in [*comp["core"], *comp["three_stars"]]}
     units |= {unit for comp in comps for slot in comp["flex"] for package in slot for unit in package["units"]}
+    units |= {unit for comp in comps for sub in comp["subcomps"] for unit in sub["units"]}
     units |= {pick["holder"] for comp in comps for pick in comp["items"]} | {u for g in groups for u in g.units}
     specials = [special for comp in comps for special in comp["specials"]]
     units |= {special["holder"] for special in specials}

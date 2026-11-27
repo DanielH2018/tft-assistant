@@ -21,7 +21,7 @@ from tft_assistant.comp_detail import (
     special_items,
     tempo,
 )
-from tft_assistant.comps import FlexPackage, FlexSlot, find_comps
+from tft_assistant.comps import FlexPackage, FlexSlot, Subcomp, find_comps
 from tft_assistant.item_groups import ItemGroup
 from tft_assistant.snapshot import tank_groups_last
 from tft_assistant.static_data import Item
@@ -283,3 +283,12 @@ def test_the_groups_tanks_build_in_come_after_the_groups_carries_build_in(report
     ordered = tank_groups_last([for_tanks, for_carries, for_neither], [comp, swing])
 
     assert ordered == [for_carries, for_neither, for_tanks]
+
+
+def test_a_subcomp_fills_the_board_beside_the_core_up_to_the_comps_level(report):
+    comp_a, comp_b = report.comps
+
+    # Comp A rolls at level 6 with a core of six, so its board is the level its boards most often
+    # end at, 8. Comp B rolls at 9 with a core of eight.
+    assert comp_a.subcomps == (Subcomp(("X1", "X2"), 0.6, 2.0, 1.0, 10 / 60), Subcomp(("Y1", "Y2"), 0.4, 6.0, 0.0, 0.0))
+    assert comp_b.subcomps == (Subcomp(("Z1",), 0.5, 4.0, 1.0, 0.0), Subcomp(("Z2",), 0.5, 4.0, 1.0, 0.0))

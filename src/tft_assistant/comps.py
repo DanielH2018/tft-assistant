@@ -9,6 +9,7 @@ health check on the method.
 from __future__ import annotations
 
 from collections import Counter
+from itertools import combinations
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -49,11 +50,25 @@ _PACKAGE_FLOOR = 0.10
 _PACKAGE_LINK = 0.60
 _SLOT_EXPECTED = 10
 _SLOT_LIFT = 0.30
+_SUBCOMP_FLOOR = 0.03
+_SUBCOMP_BOARDS = 10
+_SUBCOMPS_SHOWN = 6
 
 
 @dataclass(frozen=True)
 class FlexPackage:
     """Non-core units that are played together, with how the comp does when it holds them."""
+
+    units: tuple[str, ...]
+    share: float
+    avg_placement: float
+    top4: float
+    win_rate: float
+
+
+@dataclass(frozen=True)
+class Subcomp:
+    """The units that fill a comp's board beside its core, with how the comp does when it holds them all."""
 
     units: tuple[str, ...]
     share: float
@@ -99,6 +114,8 @@ class Comp:
     """The emblems and artifacts its boards hold, with the units each brings in and pushes out."""
     level_ups: tuple[LevelUp, ...]
     key_units: tuple[KeyUnit, ...]
+    subcomps: tuple[Subcomp, ...] = ()
+    """The commonest ways its boards fill the places its core leaves, most played first."""
 
 
 @dataclass(frozen=True)
@@ -202,6 +219,45 @@ def _flex(members: list[Board], core: set[str], static: StaticData) -> tuple[Fle
     )
 
 
+def _board_size(pace: Tempo, core: int) -> int:
+    """The board a subcomp fills: the level the comp rolls at, which is the level the list shows.
+
+    A reroll comp rolls at a level below its core's size, so its board is the level its boards
+    most often end at.
+    """
+    return pace.roll_level if pace.roll_level > core else max(pace.levels, key=lambda level: level[1])[0]
+
+
+def _subcomps(members: list[Board], core: set[str], level: int, static: StaticData) -> tuple[Subcomp, ...]:
+    """The commonest sets of units that fill a board of `level` beside the core.
+
+    A subcomp has `level` less the core's size units, so with the core it is a whole board. A
+    board counts toward every such set it holds, so a board with one unit more than the level
+    counts toward several, and two subcomps of a comp can share boards. A set needs
+    `_SUBCOMP_FLOOR` of the comp's boards and `_SUBCOMP_BOARDS` boards.
+    """
+    size = level - len(core)
+    if size < 1:
+        return ()
+    holding: dict[tuple[str, ...], list[int]] = {}
+    for board in members:
+        others = sorted(unit for unit in _unit_ids(board, static) - core if static.units[unit].traits)
+        for units in combinations(others, size):
+            holding.setdefault(units, []).append(board.placement)
+    floor = max(_SUBCOMP_BOARDS, _SUBCOMP_FLOOR * len(members))
+    common = sorted((units for units, placed in holding.items() if len(placed) >= floor), key=lambda units: (-len(holding[units]), units))
+    return tuple(
+        Subcomp(
+            tuple(sorted(units, key=lambda unit: (-static.units[unit].cost, unit))),
+            len(holding[units]) / len(members),
+            float(np.mean(holding[units])),
+            sum(1 for placement in holding[units] if placement <= 4) / len(holding[units]),
+            holding[units].count(1) / len(holding[units]),
+        )
+        for units in common[:_SUBCOMPS_SHOWN]
+    )
+
+
 def _comp(members: list[Board], total: int, core_share: float, static: StaticData) -> Comp:
     seen = Counter(unit for board in members for unit in _unit_ids(board, static))
     core = [unit for unit, count in seen.items() if count / len(members) >= core_share]
@@ -213,6 +269,7 @@ def _comp(members: list[Board], total: int, core_share: float, static: StaticDat
     traits = typical_traits(members)
     placements = [board.placement for board in members]
     picks = item_priority(members, static)
+    pace = tempo(members, carries[0] if carries else None, static)
     return Comp(
         tuple(core),
         tuple(carries),
@@ -225,13 +282,14 @@ def _comp(members: list[Board], total: int, core_share: float, static: StaticDat
         placements.count(1) / len(members),
         _flex(members, set(core), static),
         traits,
-        tempo(members, carries[0] if carries else None, static),
+        pace,
         picks,
         components_to_take(picks, static),
         spare_components(members, static),
         special_items(members, static),
         level_ups(members, static),
         key,
+        _subcomps(members, set(core), _board_size(pace, len(core)), static),
     )
 
 
