@@ -978,6 +978,7 @@ function detailHtml(comp) {
       }
     </div>
     ${section("Positioning", `<div>${boardHtml(comp)}</div>`)}
+    ${savedBoards(comp.id).length ? section("Saved boards", `<div class="saved-cards">${compBoardsHtml(comp)}</div>`, { info: "Boards saved from the planner for this comp.\nClick one to open it in the planner." }) : ""}
     ${section("Notes", planHtml(comp), { info: "The lines are derived from the comp's boards: its item priority, its carry's item group, what it three-stars and the levels its boards end at.\nWhen the page can save, type a line and press Enter to add it, and use a line's buttons to reword or remove it. A derived line you leave alone keeps following the data." })}
     </div>`;
 }
@@ -1248,6 +1249,91 @@ function keepPlanner(board) {
   localStorage.setItem(plannerKey(), JSON.stringify(board));
   renderPlanner();
 }
+// The emblems the board holds, as trait → how many. An emblem gives its trait to a unit that
+// lacks it, so the page keeps a count for each trait and not which unit holds which.
+const emblemKey = () => `${plannerKey()}.emblems`;
+function plannerEmblems() {
+  try {
+    const kept = JSON.parse(localStorage.getItem(emblemKey()) || "{}");
+    return Object.fromEntries(Object.entries(kept || {}).filter(([trait, count]) => snap().traits[trait] && count > 0));
+  } catch {
+    return {};
+  }
+}
+function keepEmblems(emblems) {
+  localStorage.setItem(emblemKey(), JSON.stringify(emblems));
+  renderPlanner();
+}
+// A saved board is a planner board with a name and a stage, kept by the server in the `boards`
+// field of the comp it is attached to, or of NO_COMP when it is attached to none. A board saved
+// under the name and stage of another of its comp replaces it.
+const NO_COMP = "0000000000";
+const STAGES = ["", "Stage 2", "Stage 3", "Stage 4", "Late"];
+Object.assign(state, { saveName: "", saveStage: "", saveComp: null });
+function savedBoards(compId) {
+  try {
+    const kept = JSON.parse((edits && edits[compId] && edits[compId].boards) || "[]");
+    return Array.isArray(kept) ? kept.filter((board) => board && board.units) : [];
+  } catch {
+    return [];
+  }
+}
+// Every saved board, as [comp id, place in its comp's list, board], attached ones first.
+function allSaved() {
+  const known = new Set(snap().comps.map((comp) => comp.id));
+  return Object.keys(edits || {})
+    .filter((id) => id === NO_COMP || known.has(id))
+    .sort((a, b) => Number(a === NO_COMP) - Number(b === NO_COMP))
+    .flatMap((id) => savedBoards(id).map((board, place) => [id, place, board]));
+}
+function putBoards(compId, boards) {
+  return putEdits(compId, { boards: boards.length ? JSON.stringify(boards) : "" })
+    .then(renderList)
+    .catch((error) => {
+      const shown = el("save-state");
+      if (shown) shown.textContent = `not saved: ${error.message}`;
+    });
+}
+function saveBoard() {
+  const compId = state.saveComp || NO_COMP;
+  const entry = { name: state.saveName.trim() || "Board", stage: state.saveStage, units: plannerBoard(), emblems: plannerEmblems() };
+  const boards = savedBoards(compId).filter((board) => board.name !== entry.name || board.stage !== entry.stage);
+  return putBoards(compId, [...boards, entry]);
+}
+function loadSaved(compId, place) {
+  const board = savedBoards(compId)[place];
+  if (!board) return;
+  localStorage.setItem(emblemKey(), JSON.stringify(board.emblems || {}));
+  localStorage.setItem(plannerKey(), JSON.stringify(board.units));
+  Object.assign(state, { saveName: board.name, saveStage: board.stage || "", saveComp: compId === NO_COMP ? null : compId });
+  setView("planner");
+}
+function miniBoardHtml(units) {
+  const lines = [0, 1, 2, 3].map((row) => {
+    const hexes = CORNER_IN.map((column) => {
+      const unit = snap().units[units[`${row},${column}`]];
+      return `<span class="hex">${unit && unit.icon ? `<img src="${esc(unit.icon)}" alt="">` : ""}</span>`;
+    });
+    return `<div class="line">${hexes.join("")}</div>`;
+  });
+  return `<div class="board mini">${lines.join("")}</div>`;
+}
+// The saved boards of one comp, on its page. A click opens one in the planner.
+function compBoardsHtml(comp) {
+  return savedBoards(comp.id)
+    .map(
+      (board, place) => `<div class="saved-card" data-load="${comp.id}:${place}" ${tipOf("Click to open it in the planner.")}>
+        ${miniBoardHtml(board.units)}<p class="note"><b>${esc(board.name)}</b>${board.stage ? ` · ${esc(board.stage)}` : ""}</p></div>`,
+    )
+    .join("");
+}
+
+// One emblem for each trait that has one, by the trait's name.
+function emblemItems() {
+  const found = new Map();
+  for (const [id, item] of Object.entries(snap().items)) if (item.emblem_of && snap().traits[item.emblem_of] && !found.has(item.emblem_of)) found.set(item.emblem_of, id);
+  return [...found].sort((a, b) => traitName(a[0]).localeCompare(traitName(b[0])));
+}
 
 // The units a player can buy, cheapest first: the ones Riot's team planner lists.
 const rosterUnits = () =>
@@ -1258,9 +1344,15 @@ const rosterUnits = () =>
 // Each trait the units field, with its count, how many breakpoints that count reaches and the
 // next breakpoint. A unit counts once however often it is on the board. The traits that reach a
 // breakpoint come first, then the ones nearest their first.
-function activeTraits(units) {
+function activeTraits(units, emblems = {}) {
   const counts = new Map();
-  for (const id of new Set(units)) for (const trait of unitOf(id).traits) counts.set(trait, (counts.get(trait) || 0) + 1);
+  const fielded = [...new Set(units)];
+  for (const id of fielded) for (const trait of unitOf(id).traits) counts.set(trait, (counts.get(trait) || 0) + 1);
+  // An emblem counts only on a unit that lacks its trait.
+  for (const [trait, held] of Object.entries(emblems)) {
+    const takers = fielded.filter((id) => !unitOf(id).traits.includes(trait)).length;
+    if (Math.min(held, takers)) counts.set(trait, (counts.get(trait) || 0) + Math.min(held, takers));
+  }
   return [...counts]
     .map(([trait, count]) => {
       const breakpoints = (snap().traits[trait] || {}).breakpoints || [];
@@ -1306,6 +1398,36 @@ function closestComps(units) {
     .slice(0, CLOSEST_SHOWN);
 }
 
+// The units worth adding next, each with why, the strongest reason first. A unit is suggested
+// because a comp the board is close to has it in its core or plays it often, or because it takes
+// a trait on the board to its next breakpoint.
+const SUGGESTED = 8;
+function suggestions(units, emblems) {
+  const on = new Set(units);
+  const buyable = new Set(rosterUnits());
+  const found = new Map();
+  const add = (id, score, reason) => {
+    if (on.has(id) || !buyable.has(id)) return;
+    const entry = found.get(id) || { id, score: 0, reasons: [] };
+    entry.score += score;
+    entry.reasons.push([score, reason]);
+    found.set(id, entry);
+  };
+  for (const [comp, shared] of closestComps(units)) {
+    const close = shared.length / comp.core.length;
+    for (const id of comp.core) add(id, 2 * close, `In the core of ${nameOf(comp)}, which this board holds ${shared.length} of ${comp.core.length} of.`);
+    for (const flexed of comp.flex.flat()) for (const id of flexed.units) add(id, close * flexed.share, `On ${pct(flexed.share)} of ${nameOf(comp)} boards.`);
+  }
+  for (const { trait, count, next } of activeTraits(units, emblems)) {
+    if (next - count !== 1) continue;
+    for (const id of buyable) if (unitOf(id).traits.includes(trait)) add(id, 0.5, `Takes ${traitName(trait)} to ${next}.`);
+  }
+  return [...found.values()]
+    .map((entry) => ({ ...entry, reasons: entry.reasons.sort((a, b) => b[0] - a[0]).map(([, reason]) => reason) }))
+    .sort((a, b) => b.score - a.score || unitOf(a.id).cost - unitOf(b.id).cost)
+    .slice(0, SUGGESTED);
+}
+
 function rosterHtml(board) {
   const on = new Set(Object.values(board));
   const costs = new Map();
@@ -1330,7 +1452,20 @@ function plannerHtml(board) {
     });
     return `<div class="line">${hexes.join("")}</div>`;
   });
-  const traits = activeTraits(units)
+  const emblems = plannerEmblems();
+  const emblemRow = emblemItems()
+    .map(([trait, item]) => {
+      const held = emblems[trait] || 0;
+      return `<span class="emblem ${held ? "on" : ""}" data-emblem="${esc(trait)}" ${tipOf(`${traitName(trait)} Emblem${held ? `: ${held} on the board` : ""}`, "Click to add one. Shift-click to take one off.")}>${itemIcon(item)}${held ? `<b>${held}</b>` : ""}</span>`;
+    })
+    .join("");
+  const suggested = suggestions(units, emblems)
+    .map(
+      ({ id, reasons }) => `<div class="suggest" data-pick="${id}" ${tipOf(...reasons.slice(0, 4), "Click to add it.")}>
+        ${unitTile(id, "s")}<span class="suggest-name">${esc(unitOf(id).name)}</span><span class="note">${esc(reasons[0])}</span></div>`,
+    )
+    .join("");
+  const traits = activeTraits(units, emblems)
     .map(({ trait, count, breakpoints, reached, next }) => {
       const { icon } = snap().traits[trait] || {};
       const tip = tipOf(
@@ -1349,6 +1484,25 @@ function plannerHtml(board) {
         <span class="note">${shared.length} of ${comp.core.length}${missing.length ? ", missing" : ""}</span>${missing.map((id) => unitTile(id, "s")).join("")}</div>`,
     )
     .join("");
+  const attachable = [...snap().comps].sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
+  const saved = allSaved()
+    .map(([compId, place, kept]) => {
+      const comp = snap().comps.find((candidate) => candidate.id === compId);
+      const about = [kept.stage, comp ? nameOf(comp) : "no comp", `${Object.keys(kept.units).length} units`].filter(Boolean).join(" · ");
+      return `<div class="saved-row" data-load="${compId}:${place}" ${tipOf("Click to put it on the board.")}>
+        <span class="saved-name">${esc(kept.name)}</span><span class="note">${esc(about)}</span>
+        <button class="line-button" data-unsave="${compId}:${place}" ${tipOf("Delete this saved board.")}>×</button></div>`;
+    })
+    .join("");
+  const saving = edits
+    ? `<div class="save-form">
+        <input id="save-name" maxlength="40" placeholder="name" value="${esc(state.saveName)}">
+        <select id="save-stage">${STAGES.map((stage) => `<option value="${stage}" ${stage === state.saveStage ? "selected" : ""}>${stage || "any stage"}</option>`).join("")}</select>
+        <select id="save-comp"><option value="">no comp</option>${attachable.map((comp) => `<option value="${comp.id}" ${comp.id === state.saveComp ? "selected" : ""}>${esc(nameOf(comp))}</option>`).join("")}</select>
+        <button id="save-board" ${units.length ? "" : "disabled"} ${tipOf("Keep this board under the name and stage. A board of the same name, stage and comp is replaced.")}>Save</button>
+        <span class="note" id="save-state"></span></div>
+      <div>${saved || `<span class="note">No saved board yet.</span>`}</div>`
+    : "";
   const cut = units.length > TEAM_PLACES ? `the first ${TEAM_PLACES} of ${units.length} units` : `${units.length} units`;
   return `<div id="sheet">
     <header><div class="title">${MAXIMIZE}<h1>Planner</h1>
@@ -1358,6 +1512,11 @@ function plannerHtml(board) {
     <div class="flow">
       ${section("Board", `<div class="board planner-board" ${tipOf("The front row is at the top.")}>${lines.join("")}</div>`)}
       ${section("Traits", `<div class="row">${traits || `<span class="note">no unit on the board</span>`}</div>`, { width: "wraps" })}
+      ${saving ? section("Saved boards", `<div>${saving}</div>`, { info: "Boards kept by the server, each with a name and a stage.\nA board attached to a comp also shows on that comp's page." }) : ""}
+      ${section("Emblems", `<div class="row emblems">${emblemRow || `<span class="note">This set's data names no emblem.</span>`}</div>`, { width: "wraps" })}
+      ${section("Suggestions", `<div>${suggested || `<span class="note">Put two units of a comp on the board, or bring a trait within one of a breakpoint.</span>`}</div>`, {
+        info: "Units worth adding next.\nA unit is listed because a comp this board is close to has it in its core or plays it often, or because it takes a trait on the board to its next breakpoint.\nClick one to add it.",
+      })}
       ${section("Closest comps", `<div>${closest || `<span class="note">No comp shares two core units with this board.</span>`}</div>`, {
         info: "The comps whose core this board holds most of, each with the core units still missing.\nClick one to open it.",
       })}
@@ -1393,7 +1552,23 @@ el("detail").addEventListener("click", (event) => {
     const board = plannerBoard();
     delete board[hex.dataset.hex];
     keepPlanner(board);
+  } else if (event.target.closest("[data-unsave]")) {
+    const [compId, place] = event.target.closest("[data-unsave]").dataset.unsave.split(":");
+    putBoards(compId, savedBoards(compId).filter((_, index) => index !== Number(place)));
+  } else if (event.target.closest("[data-load]")) {
+    const [compId, place] = event.target.closest("[data-load]").dataset.load.split(":");
+    loadSaved(compId, Number(place));
+  } else if (event.target.closest("#save-board")) {
+    saveBoard();
+  } else if (event.target.closest("[data-emblem]")) {
+    const trait = event.target.closest("[data-emblem]").dataset.emblem;
+    const emblems = plannerEmblems();
+    emblems[trait] = Math.max(0, (emblems[trait] || 0) + (event.shiftKey ? -1 : 1));
+    keepEmblems(emblems);
+  } else if (event.target.closest("[data-pick]")) {
+    togglePick(event.target.closest("[data-pick]").dataset.pick);
   } else if (event.target.closest("#clear-plan")) {
+    localStorage.removeItem(emblemKey());
     keepPlanner({});
   } else if (event.target.closest("#copy-plan")) {
     copyText(teamCodeOf(Object.values(plannerBoard()))).then(() => {
@@ -1401,6 +1576,19 @@ el("detail").addEventListener("click", (event) => {
       if (button) button.textContent = "Copied";
     });
   }
+});
+
+// The save form's boxes keep what was typed across the planner's redraws.
+el("detail").addEventListener("input", (event) => {
+  if (event.target.id === "save-name") state.saveName = event.target.value;
+  if (event.target.id === "save-stage") state.saveStage = event.target.value;
+  if (event.target.id === "save-comp") state.saveComp = event.target.value || null;
+});
+el("detail").addEventListener("click", (event) => {
+  const card = state.view === "comps" && event.target.closest(".saved-card[data-load]");
+  if (!card) return;
+  const [compId, place] = card.dataset.load.split(":");
+  loadSaved(compId, Number(place));
 });
 
 // A unit is dragged from its hex to another hex of the same board.

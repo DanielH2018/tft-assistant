@@ -658,11 +658,25 @@ unit swaps the two, and a click takes it off. The pane shows:
 - the comps whose core the board holds most of, each with the core units still missing, and a
   click opens the comp.
 
-The board is kept in the browser, one for each set, so it needs no server and a page opened
-from a file has it too. It is one working board, not a list of saved ones.
+- the units worth adding next, each with why: a comp the board is close to has the unit in
+  its core or plays it often, or the unit takes a trait on the board to its next breakpoint.
+  A click adds one. The reasons come from the snapshot's comps and traits, so no pairing table
+  is built for them.
 
-Still to come in slice 5: unit suggestions, saved boards with a name and a stage, and emblems
-on the planner's units.
+A row of the set's emblems sits under the board. A click adds one and a shift-click takes one
+off. An emblem counts toward its trait only on a unit that lacks the trait, so the page keeps a
+count for each trait and not which unit holds which emblem.
+
+The working board and its emblems are kept in the browser, one for each set, so they need no
+server and a page opened from a file has them too.
+
+With `tft serve`, the planner saves boards. A saved board has a name, a stage (Stage 2, 3, 4,
+Late or none) and the comp it is attached to, if any. It is kept in the `boards` field of that
+comp's edit, and a board attached to no comp is kept under the id `0000000000`. A board saved
+under the name and stage of another board of its comp replaces it. The planner lists every
+saved board; a click puts one back on the working board, and a button deletes one. A comp's
+page shows the boards saved for it, and a click opens one in the planner. An early board is a
+saved board with a stage, attached to its comp.
 
 ### Assistance for the manual parts
 

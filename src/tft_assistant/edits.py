@@ -16,8 +16,11 @@ from tft_assistant.paths import state_path
 
 DEFAULT_PATH = state_path("keep/edits.db", "~/.local/share/tft-assistant/edits.db")
 
-FIELDS = {"name": 60, "notes": 4000, "plan": 2000, "categories": 200, "board": 1000}
-"""Each field a comp's edit may hold, with the longest text it takes."""
+FIELDS = {"name": 60, "notes": 4000, "plan": 2000, "categories": 200, "board": 1000, "boards": 8000}
+"""Each field a comp's edit may hold, with the longest text it takes.
+
+`boards` is the planner boards saved for the comp. The page keeps the boards attached to no
+comp under the id `0000000000`, which the store treats as any other id."""
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS edits (
