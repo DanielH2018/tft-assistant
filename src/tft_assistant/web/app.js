@@ -372,15 +372,15 @@ function renderExplorer() {
   loadExplorer();
   const s = snap();
   const boards = explored.get(s.explorer);
-  const shell = (body) => `<div id="sheet"><header><h1>${MAXIMIZE} Explorer</h1></header>${body}</div>`;
-  const help = `<p class="note">Type a filter and press Enter. A filter is a unit, an item, a trait (<code>4 elderwood</code> asks for that count), <code>level 8</code>, <code>3 star unit</code>, or <code>unit: item</code> for a unit that holds an item. A click on a row adds it.</p>`;
+  const help = "Type a filter in the box and press Enter. A filter is one of:\na unit: sivir\nan item: infinity edge\na trait, with a count if you want one: elderwood, 4 elderwood\na level: level 8\na unit at a star level: 3 star sivir\na unit that holds an item: sivir: infinity edge\nEvery filter has to pass. A click on a row adds it as a filter, and a click on a column sorts by it.";
+  const shell = (body) => `<div id="sheet"><header><h1>${MAXIMIZE} Explorer <span class="info" tabindex="0" ${tipOf(help)}>i</span></h1></header>${body}</div>`;
   if (!Array.isArray(boards)) {
     const why = !s.explorer
       ? "This page was built without its boards."
       : boards === "failed"
         ? "The boards did not load. A page opened from a file cannot load them: the explorer needs the page's server."
         : "Loading the boards…";
-    el("explore").innerHTML = help;
+    el("explore").innerHTML = "";
     el("detail").innerHTML = shell(`<p class="empty">${why}</p>`);
     return;
   }
@@ -403,8 +403,8 @@ function renderExplorer() {
   el("explore").innerHTML = all[0]
     ? `<p class="big">${all[0].toLocaleString()} boards</p>
        <p class="note">of ${boards.length.toLocaleString()} in ${esc(s.label)}: ${pct(all[0] / boards.length)}</p>
-       <dl><dt>Average placement</dt><dd>${(all[1] / all[0]).toFixed(2)}</dd><dt>Top 4</dt><dd>${pct(all[2] / all[0])}</dd><dt>Win</dt><dd>${pct(all[3] / all[0])}</dd></dl>${whose}${short}${help}`
-    : `<p class="big">No board</p><p class="note">No board of ${boards.length.toLocaleString()} passes every filter.</p>${help}`;
+       <dl><dt>Average placement</dt><dd>${(all[1] / all[0]).toFixed(2)}</dd><dt>Top 4</dt><dd>${pct(all[2] / all[0])}</dd><dt>Win</dt><dd>${pct(all[3] / all[0])}</dd></dl>${whose}${short}`
+    : `<p class="big">No board</p><p class="note">No board of ${boards.length.toLocaleString()} passes every filter.</p>`;
   const tables = all[0]
     ? `<div class="explore-tables">
         ${exploreTable("Units", units, all, (id) => `${unitTile(id, "s")}<span class="row-name">${esc(unitOf(id).name)}</span>`, (id) => unitOf(id).name)}
