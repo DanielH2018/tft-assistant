@@ -268,12 +268,21 @@ showing win rates of augments, not of items.
 ### Picking items
 
 A click on an item in the grid or in the stats table picks it, up to two; a third pick replaces
-the older one. With an item picked, a group lists only the units that hold a picked item on a
-tenth of their itemised boards or more, which is the floor the snapshot keeps a unit's items
-at. A tank leaves when a carry's item is picked, and a group with no unit left is not drawn.
-Each unit that stays is a card: for each picked item it holds, how often and how it places
-there, then its overall placement and the comp it carries. A unit that holds both items comes
-first. A radiant item is picked as its base.
+the older one. The pane's header then names the picked items and nothing else. A radiant item
+is picked as its base.
+
+With one item picked, a group lists only the units that hold it on a tenth of their itemised
+boards or more, which is the floor the snapshot keeps a unit's items at. A tank leaves when a
+carry's item is picked, and a group with no unit left is not drawn. Each unit that stays is a
+card: how often it holds the item and how it places there, then its overall placement and the
+comp it carries.
+
+With two items picked, the pane lists the boards that hold both, from the explorer's board
+file. A card is a pair of holders: one unit that holds both items, or two units that hold one
+each, both drawn. It gives the pair's share of the boards with both items, its placement and
+top 4 rate. A pair needs ten boards and 1% of the boards with both. The owner asked for both
+items on a board, not either, on 2026-11-28. A page opened from a file has no board file, so
+there the pane lists the units that hold either item.
 
 ### Filtering the item groups
 
