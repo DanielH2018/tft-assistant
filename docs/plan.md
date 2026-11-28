@@ -713,7 +713,10 @@ cannot load it, and says so. The other choice was a query in the API. It would h
 match store's memory in the server that otherwise serves files and a small edit store.
 
 A filter is a unit, an item, a trait (`4 elderwood` asks for that count), `level 8`, or
-`unit: item` for a unit that holds an item. A filter that names nothing is struck through and
+`unit: item` for a unit that holds an item. A unit takes a star level, `3 star yunara` or
+`yunara 3*`, also before a colon. With one unit in the filters a fourth table lists that
+unit's star levels. There is no filter for boards without a thing: the owner declined one on
+2026-11-28. A filter that names nothing is struck through and
 ignored. The side panel shows the boards that pass, with their average placement, top 4 and win
 rates. The pane has three tables, Units, Items and Traits. A row gives its play rate under the
 filter, its placement, the difference from the average of the boards that pass, top 4 and win.

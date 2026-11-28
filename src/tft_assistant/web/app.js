@@ -169,6 +169,8 @@ function categoriesHtml(comp) {
 //   a trait's name         boards where the trait reaches a breakpoint; "4 elderwood" asks for 4
 //   "level 8"              boards at that level
 //   "unit: item"           boards where that unit holds that item
+//   "3 star unit"          boards that field the unit at that star level; "unit 3*" too, and
+//                          "3 star unit: item" for the unit at that level holding the item
 Object.assign(state, { exploreFilters: [], exploreFilter: "", exploreSort: "play", exploreAscending: false, exploreHolder: true });
 const explored = new Map();
 // A row needs this many boards and this share of the boards that pass, so one board does not
@@ -245,6 +247,14 @@ function named(table, text, nameOf_) {
     .sort((a, b) => Number(b[1] === text) - Number(a[1] === text) || Number(b[1].startsWith(text)) - Number(a[1].startsWith(text)) || a[1].length - b[1].length);
   return found.length ? found[0][0] : null;
 }
+// A unit as a filter names it: its name, with a star level before or after it or none.
+const STARRED = /^(?:(\d)\s*(?:\*|★|-?\s*stars?)\s+(.+)|(.+?)\s+(\d)\s*(?:\*|★|-?\s*stars?))$/;
+function namedUnit(text) {
+  const starred = text.match(STARRED);
+  const unit = named(explorableUnits(), (starred ? starred[2] || starred[3] : text).trim(), (id) => unitOf(id).name);
+  return unit ? { unit, stars: starred ? Number(starred[1] || starred[4]) : null } : null;
+}
+const starsPass = (unit, condition) => unit.id === condition.unit && (!condition.stars || unit.stars === condition.stars);
 const explorableUnits = () => Object.fromEntries(Object.entries(snap().units).filter(([, unit]) => unit.traits.length));
 function exploreCondition(phrase) {
   const s = snap();
@@ -254,17 +264,21 @@ function exploreCondition(phrase) {
   if (level) return { kind: "level", level: Number(level[1]) };
   if (text.includes(":")) {
     const [unitText, itemText] = text.split(":").map((part) => part.trim());
-    const unit = named(explorableUnits(), unitText, (id) => unitOf(id).name);
+    const unit = namedUnit(unitText);
     const item = itemText && named(s.items, itemText, itemName);
-    return unit && item ? { kind: "holds", unit, item } : null;
+    return unit && item ? { kind: "holds", ...unit, item } : null;
+  }
+  if (STARRED.test(text)) {
+    const unit = namedUnit(text);
+    return unit ? { kind: "unit", ...unit } : null;
   }
   const counted = text.match(/^(\d+)\s+(.+)$/);
   if (counted) {
     const trait = named(s.traits, counted[2], traitName);
     return trait ? { kind: "trait", trait, at: Number(counted[1]) } : null;
   }
-  const unit = named(explorableUnits(), text, (id) => unitOf(id).name);
-  if (unit) return { kind: "unit", unit };
+  const unit = namedUnit(text);
+  if (unit) return { kind: "unit", ...unit };
   const item = named(s.items, text, itemName);
   if (item) return { kind: "item", item };
   const trait = named(s.traits, text, traitName);
@@ -272,9 +286,9 @@ function exploreCondition(phrase) {
 }
 function boardPasses(board, condition) {
   if (condition.kind === "level") return board.level === condition.level;
-  if (condition.kind === "unit") return board.units.some((unit) => unit.id === condition.unit);
+  if (condition.kind === "unit") return board.units.some((unit) => starsPass(unit, condition));
   if (condition.kind === "item") return board.units.some((unit) => unit.items.includes(condition.item));
-  if (condition.kind === "holds") return board.units.some((unit) => unit.id === condition.unit && unit.items.includes(condition.item));
+  if (condition.kind === "holds") return board.units.some((unit) => starsPass(unit, condition) && unit.items.includes(condition.item));
   return (board.traits.get(condition.trait) || 0) >= condition.at;
 }
 
@@ -287,7 +301,10 @@ function tally(counts, key, board) {
   row[3] += Number(board.placement === 1);
   counts.set(key, row);
 }
-function exploreStats(boards, holder) {
+// `holder` limits the items to the ones that unit holds, and `starred` is the unit whose star
+// levels are counted.
+function exploreStats(boards, holder, starred) {
+  const levels = new Map();
   const all = new Map();
   const units = new Map();
   const items = new Map();
@@ -298,8 +315,9 @@ function exploreStats(boards, holder) {
     const held = new Set(board.units.filter((unit) => !holder || unit.id === holder).flatMap((unit) => unit.items));
     for (const item of held) tally(items, item, board);
     for (const [trait, at] of board.traits) tally(traits, `${at} ${trait}`, board);
+    for (const stars of new Set(board.units.filter((unit) => unit.id === starred).map((unit) => unit.stars))) tally(levels, stars, board);
   }
-  return { all: all.get("all") || [0, 0, 0, 0], units, items, traits };
+  return { all: all.get("all") || [0, 0, 0, 0], units, items, traits, levels };
 }
 
 const EXPLORE_COLUMNS = [
@@ -340,7 +358,7 @@ function renderExplorer() {
   const s = snap();
   const boards = explored.get(s.explorer);
   const shell = (body) => `<div id="sheet"><header><h1>${MAXIMIZE} Explorer</h1></header>${body}</div>`;
-  const help = `<p class="note">Type a filter and press Enter. A filter is a unit, an item, a trait (<code>4 elderwood</code> asks for that count), <code>level 8</code>, or <code>unit: item</code> for a unit that holds an item. A click on a row adds it.</p>`;
+  const help = `<p class="note">Type a filter and press Enter. A filter is a unit, an item, a trait (<code>4 elderwood</code> asks for that count), <code>level 8</code>, <code>3 star unit</code>, or <code>unit: item</code> for a unit that holds an item. A click on a row adds it.</p>`;
   if (!Array.isArray(boards)) {
     const why = !s.explorer
       ? "This page was built without its boards."
@@ -356,7 +374,7 @@ function renderExplorer() {
   // With one unit in the filters, the items table can list what that unit holds.
   const one = [...new Set(conditions.filter((condition) => condition.kind === "unit" || condition.kind === "holds").map((condition) => condition.unit))];
   const holder = one.length === 1 && state.exploreHolder ? one[0] : null;
-  const { all, units, items, traits } = exploreStats(passing, holder);
+  const { all, units, items, traits, levels } = exploreStats(passing, holder, one.length === 1 ? one[0] : null);
   const whose = one.length === 1
     ? `<label class="switch" ${tipOf("On: only the items that unit holds. Off: the items any unit on the board holds.")}><input id="explore-holder" type="checkbox" ${state.exploreHolder ? "checked" : ""}><i></i>Items on ${esc(unitOf(one[0]).name)} only</label>`
     : "";
@@ -370,6 +388,7 @@ function renderExplorer() {
     ? `<div class="explore-tables">
         ${exploreTable("Units", units, all, (id) => `${unitTile(id, "s")}${esc(unitOf(id).name)}`, (id) => unitOf(id).name)}
         ${exploreTable(holder ? `Items on ${esc(unitOf(holder).name)}` : "Items", items, all, (item) => `${itemIcon(item)}${itemName(item)}`, (item) => (holder ? `${unitOf(holder).name}: ${itemName(item)}` : itemName(item)))}
+        ${one.length === 1 ? exploreTable(`${esc(unitOf(one[0]).name)} by stars`, levels, all, (stars) => `${unitTile(one[0], "s")}${"★".repeat(stars)}`, (stars) => `${stars} star ${unitOf(one[0]).name}`) : ""}
         ${exploreTable("Traits", traits, all, (key) => `${(s.traits[traitOf(key)] || {}).icon ? `<img src="${esc(s.traits[traitOf(key)].icon)}" alt="">` : ""}${parseInt(key, 10)} ${esc(traitName(traitOf(key)))}`, (key) => `${parseInt(key, 10)} ${traitName(traitOf(key))}`)}
       </div>`
     : `<p class="empty">Remove a filter to see boards.</p>`;
@@ -396,7 +415,7 @@ function renderFilters() {
   el("chips").innerHTML = state[kept]
     .map((filter, index) => `<span class="filter-chip ${state.view === "explorer" && !exploreCondition(filter) ? "unmatched" : ""}">${esc(filter)}<button data-remove="${index}" data-tip="Remove this filter">×</button></span>`)
     .join("");
-  const asks = { items: "unit, cost or trait", explorer: "unit, item, trait, level 8, or unit: item" }[state.view] || "unit, trait, item or level";
+  const asks = { items: "unit, cost or trait", explorer: "unit, item, trait, level 8, 3 star unit, or unit: item" }[state.view] || "unit, trait, item or level";
   el("filter").placeholder = state[kept].length ? "add a filter" : asks;
   renderList();
 }
