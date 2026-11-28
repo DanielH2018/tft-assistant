@@ -18,6 +18,11 @@ from tft_assistant.static_data import StaticData
 
 _TOP_ITEMS = 5
 _ITEM_FLOOR = 0.10
+_RARE_FLOOR = 0.01
+_RARE_BOARDS = 10
+"""An emblem or an artifact is on few boards of any unit, so a tenth of them is a bar it never
+clears. It is listed at a hundredth of a unit's itemised boards, and on ten boards or more, which
+is enough to keep out an item a unit held once or twice."""
 _FILLS_THE_SLOTS = "ThiefsGloves"
 """Part of the API name of Thief's Gloves, plain and radiant, in every set. The item fills its
 holder's other slots with items of its own choosing, so that unit's items say nothing of how
@@ -31,7 +36,10 @@ class Held:
     boards: int
     avg_placement: float
     items: dict[str, tuple[float, float]]
-    """Each item it holds on a tenth of those boards or more: the share of them, and its average placement there."""
+    """Each item it holds often enough: the share of those boards, and its average placement there.
+
+    Often enough is a tenth of the boards for an item a player builds, and a hundredth, with ten
+    boards at least, for an emblem or an artifact. An emblem is here although it counts toward no group."""
 
 
 @dataclass(frozen=True)
@@ -60,6 +68,7 @@ def find_item_groups(
     builds: Counter[str] = Counter()
     placed: Counter[str] = Counter()
     placed_with: dict[str, Counter[str]] = defaultdict(Counter)
+    emblems: dict[str, Counter[str]] = defaultdict(Counter)
     for board in boards:
         for unit in board.units:
             if any(_FILLS_THE_SLOTS in item for item in unit.items):
@@ -69,11 +78,19 @@ def find_item_groups(
                 builds[unit.character_id] += 1
                 held[unit.character_id].update(build)
                 placed[unit.character_id] += board.placement
-                for item in build:
+                worn = {item for item in unit.items if item in static.items and static.items[item].emblem_of}
+                emblems[unit.character_id].update(worn)
+                for item in build | worn:
                     placed_with[unit.character_id][item] += board.placement
 
+    def often_enough(unit: str, item: str, count: int) -> bool:
+        if static.items[item].emblem_of or static.items[item].is_artifact:
+            return count >= _RARE_BOARDS and count / builds[unit] >= _RARE_FLOOR
+        return count / builds[unit] >= _ITEM_FLOOR
+
     def how(unit: str) -> Held:
-        often = {item: count for item, count in held[unit].items() if count / builds[unit] >= _ITEM_FLOOR}
+        counts = held[unit] + emblems[unit]
+        often = {item: count for item, count in counts.items() if often_enough(unit, item, count)}
         return Held(
             builds[unit],
             placed[unit] / builds[unit],

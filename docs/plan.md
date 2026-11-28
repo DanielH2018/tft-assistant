@@ -249,6 +249,8 @@ chain reads in.
 With the list hidden, the comp page has the whole window and the tabs are out of reach until
 the list is back.
 
+A switch above the grid hides the numbers on its items, and the browser keeps the choice.
+
 ### Item stats
 
 Under the grid, the Items tab lists how the boards that hold each item place: average
@@ -273,11 +275,19 @@ A click on an item in the grid or in the stats table picks it, up to two; a thir
 the older one. The pane's header then names the picked items and nothing else. A radiant item
 is picked as its base.
 
-With one item picked, a group lists only the units that hold it on a tenth of their itemised
-boards or more, which is the floor the snapshot keeps a unit's items at. A tank leaves when a
-carry's item is picked, and a group with no unit left is not drawn. Each unit that stays is a
-card: how often it holds the item and how it places there, then its overall placement and the
-comp it carries.
+With one item picked, a group lists only the units that hold it often enough, which is the
+floor the snapshot keeps a unit's items at: a tenth of the unit's itemised boards for an item a
+player builds. A tank leaves when a carry's item is picked, and a group with no unit left is not
+drawn. Each unit that stays is a card. Its first figure is what the item does to the unit: the
+unit's placement with the item less its placement over all its itemised boards. Then come the
+placement with the item and the share of boards, the unit's overall placement and the comp it
+carries.
+
+An emblem or an artifact is on few boards of any unit, so a tenth is a bar it never clears. It
+is kept at a hundredth of the unit's itemised boards, on ten boards or more, which keeps out an
+item a unit held once or twice (`item_groups._RARE_FLOOR`). Its holders run from the unit it
+helps most, where an item a player builds runs from the unit that holds it most. An emblem
+counts toward no item group, as before; it is only listed for the units that wear it.
 
 With two items picked, the pane lists the boards that hold both, from the explorer's board
 file. A card is a pair of holders: one unit that holds both items, or two units that hold one

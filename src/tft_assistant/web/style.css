@@ -202,7 +202,8 @@ body[data-view="explorer"] :is(#switches, #head, #comps, #slams, #roster), body:
   position: absolute; right: 1px; bottom: 0; min-width: 14px; padding: 0 2px; border-radius: 4px 0 4px 0;
   font-size: 11px; line-height: 14px; background: var(--crust); color: var(--text);
 }
-.slam b:empty { display: none; }
+.slam b:empty, .no-counts .slam b { display: none; }
+.slam-switch { margin: 2px 0 6px; font-size: 12px; color: var(--subtext); }
 .slam.safe { border-color: var(--green); }
 .slam.safe b { background: var(--green); color: var(--crust); }
 .slam.unused .item-icon { opacity: 0.3; }
