@@ -101,7 +101,9 @@ body[data-view="explorer"] :is(#switches, #head, #comps, #slams, #roster), body:
 #explore dt { color: var(--subtext); } #explore dd { margin: 0; }
 #explore code { background: var(--crust); padding: 0 4px; border-radius: 3px; }
 .filter-chip.unmatched { text-decoration: line-through; color: var(--red); }
-.explore-tables { display: flex; flex-wrap: wrap; gap: 8px 28px; align-items: flex-start; }
+.explore-tables { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 8px 36px; align-items: start; }
+.explore-tables .explore-table, #explore .explore-table { width: 100%; }
+#explore .explore-table { margin: 12px 0; }
 .explore-table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .explore-table caption { text-align: left; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; padding: 0 0 4px; }
 .explore-table th { padding: 2px 6px; text-align: right; }
@@ -113,7 +115,7 @@ body[data-view="explorer"] :is(#switches, #head, #comps, #slams, #roster), body:
 .explore-table td:first-child { text-align: left; }
 .explore-table tbody tr { cursor: pointer; }
 .explore-table tbody tr:hover { background: var(--surface0); }
-.explore-name { display: flex; align-items: center; gap: 7px; max-width: 210px; overflow: hidden; text-overflow: ellipsis; }
+.explore-name { display: flex; align-items: center; gap: 7px; overflow: hidden; text-overflow: ellipsis; }
 .explore-name .item-icon, .explore-name img { width: 22px; height: 22px; border-radius: 4px; flex: none; }
 .explore-name .unit { flex: none; }
 .better { color: var(--green); } .worse { color: var(--red); }
