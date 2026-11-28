@@ -160,7 +160,6 @@ body[data-view="explorer"] :is(#switches, #head, #comps, #slams, #roster), body:
 .emblem:hover, .emblem.on { opacity: 1; }
 .emblem .item-icon { width: 26px; height: 26px; border-radius: 4px; }
 .emblem.on .item-icon { outline: 2px solid var(--mauve); outline-offset: 1px; }
-.emblem b { position: absolute; right: -4px; bottom: -4px; min-width: 14px; height: 14px; line-height: 14px; text-align: center; font-size: 10px; border-radius: 7px; background: var(--mauve); color: var(--crust); }
 .closest { display: flex; align-items: center; gap: 8px; padding: 3px 0; cursor: pointer; }
 .closest > * { flex: none; }
 .closest:hover .closest-name { color: var(--mauve); }

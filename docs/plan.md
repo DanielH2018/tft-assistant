@@ -715,9 +715,10 @@ expects, on no unit in particular. A selected item brings forward the comps that
 suggests the units that hold it on real boards. The selection is kept in the browser with the
 board.
 
-A row of the set's emblems sits under the board. A click adds one and a shift-click takes one
-off. An emblem counts toward its trait only on a unit that lacks the trait, so the page keeps a
-count for each trait and not which unit holds which emblem.
+A row of the set's emblems sits under the board. Each is a toggle: a click adds the emblem and a
+second click takes it off, so the board holds one of a trait's emblem or none. An emblem counts
+toward its trait only on a unit that lacks the trait, so the page keeps the traits and not which
+unit holds which emblem. A board saved with two of one emblem loads with one.
 
 The working board and its emblems are kept in the browser, one for each set, so they need no
 server and a page opened from a file has them too.
