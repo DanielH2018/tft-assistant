@@ -375,6 +375,8 @@ function renderExplorer() {
   const one = [...new Set(conditions.filter((condition) => condition.kind === "unit" || condition.kind === "holds").map((condition) => condition.unit))];
   const holder = one.length === 1 && state.exploreHolder ? one[0] : null;
   const { all, units, items, traits, levels } = exploreStats(passing, holder, one.length === 1 ? one[0] : null);
+  // A unit the filters name is on every board that passes, so its row would say nothing.
+  for (const id of one) units.delete(id);
   const whose = one.length === 1
     ? `<label class="switch" ${tipOf("On: only the items that unit holds. Off: the items any unit on the board holds.")}><input id="explore-holder" type="checkbox" ${state.exploreHolder ? "checked" : ""}><i></i>Items on ${esc(unitOf(one[0]).name)} only</label>`
     : "";
