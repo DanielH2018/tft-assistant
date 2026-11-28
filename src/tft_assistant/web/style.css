@@ -143,6 +143,8 @@ body[data-view="explorer"] :is(#switches, #head, #comps, #slams, #roster), body:
 .board.mini .line:nth-child(even) { margin-left: 12px; }
 .board.mini .hex { width: 22px; height: 22px; }
 .suggested { gap: 6px 2px; }
+.suggested .offer { display: inline-flex; flex-direction: column; align-items: center; }
+.like-line { margin: 0 0 6px; }
 .suggest-group { display: flex; align-items: center; gap: 8px; padding: 3px 0; cursor: pointer; }
 .suggest-group:hover .note { color: var(--mauve); }
 .group-tiles { display: flex; gap: 2px; }

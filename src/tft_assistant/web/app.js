@@ -235,7 +235,7 @@ function loadExplorer() {
     .then((reply) => (reply.ok ? reply.json() : Promise.reject(new Error(`the server answered ${reply.status}`))))
     .then((doc) => explored.set(path, decodeBoards(doc)))
     .catch(() => explored.set(path, "failed"))
-    .then(() => ["explorer", "items"].includes(state.view) && renderList());
+    .then(() => (state.view === "planner" ? renderPlanner() : ["explorer", "items"].includes(state.view) && renderList()));
 }
 
 // The thing a name names: the one whose name is the text, or starts with it, or holds it, the
@@ -1762,9 +1762,60 @@ const offeredItems = () => (snap().item_stats || []).filter((stat) => stat.kind 
 // because a comp the board is close to has it in its core or plays it often, or because it takes
 // a trait on the board to its next breakpoint.
 const SUGGESTED = 8;
-function suggestions(units, emblems, items) {
+
+// What the real boards that hold every unit on the planner add to it. `adds` is each other unit
+// with its boards and their placements summed, `rests` each set of two or more units a board
+// adds, `extra` how many boards add each number of units, and `room` the most units a tenth of
+// the boards add. It is null with nothing on the board, before the boards load, and when fewer
+// than `LIKE_BOARDS` hold the units: the comps then decide what is suggested.
+const LIKE_BOARDS = 20;
+const LIKE_SHARE = 0.05;
+function plannerContext(units) {
+  const boards = explored.get(snap().explorer);
+  const on = new Set(units);
+  if (!Array.isArray(boards) || !on.size) return null;
+  const like = boards.filter((board) => [...on].every((id) => board.units.some((unit) => unit.id === id)));
+  if (like.length < LIKE_BOARDS) return null;
+  const buyable = new Set(rosterUnits());
+  const adds = new Map();
+  const rests = new Map();
+  const extra = new Map();
+  let placed = 0;
+  for (const board of like) {
+    const rest = [...new Set(board.units.map((unit) => unit.id))].filter((id) => !on.has(id) && buyable.has(id)).sort();
+    placed += board.placement;
+    extra.set(rest.length, (extra.get(rest.length) || 0) + 1);
+    for (const id of rest) {
+      const seen = adds.get(id) || [0, 0];
+      adds.set(id, [seen[0] + 1, seen[1] + board.placement]);
+    }
+    if (rest.length < 2) continue;
+    const seen = rests.get(rest.join(",")) || { add: rest, boards: 0, placed: 0 };
+    rests.set(rest.join(","), { ...seen, boards: seen.boards + 1, placed: seen.placed + board.placement });
+  }
+  const room = Math.max(0, ...[...extra].filter(([, count]) => count / like.length >= 0.1).map(([size]) => size));
+  return { on: on.size, boards: like.length, avg: placed / like.length, adds, rests, extra, room };
+}
+const theseUnits = (context) => (context.on === 1 ? "this unit" : `these ${context.on} units`);
+
+// With real boards that hold the planner's units, the units those boards add come first, each
+// with the share of the boards that add it. The comps fill the list only while the boards still
+// add more than two units: on a nearly whole board a unit from another comp's core is noise.
+function suggestions(units, emblems, items, context) {
   const on = new Set(units);
   const buyable = new Set(rosterUnits());
+  const fromBoards = context
+    ? [...context.adds]
+        .filter(([, [count]]) => count / context.boards >= LIKE_SHARE)
+        .sort((a, b) => b[1][0] - a[1][0])
+        .slice(0, SUGGESTED)
+        .map(([id, [count, placed]]) => ({
+          id,
+          share: count / context.boards,
+          reasons: [`On ${pct(count / context.boards)} of the ${context.boards.toLocaleString()} boards that hold ${theseUnits(context)}.`, `Those boards place ${(placed / count).toFixed(2)}; all the boards that hold ${theseUnits(context)} place ${context.avg.toFixed(2)}.`],
+        }))
+    : [];
+  if (context && context.room <= 2) return fromBoards;
   const found = new Map();
   const add = (id, score, reason) => {
     if (on.has(id) || !buyable.has(id)) return;
@@ -1793,17 +1844,20 @@ function suggestions(units, emblems, items) {
     if (next - count !== 1) continue;
     for (const id of buyable) if (unitOf(id).traits.includes(trait)) add(id, 0.5, `Takes ${traitName(trait)} to ${next}.`);
   }
-  return [...found.values()]
+  const fromComps = [...found.values()]
+    .filter((entry) => !fromBoards.some((listed) => listed.id === entry.id))
     .map((entry) => ({ ...entry, reasons: entry.reasons.sort((a, b) => b[0] - a[0]).map(([, reason]) => reason) }))
-    .sort((a, b) => b.score - a.score || unitOf(a.id).cost - unitOf(b.id).cost)
-    .slice(0, SUGGESTED);
+    .sort((a, b) => b.score - a.score || unitOf(a.id).cost - unitOf(b.id).cost);
+  return [...fromBoards, ...fromComps].slice(0, SUGGESTED);
 }
 
 // Groups of units worth adding together, from the comps the board is closest to: the rest of a
 // comp's core, and its most played subcomp, which fills its board. A group lists only the units the
 // board lacks, and needs two of them.
 const GROUPS_SUGGESTED = 5;
-function suggestedGroups(units, items) {
+const REST_BOARDS = 5;
+const REST_SHARE = 0.02;
+function suggestedGroups(units, items, context) {
   const on = new Set(units);
   const buyable = new Set(rosterUnits());
   const found = new Map();
@@ -1820,7 +1874,23 @@ function suggestedGroups(units, items) {
       offer([...missing, ...sub.units], close * (1 + sub.share), `${nameOf(comp)}, a whole board`, `The core of ${nameOf(comp)} with the units on ${pct(sub.share)} of its boards, which place ${sub.avg_placement.toFixed(2)}.`);
     }
   }
-  return [...found.values()].sort((a, b) => b.score - a.score || a.add.length - b.add.length).slice(0, GROUPS_SUGGESTED);
+  // With real boards that hold the planner's units, the sets of units those boards add come
+  // first, and a comp's group stays only when it fits in the room those boards leave.
+  const fromBoards = context
+    ? [...context.rests.values()]
+        .filter((rest) => rest.boards >= REST_BOARDS && rest.boards / context.boards >= REST_SHARE)
+        .sort((a, b) => b.boards - a.boards)
+        .map((rest) => ({
+          add: rest.add,
+          label: `on ${pct(rest.boards / context.boards)} of the boards with ${theseUnits(context)}, avg ${(rest.placed / rest.boards).toFixed(2)}`,
+          why: `${rest.boards.toLocaleString()} of the ${context.boards.toLocaleString()} boards that hold ${theseUnits(context)} add exactly these.`,
+        }))
+    : [];
+  const listed = new Set(fromBoards.map((group) => group.add.join(",")));
+  const fromComps = [...found.values()]
+    .filter((group) => !listed.has([...group.add].sort().join(",")) && (!context || group.add.length <= context.room))
+    .sort((a, b) => b.score - a.score || a.add.length - b.add.length);
+  return [...fromBoards, ...fromComps].slice(0, GROUPS_SUGGESTED);
 }
 
 // What a unit on the board usually holds, and the comps it matters in. The items are the ones it
@@ -1886,12 +1956,22 @@ function plannerHtml(board) {
     })
     .join("");
   const selected = plannerItems();
-  const suggested = suggestions(units, emblems, selected)
+  const context = plannerContext(units);
+  const suggested = suggestions(units, emblems, selected, context)
     .map(
-      ({ id, reasons }) => `<span class="pick offer" data-pick="${id}">${unitTile(id, "m", { note: [...reasons.slice(0, 4), "Click to add it."].join("\n") })}</span>`,
+      ({ id, reasons, share }) =>
+        `<span class="pick offer" data-pick="${id}">${unitTile(id, "m", { note: [...reasons.slice(0, 4), "Click to add it."].join("\n") })}${share ? `<span class="note offer-share">${pct(share)}</span>` : ""}</span>`,
     )
     .join("");
-  const groups = suggestedGroups(units, selected)
+  // How many units the boards that hold these add, the commonest numbers first.
+  const sizes = context
+    ? [...context.extra]
+        .filter(([, count]) => count / context.boards >= 0.1)
+        .sort((a, b) => b[1] - a[1])
+        .map(([size, count]) => `${pct(count / context.boards)} add ${size === 0 ? "no unit" : size === 1 ? "1 unit" : `${size} units`}`)
+    : [];
+  const likeLine = context ? `<p class="note like-line">${context.boards.toLocaleString()} boards hold ${theseUnits(context)}${sizes.length ? `: ${sizes.join(", ")}` : ""}.</p>` : "";
+  const groups = suggestedGroups(units, selected, context)
     .map(
       ({ add, label, why }) => `<div class="suggest-group" data-picks="${add.join(",")}" ${tipOf(why, "Click to add them all.")}>
         <span class="group-tiles">${add.map((id) => unitTile(id, "s")).join("")}</span><span class="note">${esc(label)}</span></div>`,
@@ -1968,9 +2048,9 @@ function plannerHtml(board) {
       ${itemRow ? section("Items", `<div class="row emblems">${itemRow}</div>`, { width: "wraps", info: "Items you have or expect, on no unit in particular.\nA selected item brings forward the comps that build it and the units that hold it." }) : ""}
       ${section("Emblems", `<div class="row emblems">${emblemRow || `<span class="note">This set's data names no emblem.</span>`}</div>`, { width: "wraps" })}
       ${fielded ? section("On the board", `<div>${fielded}</div>`, { info: "Each unit on the board, with the items it holds most on real boards and the comps it carries, tanks or holds items for.\nClick a comp to open it." }) : ""}
-      ${groups ? section("Suggested groups", `<div>${groups}</div>`, { info: "Units worth adding together: the rest of a close comp's core, or a whole board of that comp.\nClick a group to add all of it." }) : ""}
-      ${section("Suggested units", `<div class="row suggested">${suggested || `<span class="note">Put a unit on the board or select an item.</span>`}</div>`, {
-        info: "Units worth adding next.\nA unit is listed because a comp this board is close to has it in its core or plays it often, because it holds a selected item, or because it takes a trait on the board to its next breakpoint.\nClick one to add it.",
+      ${groups ? section("Suggested groups", `<div>${groups}</div>`, { info: "Units worth adding together.\nA group with a share is a set the real boards that hold every unit here add, exactly. The others are the rest of a close comp's core or a whole board of that comp, kept only when they fit in what those boards add.\nClick a group to add all of it." }) : ""}
+      ${section("Suggested units", `<div>${likeLine}<div class="row suggested">${suggested || `<span class="note">${context ? "The boards that hold these units add no unit often enough to name." : "Put a unit on the board or select an item."}</span>`}</div></div>`, {
+        info: "Units worth adding next.\nA unit with a share under it is one the real boards that hold every unit here add, on a twentieth of them or more. When those boards add two units or fewer, only such units are listed.\nA unit with no share is listed because a comp this board is close to has it in its core or plays it often, because it holds a selected item, or because it takes a trait on the board to its next breakpoint.\nClick one to add it.",
       })}
       ${section("Closest comps", `<div>${closest || `<span class="note">No comp is close to this board.</span>`}</div>`, {
         info: "The comps this board is close to, each with the core units still missing.\nA comp is close when the board holds two of its core units or one of its key units, when a unit on the board is an early holder for its carry, or when it builds a selected item.\nClick one to open it.",
@@ -1980,6 +2060,7 @@ function plannerHtml(board) {
 
 function renderPlanner() {
   showTip(null);
+  loadExplorer();
   const board = plannerBoard();
   el("roster").innerHTML = rosterHtml(board);
   el("detail").innerHTML = plannerHtml(board);

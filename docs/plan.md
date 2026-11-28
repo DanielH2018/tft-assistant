@@ -706,6 +706,17 @@ units, when a unit on the board is an early holder for its main carry, or when i
 selected item. The closest
 comps, the suggested units and the suggested groups all read the same list.
 
+The suggestions follow what is on the board. The page loads the explorer's boards and takes the
+ones that hold every unit on the planner. With 20 of them or more, the suggested units are the
+units those boards add on a twentieth of them or more, each with its share, and a line above
+says how many boards there are and how many units they add. The suggested groups lead with the
+sets of two or more units those boards add exactly, on five boards and 2% of them. The room left
+is the most units a tenth of those boards add. A comp's group is kept only when it fits in the
+room, and a comp's units fill the list only while the room is more than two: with seven units
+of a level 8 comp on the board, a unit from another comp's core is noise. The owner asked for
+this with a screenshot of such a board. With fewer than 20 boards, or before the boards load,
+the comps decide as before.
+
 A comp's page has an *Open in planner* button. It puts the comp's board on the planner, the
 core and the picked flex units where the page draws them, the reader's own places included, and
 sets the save form to the comp. It replaces the planner's working board.
