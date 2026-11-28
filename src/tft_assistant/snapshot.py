@@ -267,7 +267,6 @@ def _comp(comp: Comp, comp_id: str, name: str, static: StaticData) -> dict[str, 
             {
                 "item": special.item,
                 "kind": "emblem" if static.items[special.item].emblem_of else "artifact",
-                "emblem_of": static.items[special.item].emblem_of,
                 "share": special.share,
                 "avg_placement": special.avg_placement,
                 "holder": special.holder,
@@ -344,7 +343,6 @@ def build_snapshot(
     items |= set(recipes) | {part for parts in recipes.values() for part in parts}
     traits = {trait["trait"] for comp in comps for trait in comp["traits"]}
     traits |= {trait for unit in units for trait in static.units[unit].traits}
-    traits |= {special["emblem_of"] for special in specials if special["emblem_of"]}
     traits |= {static.items[item].emblem_of for item in items if item in static.items and static.items[item].emblem_of in static.traits}
     traits |= {name.removeprefix(TRAIT) for comp in comps for name in comp["categories"] if name.startswith(TRAIT)}
 

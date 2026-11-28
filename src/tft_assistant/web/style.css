@@ -342,6 +342,7 @@ body.maximized #maximize .grow, body:not(.maximized) #maximize .shrink { display
 .spare { margin-top: 8px; }
 .spare .row { align-items: center; gap: 4px 12px; margin-top: 4px; }
 .spare .joint { color: var(--subtext); }
+td.holder > * { vertical-align: middle; } td.holder .joint { color: var(--subtext); margin-right: 6px; }
 .spare .use { white-space: nowrap; }
 .take .item-icon { width: 32px; height: 32px; }
 .levels { display: flex; flex-wrap: wrap; gap: 0 32px; }

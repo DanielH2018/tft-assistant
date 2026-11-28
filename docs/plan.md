@@ -329,7 +329,8 @@ component as defensive labelled a carry holding Edge of Night and Quicksilver as
 Each key unit carries build notes from the comp's own boards. An item is critical when 70% of
 the unit's builds hold it, or when 40% do and builds without it place 0.4 worse. An item needs a
 partner when it places 0.5 better beside that item than apart from it, and by 0.25 more than the
-partner helps without it. A fixed template such as "a mana item, a damage item and an amplifier"
+partner helps without it. A critical item is never named as a partner: the unit builds it anyway,
+so the mark would say nothing. A fixed template such as "a mana item, a damage item and an amplifier"
 was rejected, because it does not always hold; the data decides. Only builds of the unit's usual
 size are compared: a build holding both of two items is otherwise a more finished build than one
 holding either, which made nearly every item appear to need a partner.
@@ -348,12 +349,6 @@ the units that come in and go out: those whose share differs by 15 points betwee
 with the item and the boards without. A Fae Emblem on Kayle brings Lillia in and pushes Ornn
 out. Each figure is a correlation, because a player who was offered an emblem made other choices
 too.
-
-An emblem's row also says what it makes: the count of its trait with the emblem on a unit that
-lacks the trait, beside the comp as it is usually fielded. The row is marked when that count is
-a breakpoint the usual board does not reach, and its hover card gives the count without the
-emblem, the trait's breakpoints and, when the emblem reaches none, the next one. The snapshot
-carries the trait as the row's `emblem_of`.
 
 The static data marks no item as an artifact, so the set file gives the start of an artifact's
 API name. The list's filter box searches item names as well: the items of the item priority, of
