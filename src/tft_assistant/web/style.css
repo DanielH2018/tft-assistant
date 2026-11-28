@@ -1,7 +1,7 @@
 :root {
   --base: #1e1e2e; --mantle: #181825; --crust: #11111b;
   --surface0: #313244; --surface1: #45475a; --surface2: #585b70;
-  --text: #cdd6f4; --subtext: #a6adc8; --muted: #6c7086;
+  --text: #cdd6f4; --subtext: #bac2de; --muted: #9399b2;
   --blue: #89b4fa; --green: #a6e3a1; --yellow: #f9e2af; --red: #f38ba8;
   --mauve: #cba6f7; --peach: #fab387; --grey: #9399b2;
   /* The Comp column is as wide as the longest name; the script measures it. The other columns,
