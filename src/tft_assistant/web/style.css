@@ -239,7 +239,7 @@ body[data-view="explorer"] :is(#switches, #head, #comps, #slams, #roster), body:
 .group-items .picked img { outline: 2px solid var(--mauve); outline-offset: 1px; }
 #clear-item { font: inherit; color: var(--subtext); background: none; border: 1px solid var(--surface1); border-radius: 4px; padding: 0 6px; margin-left: 6px; cursor: pointer; }
 .plan li button svg { vertical-align: -2px; }
-.carrier img { outline: 2px solid var(--mauve); outline-offset: 1px; }
+.also-label { align-self: center; margin: 0 6px 0 10px; }
 .notes { display: flex; flex-direction: column; gap: 2px; width: min(100%, 640px); }
 .notes :is(textarea, input) {
   width: 100%; resize: vertical; background: var(--crust); color: var(--text); font: inherit;

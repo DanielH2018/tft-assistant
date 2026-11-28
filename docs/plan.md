@@ -209,9 +209,16 @@ condition                   an augment or an encounter
 
 1. Each unit gets a vector of how often it holds each item, counted over boards where it holds
    two or more.
-2. Units with similar vectors form a group. The static `role` places cheap units that final
+2. Units with similar vectors form a group: average linkage on cosine distance, cut at 0.42. The
+   cut was 0.45 until 77,496 live boards merged the ability power assassins with the attack
+   damage fighters, whose average distance was 0.44 with Akali between them. The static `role` places cheap units that final
    boards rarely show with items.
-3. Pivots are other carries in the same group. A holder chain is the cheaper units of a carry's
+3. A unit that builds two ways is in two groups. Each of its builds is given to the group whose
+   units hold its items most, its own group read without it. A group that a fifth of its builds
+   fit, on 30 boards or more, lists it as `also`, counted over those builds only. On the live
+   Patch 18.7 boards Akali is with Kennen and Kha'Zix by her Jeweled Gauntlet builds and also
+   with the attack damage fighters by her Infinity Edge builds, 29% of them.
+4. Pivots are other carries in the same group. A holder chain is the cheaper units of a carry's
    group in cost order. A safe slam is an item that many strong cores use.
 
 ### The Items tab
@@ -241,8 +248,8 @@ first. A group's `held` field gives each unit its average placement over the boa
 holds two or more finished items, and for each item it holds on a tenth of them or more, the
 share of those boards and its placement there (`item_groups.Held`). With an item picked, the
 groups whose units hold it come first and are marked, and within every group the units that
-hold it lead, by share and then by their placement with it. A unit that is a comp's main carry
-is outlined. A click on a unit or an item of a group opens the comps tab with its name as the
+hold it lead, by share and then by their placement with it. A comp's main carry had an outline
+until the owner asked what the extra border was; the hover card names the comp. A click on a unit or an item of a group opens the comps tab with its name as the
 filter. The group's `units` stay cheapest first in the snapshot, which is the order a holder
 chain reads in.
 

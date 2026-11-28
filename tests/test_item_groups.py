@@ -110,3 +110,22 @@ def test_an_emblem_or_an_artifact_is_listed_at_a_hundredth_of_a_units_boards_and
     assert "Relic" not in held
     assert "Emblem" not in group.items
     assert {"Relic", "Emblem"}.isdisjoint(group.held["Mage2"].items)
+
+
+def test_a_unit_that_builds_two_ways_is_also_in_the_group_of_its_second_build():
+    flex = [board(("Rare", TANK)) for _ in range(6)] + [board(("Rare", MAGE), placement=2) for _ in range(4)]
+    boards = [board(("Tank4", TANK), ("Tank1", TANK), ("Mage5", MAGE), ("Mage2", MAGE)) for _ in range(5)] + flex
+
+    tanks, mages = sorted(find_item_groups(boards, STATIC, min_builds=3), key=lambda group: "Deathcap" in group.items)
+
+    assert (tanks.units, tanks.also) == (("Tank1", "Rare", "Tank4"), ())
+    assert (mages.units, mages.also) == (("Mage2", "Mage5"), ("Rare",))
+    assert (tanks.held["Rare"].boards, mages.held["Rare"].boards) == (10, 4)
+    assert mages.held["Rare"].avg_placement == 2.0 and set(mages.held["Rare"].items) == set(MAGE)
+
+
+def test_a_second_build_on_too_few_boards_joins_no_second_group():
+    flex = [board(("Rare", TANK)) for _ in range(18)] + [board(("Rare", MAGE)) for _ in range(3)]
+    boards = [board(("Tank4", TANK), ("Tank1", TANK), ("Mage5", MAGE), ("Mage2", MAGE)) for _ in range(5)] + flex
+
+    assert [group.also for group in find_item_groups(boards, STATIC, min_builds=3)] == [(), ()]
