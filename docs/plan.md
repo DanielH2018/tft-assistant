@@ -712,7 +712,8 @@ The suggestions follow what is on the board. The page loads the explorer's board
 ones that hold every unit on the planner. With 20 of them or more, the suggested units are the
 units those boards add on a twentieth of them or more, each with its share, and a line above
 says how many boards there are and how many units they add. The suggested groups lead with the
-sets of two or more units those boards add exactly, on five boards and 2% of them. The room left
+sets of two or more units those boards add exactly, on five boards and 2% of them. Such a group
+has no label: the owner asked for the share line to go, and the hover card keeps the figures. The room left
 is the most units a tenth of those boards add. A comp's group is kept only when it fits in the
 room, and a comp's units fill the list only while the room is more than two: with seven units
 of a level 8 comp on the board, a unit from another comp's core is noise. The owner asked for
@@ -723,7 +724,9 @@ A comp's page has an *Open in planner* button. It puts the comp's board on the p
 core and the picked flex units where the page draws them, the reader's own places included, and
 sets the save form to the comp. It replaces the planner's working board.
 
-A row of craftable items sits above the emblems. A click selects one: an item the reader has or
+A selected item is drawn under each suggested unit that holds it on real boards, at the floor
+the Items tab uses: with Sivir on the board and three attack items selected, Nidalee shows the
+ones she takes. A row of craftable items sits above the emblems. A click selects one: an item the reader has or
 expects, on no unit in particular. A selected item brings forward the comps that build it and
 suggests the units that hold it on real boards. The selection is kept in the browser with the
 board.
