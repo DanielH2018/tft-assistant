@@ -165,8 +165,8 @@ body[data-view="explorer"] :is(#switches, #head, #comps, #slams, #roster), body:
 .closest > * { flex: none; }
 .closest:hover .closest-name { color: var(--mauve); }
 .closest-name { width: 190px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#clear-plan { font: inherit; color: var(--subtext); background: none; border: 1px solid var(--surface1); border-radius: 4px; padding: 2px 8px; cursor: pointer; }
-#clear-plan:hover { color: var(--text); border-color: var(--surface2); }
+#clear-plan, #open-planner { font: inherit; color: var(--subtext); background: none; border: 1px solid var(--surface1); border-radius: 4px; padding: 2px 8px; cursor: pointer; }
+:is(#clear-plan, #open-planner):hover { color: var(--text); border-color: var(--surface2); }
 .categories { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 6px 0 0; }
 #add-category {
   width: 130px; background: none; color: var(--text); font: inherit; font-size: 12.5px;
@@ -269,7 +269,9 @@ main h1 { font-size: 22px; margin: 0; display: flex; align-items: center; gap: 1
 main header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 20px; margin-bottom: 10px; }
 .stats { color: var(--subtext); margin: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .stats b { color: var(--text); font-weight: 600; }
-section { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 6px 4px; padding: 7px 0; border-top: 1px solid var(--surface0); align-items: start; }
+/* A heading takes 90 pixels, or the width of its longest word where a font makes that wider, so a
+   heading never runs into its section. */
+section { display: grid; grid-template-columns: minmax(90px, min-content) minmax(0, 1fr); gap: 6px 4px; padding: 7px 0; border-top: 1px solid var(--surface0); align-items: start; }
 section > h2 {
   margin: 2px 0 0; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;
   cursor: pointer; user-select: none; position: relative;

@@ -1272,7 +1272,8 @@ function detailHtml(comp) {
     .join("");
   return `<div id="sheet">
     <header><div class="title">${MAXIMIZE}<h1><span class="tier t${comp.tier}">${comp.tier}</span>${nameHtml(comp)}</h1>
-      <button id="copy-team" ${tipOf(teamCode(comp), `${teamNote}: the core and the picked flex units`)}>Copy team code</button></div>
+      <button id="copy-team" ${tipOf(teamCode(comp), `${teamNote}: the core and the picked flex units`)}>Copy team code</button>
+      <button id="open-planner" ${tipOf("Put this board on the planner: the core and the picked flex units, where they stand here.", "It replaces the planner's working board.")}>Open in planner</button></div>
       <p class="stats"><b>${esc(comp.style)}</b> · avg <b>${comp.avg_placement.toFixed(2)}</b> · top 4 <b>${pct(comp.top4)}</b> · win <b>${pct(comp.win_rate)}</b> · play <b>${(comp.share * 100).toFixed(1)}%</b> · ${comp.boards.toLocaleString()} boards</p>${categoriesHtml(comp)}</header>
     <div class="flow">
       ${section("Core", `<div class="row">${comp.core.map((id) => unitTile(id, "l", { threeStar: threeStar(id) })).join("")}</div>`)}
@@ -1545,6 +1546,12 @@ el("detail").addEventListener("click", (event) => {
   if (flex) {
     togglePick(comp, flex.dataset.flex);
     renderDetail();
+  } else if (event.target.closest("#open-planner")) {
+    // The comp's board as its page draws it, the reader's own places included.
+    localStorage.setItem(plannerKey(), JSON.stringify(placesOf(comp)));
+    localStorage.removeItem(emblemKey());
+    Object.assign(state, { saveName: nameOf(comp), saveStage: "", saveComp: comp.id });
+    setView("planner");
   } else if (event.target.closest("#copy-team")) {
     copyText(teamCode(comp)).then(() => {
       const button = el("copy-team");
