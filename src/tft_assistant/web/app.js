@@ -522,7 +522,8 @@ function pickItem(asked) {
 // null where they cannot be had, and the caller lists the units that hold either item.
 const PAIR_BOARDS = 10;
 const PAIR_SHARE = 0.01;
-const PAIRS_SHOWN = 30;
+const PAIRS_SHOWN = 40;
+Object.assign(state, { pairSort: "play", pairAscending: false });
 function bothItemsHtml([first, second], phrases) {
   loadExplorer();
   const boards = explored.get(snap().explorer);
@@ -541,20 +542,32 @@ function bothItemsHtml([first, second], phrases) {
   }
   if (!holding) return `<p class="empty">No board holds both items.</p>`;
   const floor = Math.max(PAIR_BOARDS, PAIR_SHARE * holding);
-  const holder = (id, items) => `<span class="pair-unit to-filter" data-filter="${esc(unitOf(id).name)}" ${tipOf("Click to list the comps that field it.")}>${unitTile(id, "m")}<span class="pair-items">${items.map((item) => itemIcon(item)).join("")}</span></span>`;
-  const cards = [...pairs]
+  const holder = (id, items) => `<span class="pair-unit to-filter" data-filter="${esc(unitOf(id).name)}" ${tipOf("Click to list the comps that field it.")}>${unitTile(id, "s")}<span class="pair-name">${esc(unitOf(id).name)}</span><span class="pair-items">${items.map((item) => itemIcon(item)).join("")}</span></span>`;
+  const overall = placed / holding;
+  const order = EXPLORE_COLUMNS.find(([key]) => key === state.pairSort)[2];
+  const rows = [...pairs]
     .map(([key, row]) => [key.split("|"), row])
     .filter(([units, row]) => row[0] >= floor && phrases.every((phrase) => units.some((id) => unitPasses(id, phrase))))
-    .sort((a, b) => b[1][0] - a[1][0])
+    .sort((a, b) => (state.pairAscending ? -1 : 1) * order(a, b))
     .slice(0, PAIRS_SHOWN)
     .map(([[a, b], row]) => {
       const units = a === b ? holder(a, [first, second]) : `${holder(a, [first])}<span class="joint">+</span>${holder(b, [second])}`;
-      return `<div class="pair-card" ${tipOf(`${row[0].toLocaleString()} of the ${holding.toLocaleString()} boards that hold both items.`)}>${units}
-        <div class="card-lines"><span class="held-line"><b>${pct(row[0] / holding)}</b><span class="note">of the boards with both</span></span>
-          <span class="note">${(row[1] / row[0]).toFixed(2)} avg · ${pct(row[2] / row[0])} top 4 · ${row[0].toLocaleString()} boards</span></div></div>`;
+      const avg = row[1] / row[0];
+      const apart = avg - overall;
+      return `<tr ${tipOf(`${row[0].toLocaleString()} of the ${holding.toLocaleString()} boards that hold both items.`)}>
+        <td><span class="pair-holders">${units}</span></td>
+        <td>${pct(row[0] / holding)}</td><td>${avg.toFixed(2)}</td>
+        <td class="${apart < -0.005 ? "better" : apart > 0.005 ? "worse" : "note"}">${apart > 0 ? "+" : ""}${apart.toFixed(2)}</td>
+        <td>${pct(row[2] / row[0])}</td><td>${pct(row[3] / row[0])}</td><td class="note">${row[0].toLocaleString()}</td></tr>`;
     });
-  const summary = `<p class="note">${holding.toLocaleString()} boards hold both · ${(placed / holding).toFixed(2)} avg</p>`;
-  return `${summary}<div class="pair-cards">${cards.join("") || `<span class="note">No pair of holders is on ${Math.ceil(floor)} of them${phrases.length ? " and passes the filters" : ""}.</span>`}</div>`;
+  const head = EXPLORE_COLUMNS.map(([key, label]) => {
+    const arrow = key === state.pairSort ? `<span class="arrow">${state.pairAscending ? "▲" : "▼"}</span>` : "";
+    const delta = key === "avg" ? `<th ${tipOf("The average placement less that of all the boards with both items.")}><button data-pair-sort="avg">Delta</button></th>` : "";
+    return `<th class="${key === state.pairSort ? "sorted" : ""}"><button data-pair-sort="${key}">${label}${arrow}</button></th>${delta}`;
+  }).join("");
+  const summary = `<p class="note">${holding.toLocaleString()} boards hold both · ${overall.toFixed(2)} avg</p>`;
+  const none = `<tr><td colspan="7" class="note">No pair of holders is on ${Math.ceil(floor)} of them${phrases.length ? " and passes the filters" : ""}.</td></tr>`;
+  return `${summary}<table class="explore-table pair-table"><thead><tr><th>Holders</th>${head}<th>Boards</th></tr></thead><tbody>${rows.join("") || none}</tbody></table>`;
 }
 
 function itemGroupsHtml() {
@@ -2307,8 +2320,13 @@ el("slams").addEventListener("click", (event) => {
 el("detail").addEventListener("click", (event) => {
   if (state.view !== "items") return;
   const named = event.target.closest("[data-filter]");
+  const pairSort = event.target.closest("[data-pair-sort]");
   if (event.target.closest("#clear-item")) {
     state.items = [];
+    renderItems();
+  } else if (pairSort) {
+    state.pairAscending = pairSort.dataset.pairSort === state.pairSort && !state.pairAscending;
+    state.pairSort = pairSort.dataset.pairSort;
     renderItems();
   } else if (named) {
     state.view = "comps";

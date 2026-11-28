@@ -290,9 +290,11 @@ helps most, where an item a player builds runs from the unit that holds it most.
 counts toward no item group, as before; it is only listed for the units that wear it.
 
 With two items picked, the pane lists the boards that hold both, from the explorer's board
-file. A card is a pair of holders: one unit that holds both items, or two units that hold one
-each, both drawn. It gives the pair's share of the boards with both items, its placement and
-top 4 rate. A pair needs ten boards and 1% of the boards with both. The owner asked for both
+file, as a table. A row is a pair of holders: one unit that holds both items, or two units that
+hold one each, both drawn. Its columns are the pair's share of the boards with both items, its
+placement, the delta from all those boards, its top 4 and win rates and its boards. A column
+sorts both ways, as the comp list's do, and the pane's filter box narrows the rows. A pair needs
+ten boards and 1% of the boards with both. The rows were cards until the owner asked for a table. The owner asked for both
 items on a board, not either, on 2026-11-28. A page opened from a file has no board file, so
 there the pane lists the units that hold either item.
 
