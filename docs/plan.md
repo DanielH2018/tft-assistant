@@ -506,8 +506,13 @@ on, and the page sets no native tooltip on its content.
 
 A trait's card and an item's card say what the thing does, in the game's own words
 (`descriptions.py`). The operator asked for descriptions on 2026-11-26, deferred them, and on
-2026-11-28 asked for whatever could be built. A unit's card still does not say what its ability
-does. What Set 18's data holds:
+2026-11-28 asked for whatever could be built, units included. What Set 18's data holds:
+
+- **A unit's card gives its stats at one star, its mana and its ability's text.** The data holds
+  the numbers of two abilities in 74, so a number it lacks reads `?` and the sentence stays:
+  "deals ? (Attack Damage + Ability Power) physical damage". What the ability does and what it
+  grows with is worth reading without the number. The stats and the ability are added when the
+  card opens, so they are not written into every tile of the page.
 
 - **Items are filled in from their own values.** 605 of the set's 776 items have a text. An
   emblem has none in the data and gets "The holder gains the X trait." A line that names a value
@@ -520,10 +525,13 @@ does. What Set 18's data holds:
   resolves 239 of 239. The n-th `<row>` of a template reads the n-th breakpoint's variables.
   One trait of 36, Rapidfire, names a value the data lacks in its rows, so its card has the
   opening text and the bare breakpoints.
-- **Abilities cannot.** The summary gives an ability's name and its template, but its
+- **An ability's numbers cannot be filled in.** The summary gives an ability's name and its template, but its
   `variables` list is empty for 72 of the 74 Set 18 units. Older sets have the list. The
   templates name calculated values such as `@MagicDamageCalc1@`, which no list of raw values
   holds: they come from the spell's calculations and the unit's stats at each star level.
+- **A unit's own file does not hold them either.** `game/characters/da_18_sivir.cdtb.bin.json`
+  has a spell object with two placeholder values, `DataValue` and `OtherValue`, and none of the
+  names the template asks for. Read on 2026-11-28.
 - **Where the spell data lives is open.** Community Dragon's raw map file
   (`game/data/maps/shipping/map22/map22.bin.json`, 70 MB) holds a `TftCharacter` record per unit
   and 638 spell objects, and none under a Set 18 unit's name.

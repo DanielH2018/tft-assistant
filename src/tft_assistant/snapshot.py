@@ -387,6 +387,8 @@ def build_snapshot(
                 "icon": static.units[unit].icon,
                 "planner_code": static.units[unit].planner_code,
                 "row": usual_row(static.units[unit]),
+                "stats": static.units[unit].stats,
+                "ability": static.units[unit].ability,
             }
             for unit in sorted(units)
         },

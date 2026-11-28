@@ -61,6 +61,8 @@ def test_every_unit_item_and_trait_a_comp_names_is_in_the_lookup_tables(snapshot
         "icon": "https://icons.test/A1.png",
         "planner_code": None,
         "row": 0,
+        "stats": "",
+        "ability": "",
     }
     assert snapshot["traits"]["T"] == {"name": "Trait", "icon": None, "breakpoints": [2, 4], "desc": "", "rows": []}
     assert snapshot["items"]["Edge"] == {"name": "Edge", "icon": None, "recipe": ["Sword", "Glove"], "emblem_of": None, "radiant_of": None, "desc": ""}

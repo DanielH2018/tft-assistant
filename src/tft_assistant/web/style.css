@@ -8,7 +8,7 @@
      their gaps, the row's padding and a 15-pixel scrollbar gutter take the rest of the width
      at which the list shows every column. The list never gets wider. */
   --name-width: 150px;
-  --other-columns: 532px;
+  --other-columns: 538px;
   --full-list: calc(var(--other-columns) + var(--name-width));
 }
 * { box-sizing: border-box; }
@@ -44,7 +44,7 @@ aside {
 /* A row wraps and shows its first line only, so a column that does not fit leaves whole. */
 .comp-row { display: flex; align-items: center; gap: 20px 8px; padding: 4px 10px; flex-wrap: wrap; align-content: flex-start; overflow: hidden; }
 .comp-row > * { flex: none; }
-.c-tier { width: 40px; } .c-name { width: var(--name-width); max-width: calc(100% - 48px); } .c-level { width: 44px; } .c-core { width: 190px; }
+.c-tier { width: 40px; } .c-name { width: var(--name-width); max-width: calc(100% - 48px); } .c-level { width: 44px; } .c-core { width: 196px; }
 .c-avg, .c-top4, .c-win { width: 40px; } .c-play { width: 46px; }
 #head { height: 24px; overflow-y: hidden; scrollbar-gutter: stable; border-bottom: 1px solid var(--surface0); }
 #head > * {

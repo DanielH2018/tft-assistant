@@ -11,6 +11,13 @@ const traitName = (id) => (snap().traits[id] || { name: id }).name;
 // The text of a hover card, as a `data-tip` attribute: one line for each part that has something to say.
 const tipOf = (...lines) => `data-tip="${esc(lines.filter(Boolean).join("\n"))}"`;
 
+// A table cell for a placement less the average it is compared with. A difference that rounds to
+// nothing reads 0.00, with no sign.
+function deltaCell(apart) {
+  const none = Math.abs(apart) < 0.005;
+  return `<td class="${none ? "note" : apart < 0 ? "better" : "worse"}">${none ? "0.00" : `${apart > 0 ? "+" : ""}${apart.toFixed(2)}`}</td>`;
+}
+
 // What a trait does, from the game's own text: its opening, then a line for each breakpoint.
 function traitText(trait) {
   const found = snap().traits[trait] || {};
@@ -28,7 +35,7 @@ function unitTile(id, size = "l", options = {}) {
   const unit = unitOf(id);
   const image = unit.icon ? `<img src="${esc(unit.icon)}" alt="" loading="lazy">` : `<span class="blank"></span>`;
   const stars = options.threeStar ? `<b class="stars">★★★</b>` : "";
-  return `<span class="unit ${size} cost${unit.cost}" ${unitTip(id, options.note)}>${image}${stars}<span class="unit-name">${esc(unit.name)}</span></span>`;
+  return `<span class="unit ${size} cost${unit.cost}" data-unit="${esc(id)}" ${unitTip(id, options.note)}>${image}${stars}<span class="unit-name">${esc(options.label || unit.name)}</span></span>`;
 }
 
 // An item's hover card names the item and the components it is built from, then `note`.
@@ -347,7 +354,7 @@ function exploreTable(title, counts, total, show, ask) {
       return `<tr data-explore="${esc(ask(key))}" ${tipOf(`On ${row[0].toLocaleString()} of these ${total[0].toLocaleString()} boards.`, "Click to add it to the filters.")}>
         <td><span class="explore-name">${show(key)}</span></td>
         <td>${pct(row[0] / total[0])}</td>
-        <td>${avg.toFixed(2)}</td><td class="${apart < -0.005 ? "better" : apart > 0.005 ? "worse" : "note"}">${apart > 0 ? "+" : ""}${apart.toFixed(2)}</td>
+        <td>${avg.toFixed(2)}</td>${deltaCell(apart)}
         <td>${pct(row[2] / row[0])}</td><td>${pct(row[3] / row[0])}</td></tr>`;
     });
   const head = EXPLORE_COLUMNS.map(([key, label]) => {
@@ -563,7 +570,7 @@ function bothItemsHtml([first, second], phrases) {
       return `<tr ${tipOf(`${row[0].toLocaleString()} of the ${holding.toLocaleString()} boards that hold both items.`)}>
         <td><span class="pair-holders">${units}</span></td>
         <td>${pct(row[0] / holding)}</td><td>${avg.toFixed(2)}</td>
-        <td class="${apart < -0.005 ? "better" : apart > 0.005 ? "worse" : "note"}">${apart > 0 ? "+" : ""}${apart.toFixed(2)}</td>
+        ${deltaCell(apart)}
         <td>${pct(row[2] / row[0])}</td><td>${pct(row[3] / row[0])}</td><td class="note">${row[0].toLocaleString()}</td></tr>`;
     });
   const head = EXPLORE_COLUMNS.map(([key, label]) => {
@@ -1484,7 +1491,10 @@ function showTip(target) {
   const marked = target && target.closest ? target.closest("[data-tip]") : null;
   tip.style.display = marked ? "block" : "none";
   if (!marked) return;
-  tip.textContent = marked.dataset.tip;
+  // A unit's stats and ability are the same wherever it is drawn, so they are added here and not
+  // written into every tile.
+  const unit = marked.dataset.unit && snap().units[marked.dataset.unit];
+  tip.textContent = [marked.dataset.tip, unit && unit.stats, unit && unit.ability].filter(Boolean).join("\n\n");
   tip.style.left = "0px";
   const at = marked.getBoundingClientRect();
   const below = at.bottom + 6;
@@ -1964,6 +1974,10 @@ function unitAdvice(id) {
   return { items, comps: [...comps, ...holds] };
 }
 
+// A unit with a variant for each origin is named "Lux (Fae)". In the roster the variants stand in
+// a row after the unit, so each is labelled with its origin alone, which fits under a tile.
+const variantOf = (id) => (unitOf(id).name.match(/^.+ \((.+)\)$/) || [])[1];
+
 function rosterHtml(board) {
   const on = new Set(Object.values(board));
   const costs = new Map();
@@ -1971,7 +1985,7 @@ function rosterHtml(board) {
   return [...costs]
     .map(
       ([cost, ids]) => `<div class="roster-cost"><span class="note">${cost} cost</span>${ids
-        .map((id) => `<span class="pick ${on.has(id) ? "on" : ""}" data-pick="${id}">${unitTile(id, "m", { note: on.has(id) ? "Click to take it off the board." : "Click to put it on the board." })}</span>`)
+        .map((id) => `<span class="pick ${on.has(id) ? "on" : ""}" data-pick="${id}">${unitTile(id, "m", { label: variantOf(id), note: on.has(id) ? "Click to take it off the board." : "Click to put it on the board." })}</span>`)
         .join("")}</div>`,
     )
     .join("");
