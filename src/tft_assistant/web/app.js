@@ -341,15 +341,17 @@ function exploreTable(title, counts, total, show, ask) {
       return `<tr data-explore="${esc(ask(key))}" ${tipOf(`On ${row[0].toLocaleString()} of these ${total[0].toLocaleString()} boards.`, "Click to add it to the filters.")}>
         <td><span class="explore-name">${show(key)}</span></td>
         <td>${pct(row[0] / total[0])}</td>
-        <td>${avg.toFixed(2)} <span class="${apart < -0.005 ? "better" : apart > 0.005 ? "worse" : "note"}">${apart > 0 ? "+" : ""}${apart.toFixed(2)}</span></td>
+        <td>${avg.toFixed(2)}</td><td class="${apart < -0.005 ? "better" : apart > 0.005 ? "worse" : "note"}">${apart > 0 ? "+" : ""}${apart.toFixed(2)}</td>
         <td>${pct(row[2] / row[0])}</td><td>${pct(row[3] / row[0])}</td></tr>`;
     });
   const head = EXPLORE_COLUMNS.map(([key, label]) => {
     const arrow = key === state.exploreSort ? `<span class="arrow">${state.exploreAscending ? "▲" : "▼"}</span>` : "";
-    return `<th class="${key === state.exploreSort ? "sorted" : ""}"><button data-explore-sort="${key}">${label}${arrow}</button></th>`;
+    // The delta is the average less the boards' own, so it sorts as the average does.
+    const delta = key === "avg" ? `<th ${tipOf("The average placement less that of all these boards.")}><button data-explore-sort="avg">Delta</button></th>` : "";
+    return `<th class="${key === state.exploreSort ? "sorted" : ""}"><button data-explore-sort="${key}">${label}${arrow}</button></th>${delta}`;
   }).join("");
   return `<table class="explore-table"><caption>${title}</caption><thead><tr><th></th>${head}</tr></thead>
-    <tbody>${rows.join("") || `<tr><td colspan="5" class="note">Nothing is on ${Math.ceil(floor)} of these boards.</td></tr>`}</tbody></table>`;
+    <tbody>${rows.join("") || `<tr><td colspan="6" class="note">Nothing is on ${Math.ceil(floor)} of these boards.</td></tr>`}</tbody></table>`;
 }
 
 function renderExplorer() {
@@ -380,18 +382,20 @@ function renderExplorer() {
   const whose = one.length === 1
     ? `<label class="switch" ${tipOf("On: only the items that unit holds. Off: the items any unit on the board holds.")}><input id="explore-holder" type="checkbox" ${state.exploreHolder ? "checked" : ""}><i></i>Items on ${esc(unitOf(one[0]).name)} only</label>`
     : "";
+  const traitOf = (key) => key.slice(key.indexOf(" ") + 1);
+  // The two long tables fill the page. The short ones go under the figures in the list pane,
+  // which is otherwise empty below them.
+  const short = `${one.length === 1 ? exploreTable(`${esc(unitOf(one[0]).name)} by stars`, levels, all, (stars) => `${unitTile(one[0], "s")}${"★".repeat(stars)}`, (stars) => `${stars} star ${unitOf(one[0]).name}`) : ""}
+    ${exploreTable("Traits", traits, all, (key) => `${(s.traits[traitOf(key)] || {}).icon ? `<img src="${esc(s.traits[traitOf(key)].icon)}" alt="">` : ""}${parseInt(key, 10)} ${esc(traitName(traitOf(key)))}`, (key) => `${parseInt(key, 10)} ${traitName(traitOf(key))}`)}`;
   el("explore").innerHTML = all[0]
     ? `<p class="big">${all[0].toLocaleString()} boards</p>
        <p class="note">of ${boards.length.toLocaleString()} in ${esc(s.label)}: ${pct(all[0] / boards.length)}</p>
-       <dl><dt>Average placement</dt><dd>${(all[1] / all[0]).toFixed(2)}</dd><dt>Top 4</dt><dd>${pct(all[2] / all[0])}</dd><dt>Win</dt><dd>${pct(all[3] / all[0])}</dd></dl>${whose}${help}`
+       <dl><dt>Average placement</dt><dd>${(all[1] / all[0]).toFixed(2)}</dd><dt>Top 4</dt><dd>${pct(all[2] / all[0])}</dd><dt>Win</dt><dd>${pct(all[3] / all[0])}</dd></dl>${whose}${short}${help}`
     : `<p class="big">No board</p><p class="note">No board of ${boards.length.toLocaleString()} passes every filter.</p>${help}`;
-  const traitOf = (key) => key.slice(key.indexOf(" ") + 1);
   const tables = all[0]
     ? `<div class="explore-tables">
         ${exploreTable("Units", units, all, (id) => `${unitTile(id, "s")}${esc(unitOf(id).name)}`, (id) => unitOf(id).name)}
         ${exploreTable(holder ? `Items on ${esc(unitOf(holder).name)}` : "Items", items, all, (item) => `${itemIcon(item)}${itemName(item)}`, (item) => (holder ? `${unitOf(holder).name}: ${itemName(item)}` : itemName(item)))}
-        ${one.length === 1 ? exploreTable(`${esc(unitOf(one[0]).name)} by stars`, levels, all, (stars) => `${unitTile(one[0], "s")}${"★".repeat(stars)}`, (stars) => `${stars} star ${unitOf(one[0]).name}`) : ""}
-        ${exploreTable("Traits", traits, all, (key) => `${(s.traits[traitOf(key)] || {}).icon ? `<img src="${esc(s.traits[traitOf(key)].icon)}" alt="">` : ""}${parseInt(key, 10)} ${esc(traitName(traitOf(key)))}`, (key) => `${parseInt(key, 10)} ${traitName(traitOf(key))}`)}
       </div>`
     : `<p class="empty">Remove a filter to see boards.</p>`;
   el("detail").innerHTML = shell(tables);
@@ -2143,7 +2147,8 @@ el("detail").addEventListener("click", (event) => {
 });
 
 // The explorer: a click on a row adds it to the filters, and a click on a column sorts by it.
-el("detail").addEventListener("click", (event) => {
+// Its tables are in the page and in the list pane.
+function exploreClick(event) {
   if (state.view !== "explorer") return;
   const row = event.target.closest("[data-explore]");
   const sort = event.target.closest("[data-explore-sort]");
@@ -2155,7 +2160,8 @@ el("detail").addEventListener("click", (event) => {
     state.exploreFilters.push(row.dataset.explore);
     renderFilters();
   }
-});
+}
+for (const pane of ["detail", "explore"]) el(pane).addEventListener("click", exploreClick);
 el("slams").addEventListener("change", (event) => {
   if (event.target.id !== "slam-counts") return;
   state.slamCounts = event.target.checked;

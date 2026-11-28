@@ -764,7 +764,9 @@ unit's star levels. There is no filter for boards without a thing: the owner dec
 ignored. The side panel shows the boards that pass, with their average placement, top 4 and win
 rates. The pane has three tables, Units, Items and Traits. A row gives its play rate under the
 filter, its placement, the difference from the average of the boards that pass, top 4 and win.
-A click on a row adds it as a filter, and a column sorts both ways. The units table leaves out a unit
+A row's average placement and its delta from the boards' own average are two columns. The units and the items tables fill the page side by side. The traits table and the star
+levels table are short, so they sit in the list pane under the figures, where the pane was
+empty. A click on a row adds it as a filter, and a column sorts both ways. The units table leaves out a unit
 the filters name: it is on every board that passes, so its row would say nothing. With one unit in the
 filters, a switch limits the items table to the items that unit holds.
 
