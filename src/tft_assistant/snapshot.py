@@ -397,6 +397,7 @@ def build_snapshot(
                 "recipe": [static.items[part].name if part in static.items else part for part in static.items[item].components],
                 "emblem_of": static.items[item].emblem_of,
                 "radiant_of": static.items[item].radiant_of,
+                "desc": static.items[item].description,
             }
             for item in sorted(items)
             if item in static.items
@@ -406,6 +407,8 @@ def build_snapshot(
                 "name": static.traits[trait].name,
                 "icon": static.traits[trait].icon,
                 "breakpoints": [breakpoint.min_units for breakpoint in static.traits[trait].breakpoints],
+                "desc": static.traits[trait].description,
+                "rows": list(static.traits[trait].rows),
             }
             for trait in sorted(traits)
             if trait in static.traits

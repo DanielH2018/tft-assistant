@@ -15,6 +15,7 @@ from typing import Any
 
 import httpx
 
+from tft_assistant.descriptions import render, render_trait
 from tft_assistant.paths import state_path
 
 DOCUMENT_URL = "https://raw.communitydragon.org/{channel}/cdragon/tft/en_us.json"
@@ -53,6 +54,10 @@ class Trait:
     name: str
     breakpoints: tuple[Breakpoint, ...]
     icon: str | None = None
+    description: str = ""
+    """What the trait does, before its breakpoints."""
+    rows: tuple[str, ...] = ()
+    """What each breakpoint gives, in the order of `breakpoints`."""
 
 
 @dataclass(frozen=True)
@@ -67,6 +72,20 @@ class Item:
     is_defensive: bool = False
     """The recipe has a defensive component and no offensive one, as the set file lists them."""
     is_artifact: bool = False
+    description: str = ""
+
+
+def _item_text(item: dict[str, Any], described: Mapping[str, dict[str, Any]], emblem_of: Trait | None) -> str:
+    """What an item does.
+
+    A set's own record of a standard item has no text, so the text is read from the record of
+    the same name that has one. The data describes no emblem, and an emblem does one thing.
+    """
+    for record in (item, described.get((item.get("name") or "").lower(), {})):
+        text = render(record.get("desc"), record.get("effects") or {})
+        if text:
+            return text
+    return f"The holder gains the {emblem_of.name} trait." if emblem_of else ""
 
 
 def _icon_url(path: str | None) -> str | None:
@@ -159,18 +178,16 @@ class StaticData:
         if not found:
             raise KeyError(f"no {mutator!r} in the document; it has {sorted(e['mutator'] for e in source['setData'])}")
         entry = found[0]
-        traits = {
-            trait["apiName"]: Trait(
+        traits = {}
+        for trait in entry["traits"]:
+            effects = sorted(trait["effects"], key=lambda effect: effect["minUnits"])
+            traits[trait["apiName"]] = Trait(
                 trait["apiName"],
                 trait["name"],
-                tuple(
-                    Breakpoint(effect["minUnits"], effect["maxUnits"], effect["style"])
-                    for effect in sorted(trait["effects"], key=lambda effect: effect["minUnits"])
-                ),
+                tuple(Breakpoint(effect["minUnits"], effect["maxUnits"], effect["style"]) for effect in effects),
                 _icon_url(trait.get("icon")),
+                *render_trait(trait.get("desc"), effects),
             )
-            for trait in entry["traits"]
-        }
         trait_by_name = {trait.name: trait.api_name for trait in traits.values()}
         # The planner lists one unit where the roster has a variant of it per origin, named
         # "Unit (Origin)". A variant takes the number of the unit it is a variant of.
@@ -190,6 +207,11 @@ class StaticData:
         }
         records = [item for item in source["items"] if item["apiName"] in set(entry["items"])]
         by_name = {(item.get("name") or "").lower(): item["apiName"] for item in records}
+        # The record of each name that has a text, a standard item's before a past set's.
+        described: dict[str, dict[str, Any]] = {}
+        for item in sorted(source["items"], key=lambda item: not item["apiName"].startswith("TFT_Item_")):
+            if item.get("desc"):
+                described.setdefault((item.get("name") or "").lower(), item)
         built_from = {part for item in records for part in item.get("composition") or ()}
         items = {
             item["apiName"]: Item(
@@ -202,6 +224,7 @@ class StaticData:
                 _icon_url(item.get("icon")),
                 _is_defensive(item.get("composition") or (), defensive, offensive),
                 item["apiName"].startswith(artifact_starts),
+                _item_text(item, described, traits.get(_emblem_trait(item, trait_by_name) or "")),
             )
             for item in records
         }

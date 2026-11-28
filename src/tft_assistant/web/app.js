@@ -11,6 +11,12 @@ const traitName = (id) => (snap().traits[id] || { name: id }).name;
 // The text of a hover card, as a `data-tip` attribute: one line for each part that has something to say.
 const tipOf = (...lines) => `data-tip="${esc(lines.filter(Boolean).join("\n"))}"`;
 
+// What a trait does, from the game's own text: its opening, then a line for each breakpoint.
+function traitText(trait) {
+  const found = snap().traits[trait] || {};
+  return [found.desc, ...(found.rows || [])].filter(Boolean).join("\n");
+}
+
 // A unit's hover card names the unit, its cost and its traits. `note` adds what this place on the
 // page says about the unit.
 function unitTip(id, note = "") {
@@ -28,7 +34,7 @@ function unitTile(id, size = "l", options = {}) {
 // An item's hover card names the item and the components it is built from, then `note`.
 function itemIcon(id, { note = "" } = {}) {
   const item = snap().items[id] || { name: id };
-  const tip = tipOf(item.name, (item.recipe || []).join(" + "), note);
+  const tip = tipOf(item.name, (item.recipe || []).join(" + "), item.desc, note);
   return item.icon ? `<img class="item-icon" src="${esc(item.icon)}" alt="" ${tip} loading="lazy">` : "";
 }
 const itemName = (id) => esc((snap().items[id] || { name: id }).name);
@@ -386,7 +392,7 @@ function renderExplorer() {
   // The two long tables fill the page. The short ones go under the figures in the list pane,
   // which is otherwise empty below them.
   const short = `${one.length === 1 ? exploreTable(`${esc(unitOf(one[0]).name)} by stars`, levels, all, (stars) => `${unitTile(one[0], "s")}${"★".repeat(stars)}`, (stars) => `${stars} star ${unitOf(one[0]).name}`) : ""}
-    ${exploreTable("Traits", traits, all, (key) => ((s.traits[traitOf(key)] || {}).icon ? `<img src="${esc(s.traits[traitOf(key)].icon)}" alt="" ${tipOf(traitName(traitOf(key)))}>${parseInt(key, 10)} <span class="row-name">${esc(traitName(traitOf(key)))}</span>` : `${parseInt(key, 10)} ${esc(traitName(traitOf(key)))}`), (key) => `${parseInt(key, 10)} ${traitName(traitOf(key))}`)}`;
+    ${exploreTable("Traits", traits, all, (key) => ((s.traits[traitOf(key)] || {}).icon ? `<img src="${esc(s.traits[traitOf(key)].icon)}" alt="" ${tipOf(traitName(traitOf(key)), traitText(traitOf(key)))}>${parseInt(key, 10)} <span class="row-name">${esc(traitName(traitOf(key)))}</span>` : `${parseInt(key, 10)} ${esc(traitName(traitOf(key)))}`), (key) => `${parseInt(key, 10)} ${traitName(traitOf(key))}`)}`;
   el("explore").innerHTML = all[0]
     ? `<p class="big">${all[0].toLocaleString()} boards</p>
        <p class="note">of ${boards.length.toLocaleString()} in ${esc(s.label)}: ${pct(all[0] / boards.length)}</p>
@@ -1237,8 +1243,8 @@ function detailHtml(comp) {
       const tip = tipOf(
         traitName(t.trait),
         `${t.units} on a usual board${t.tiers > 1 ? `, tier ${t.tier} of ${t.tiers}` : ""}`,
-        breakpoints.length && `Breakpoints: ${breakpoints.join(" / ")}`,
         holders.length && `Core units: ${holders.join(", ")}`,
+        traitText(t.trait) || (breakpoints.length && `Breakpoints: ${breakpoints.join(" / ")}`),
       );
       return `<span class="trait ${full ? "top" : ""}" ${tip}>${icon ? `<img src="${esc(icon)}" alt="">` : ""}${t.units} ${esc(traitName(t.trait))}</span>`;
     })
@@ -2028,9 +2034,9 @@ function plannerHtml(board) {
       const { icon } = snap().traits[trait] || {};
       const tip = tipOf(
         traitName(trait),
-        breakpoints.length ? `Breakpoints: ${breakpoints.join(" / ")}` : "",
         reached ? `${count} reaches ${breakpoints[reached - 1]}` : `${count} of the ${breakpoints[0] || "?"} it needs`,
         next ? `${next - count} more for ${next}` : "",
+        traitText(trait) || (breakpoints.length ? `Breakpoints: ${breakpoints.join(" / ")}` : ""),
       );
       return `<span class="trait ${reached ? "top" : ""}" ${tip}>${icon ? `<img src="${esc(icon)}" alt="">` : ""}${count}${next ? `/${next}` : ""} ${esc(traitName(trait))}</span>`;
     })
