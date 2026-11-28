@@ -143,16 +143,17 @@ class StaticData:
         defensive_components: Iterable[str] = (),
         offensive_components: Iterable[str] = (),
         planner: Mapping[str, int] | None = None,
-        artifact_prefix: str = "",
+        artifact_prefixes: Iterable[str] = (),
     ) -> StaticData:
         """The roster of one game mode of one set, named as in Community Dragon's `setData`.
 
         The document marks no item as defensive, so the caller names the defensive and the
         offensive components. A component in neither list, such as one that gives mana, is neutral.
         The document holds no team planner numbers either; `planner` gives each unit's. It marks
-        no artifact, so an item whose API name starts with `artifact_prefix` is one.
+        no artifact, so an item whose API name starts with one of `artifact_prefixes` is one.
         """
         defensive, offensive = set(defensive_components), set(offensive_components)
+        artifact_starts = tuple(artifact_prefixes)
         planner = planner or {}
         found = [entry for entry in source["setData"] if entry["mutator"] == mutator]
         if not found:
@@ -200,7 +201,7 @@ class StaticData:
                 item["apiName"] in built_from,
                 _icon_url(item.get("icon")),
                 _is_defensive(item.get("composition") or (), defensive, offensive),
-                bool(artifact_prefix) and item["apiName"].startswith(artifact_prefix),
+                item["apiName"].startswith(artifact_starts),
             )
             for item in records
         }

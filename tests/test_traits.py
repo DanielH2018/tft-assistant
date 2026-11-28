@@ -75,9 +75,10 @@ def test_a_unit_takes_its_team_planner_number_and_the_roster_keeps_the_sets_name
 
 
 def test_an_item_is_an_artifact_when_its_api_name_starts_as_the_set_file_says():
-    static = StaticData.from_document(DOCUMENT, "TFTSet99", artifact_prefix="I_St")
+    static = StaticData.from_document(DOCUMENT, "TFTSet99", artifact_prefixes=["I_St", "I_Bl"])
 
     assert static.items["I_Stone"].is_artifact
+    assert static.items["I_Blade"].is_artifact
     assert not static.items["I_Sword"].is_artifact
     assert not STATIC.items["I_Stone"].is_artifact
 

@@ -352,8 +352,9 @@ with the item and the boards without. A Fae Emblem on Kayle brings Lillia in and
 out. Each figure is a correlation, because a player who was offered an emblem made other choices
 too.
 
-The static data marks no item as an artifact, so the set file gives the start of an artifact's
-API name. The list's filter box searches item names as well: the items of the item priority, of
+The static data marks no item as an artifact, so the set file gives the starts of an artifact's
+API name. It takes several: every Set 18 artifact starts `DA_Artifact_` but Talisman of
+Ascension, which starts `DA_Item_Artifact_` and was listed under Other until the owner saw it. The list's filter box searches item names as well: the items of the item priority, of
 the key units' builds and of this section. A filter that is part of one name, such as
 `fae emblem`, lists the comps with that name; any other filter lists the comps that hold every
 one of its words.
