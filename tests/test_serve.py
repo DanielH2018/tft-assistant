@@ -63,12 +63,13 @@ def test_a_client_that_hangs_up_mid_answer_costs_one_log_line_and_no_traceback(s
         client.sendall(b"GET /index.html HTTP/1.1\r\nHost: test\r\n\r\n")
         client.recv(1024)
         client.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
-    logged = ""
+    # The capture is read once, after the request's thread has ended. Read in a loop it drops a
+    # line the server writes between a read and the truncation that follows it.
     for _ in range(50):
-        logged += capfd.readouterr().err
-        if "hung up" in logged:
+        if not any("process_request_thread" in thread.name for thread in threading.enumerate()):
             break
         time.sleep(0.1)
+    logged = capfd.readouterr().err
 
     assert "hung up before the answer was sent" in logged
     assert "Traceback" not in logged
