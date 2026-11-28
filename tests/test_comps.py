@@ -211,7 +211,7 @@ def test_an_item_needs_a_partner_when_it_places_better_beside_it_than_the_partne
         (["Edge", "Whisper"], 2, 30),
         (["Edge", "Plate"], 6, 30),
         (["Whisper", "Plate"], 4, 30),
-        (["Plate", "Stone"], 4, 30),
+        (["Plate", "Stone"], 4, 70),
     )
 
     notes = {note.item: note for note in build_notes(members, "U", planted_static)}
@@ -219,6 +219,21 @@ def test_an_item_needs_a_partner_when_it_places_better_beside_it_than_the_partne
     assert [(pair.partner, pair.avg_together, pair.avg_apart) for pair in notes["Edge"].needs] == [("Whisper", 2.0, 6.0)]
     assert [pair.partner for pair in notes["Whisper"].needs] == ["Edge"]
     assert notes["Plate"].needs == () and notes["Stone"].needs == ()
+
+
+def test_an_item_is_not_said_to_need_a_critical_item(planted_static):
+    members = unit_builds(
+        (["Edge", "Whisper"], 2, 30),
+        (["Edge", "Plate"], 6, 70),
+        (["Whisper", "Plate"], 6, 20),
+        (["Plate", "Stone"], 4, 20),
+    )
+
+    notes = {note.item: note for note in build_notes(members, "U", planted_static)}
+
+    assert (notes["Edge"].critical, notes["Whisper"].critical) == (True, False)
+    assert notes["Whisper"].needs == ()
+    assert [pair.partner for pair in notes["Edge"].needs] == ["Whisper"]
 
 
 def test_only_builds_of_the_units_usual_size_are_compared(planted_static):

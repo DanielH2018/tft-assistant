@@ -318,8 +318,9 @@ def build_notes(members: Sequence[Board], unit: str, static: StaticData) -> tupl
 
     counts = Counter(item for held, _ in builds for item in held)
     common = [item for item, count in counts.most_common() if count / len(builds) >= _NOTE_SHARE]
-    notes = []
-    for item in common[:_NOTE_ITEMS]:
+    shown = common[:_NOTE_ITEMS]
+    critical = set()
+    for item in shown:
         with_item, without_item = placements(having=[item]), placements(lacking=[item])
         share = counts[item] / len(builds)
         worse_without = (
@@ -327,11 +328,16 @@ def build_notes(members: Sequence[Board], unit: str, static: StaticData) -> tupl
             and compared(with_item, without_item)
             and _mean(without_item) - _mean(with_item) >= _CRITICAL_GAP
         )
+        if share >= _CRITICAL_SHARE or worse_without:
+            critical.add(item)
+    notes = []
+    for item in shown:
+        with_item, without_item = placements(having=[item]), placements(lacking=[item])
         needs = []
         for partner in common:
             together, apart = placements(having=[item, partner]), placements(having=[item], lacking=[partner])
             alone, neither = placements(having=[partner], lacking=[item]), placements(lacking=[item, partner])
-            if partner == item or not compared(together, apart) or not compared(alone, neither):
+            if partner == item or partner in critical or not compared(together, apart) or not compared(alone, neither):
                 continue
             gain = _mean(apart) - _mean(together)
             partner_alone_helps = _mean(neither) - _mean(alone)
@@ -341,10 +347,10 @@ def build_notes(members: Sequence[Board], unit: str, static: StaticData) -> tupl
         notes.append(
             BuildItem(
                 item,
-                share,
+                counts[item] / len(builds),
                 _mean(with_item),
                 _mean(without_item) if without_item else None,
-                share >= _CRITICAL_SHARE or worse_without,
+                item in critical,
                 tuple(pairing for _, pairing in needs[:_PAIRINGS]),
             )
         )
