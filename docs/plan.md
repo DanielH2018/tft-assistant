@@ -692,7 +692,18 @@ unit swaps the two, and a click takes it off. The pane shows:
   click adds them all;
 - each unit on the board, with the four items it holds most on real boards, from its item
   group, and up to three comps it is the main carry, a carry or the main tank of, or holds
-  priority items in. A click on a comp opens it.
+  priority items in. Then up to three comps it is an early holder for: comps whose main carry
+  is a costlier unit of its item group, so a board with Karma alone lists the Ahri comps. A
+  click on a comp opens it.
+
+A comp is close to the board when the board holds two of its core units, when a unit on the
+board is an early holder for its main carry, or when it builds a selected item. The closest
+comps, the suggested units and the suggested groups all read the same list.
+
+A row of craftable items sits above the emblems. A click selects one: an item the reader has or
+expects, on no unit in particular. A selected item brings forward the comps that build it and
+suggests the units that hold it on real boards. The selection is kept in the browser with the
+board.
 
 A row of the set's emblems sits under the board. A click adds one and a shift-click takes one
 off. An emblem counts toward its trait only on a unit that lacks the trait, so the page keeps a

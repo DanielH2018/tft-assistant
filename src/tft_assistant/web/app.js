@@ -1709,21 +1709,50 @@ function teamCodeOf(units) {
 }
 
 // The comps whose core the board shares most of, as [comp, shared units, missing units].
-const CLOSEST_SHOWN = 5;
-function closestComps(units) {
+const CLOSEST_SHOWN = 6;
+// A comp is close to the board when the board holds two of its core units, when a unit on the
+// board is an early holder for its main carry, or when it builds an item selected on the planner.
+// A row is [comp, shared core units, missing core units, holders on the board, selected items it
+// builds, closeness], the closest first. Closeness is the share of the core on the board, plus a
+// part for a holder and a part for the selected items it builds.
+function closestComps(units, items = []) {
   const on = new Set(units);
   return snap()
-    .comps.map((comp) => [comp, comp.core.filter((id) => on.has(id)), comp.core.filter((id) => !on.has(id))])
-    .filter(([, shared]) => shared.length >= 2)
-    .sort((a, b) => b[1].length / b[0].core.length - a[1].length / a[0].core.length || a[0].avg_placement - b[0].avg_placement)
+    .comps.map((comp) => {
+      const shared = comp.core.filter((id) => on.has(id));
+      const held = comp.carries[0] && !on.has(comp.carries[0]) ? holdersOf(comp.carries[0]).filter((id) => on.has(id)) : [];
+      const builds = builtBy(comp);
+      const built = items.filter((item) => builds.has(item));
+      const close = shared.length / comp.core.length + (held.length ? 0.3 : 0) + (items.length ? (0.4 * built.length) / items.length : 0);
+      return [comp, shared, comp.core.filter((id) => !on.has(id)), held, built, close];
+    })
+    .filter(([, shared, , held, built]) => shared.length >= 2 || held.length || built.length)
+    .sort((a, b) => b[5] - a[5] || a[0].avg_placement - b[0].avg_placement)
     .slice(0, CLOSEST_SHOWN);
 }
+// The items selected on the planner: ones the reader has or expects, on no unit in particular.
+// They bring forward the comps that build them and the units that hold them.
+const selectedKey = () => `${plannerKey()}.items`;
+function plannerItems() {
+  try {
+    const kept = JSON.parse(localStorage.getItem(selectedKey()) || "[]");
+    return Array.isArray(kept) ? kept.filter((item) => snap().items[item]) : [];
+  } catch {
+    return [];
+  }
+}
+function keepItems(items) {
+  localStorage.setItem(selectedKey(), JSON.stringify(items));
+  renderPlanner();
+}
+// The items the planner offers: the craftable ones the item stats list, most held first.
+const offeredItems = () => (snap().item_stats || []).filter((stat) => stat.kind === "craftable").map((stat) => stat.item);
 
 // The units worth adding next, each with why, the strongest reason first. A unit is suggested
 // because a comp the board is close to has it in its core or plays it often, or because it takes
 // a trait on the board to its next breakpoint.
 const SUGGESTED = 8;
-function suggestions(units, emblems) {
+function suggestions(units, emblems, items) {
   const on = new Set(units);
   const buyable = new Set(rosterUnits());
   const found = new Map();
@@ -1734,10 +1763,21 @@ function suggestions(units, emblems) {
     entry.reasons.push([score, reason]);
     found.set(id, entry);
   };
-  for (const [comp, shared] of closestComps(units)) {
-    const close = shared.length / comp.core.length;
-    for (const id of comp.core) add(id, 2 * close, `In the core of ${nameOf(comp)}, which this board holds ${shared.length} of ${comp.core.length} of.`);
+  for (const [comp, shared, , held, built, close] of closestComps(units, items)) {
+    const why = [
+      shared.length && `this board holds ${shared.length} of its ${comp.core.length} core units`,
+      held.length && `${unitOf(held[0]).name} holds items for its carry`,
+      built.length && `it builds ${built.map(itemName).join(" and ")}`,
+    ].filter(Boolean);
+    for (const id of comp.core) add(id, 2 * close, `In the core of ${nameOf(comp)}: ${why.join(", ")}.`);
     for (const flexed of comp.flex.flat()) for (const id of flexed.units) add(id, close * flexed.share, `On ${pct(flexed.share)} of ${nameOf(comp)} boards.`);
+  }
+  for (const item of items) {
+    for (const group of snap().item_groups) {
+      for (const [id, held] of Object.entries(group.held || {})) {
+        if (held.items[item]) add(id, held.items[item][0], `Holds ${itemName(item)} on ${pct(held.items[item][0])} of its itemised boards, placing ${held.items[item][1].toFixed(2)}.`);
+      }
+    }
   }
   for (const { trait, count, next } of activeTraits(units, emblems)) {
     if (next - count !== 1) continue;
@@ -1753,7 +1793,7 @@ function suggestions(units, emblems) {
 // comp's core, and each of its subcomps, which fills its board. A group lists only the units the
 // board lacks, and needs two of them.
 const GROUPS_SUGGESTED = 5;
-function suggestedGroups(units) {
+function suggestedGroups(units, items) {
   const on = new Set(units);
   const buyable = new Set(rosterUnits());
   const found = new Map();
@@ -1763,8 +1803,7 @@ function suggestedGroups(units) {
     if (add.length < 2 || (found.has(key) && found.get(key).score >= score)) return;
     found.set(key, { add, score, label, why });
   };
-  for (const [comp, shared, missing] of closestComps(units)) {
-    const close = shared.length / comp.core.length;
+  for (const [comp, shared, missing, , , close] of closestComps(units, items)) {
     offer(missing, 2 * close, `the rest of ${nameOf(comp)}'s core`, `This board holds ${shared.length} of the ${comp.core.length} core units of ${nameOf(comp)}.`);
     // Two boards a comp, so another close comp has room in the list.
     for (const sub of (comp.subcomps || []).slice(0, 2)) {
@@ -1796,7 +1835,13 @@ function unitAdvice(id) {
     .filter(([, role]) => role)
     .sort((a, b) => ROLE_ORDER.indexOf(a[1]) - ROLE_ORDER.indexOf(b[1]))
     .slice(0, 3);
-  return { items, comps };
+  // The comps whose main carry is a costlier unit of this unit's item group: it holds their items early.
+  const holds = [...snap().comps]
+    .sort(SORTS.play)
+    .filter((comp) => comp.carries[0] && !comps.some(([own]) => own === comp) && holdersOf(comp.carries[0]).includes(id))
+    .slice(0, 3)
+    .map((comp) => [comp, `Early holder for ${unitOf(comp.carries[0]).name}`]);
+  return { items, comps: [...comps, ...holds] };
 }
 
 function rosterHtml(board) {
@@ -1830,12 +1875,13 @@ function plannerHtml(board) {
       return `<span class="emblem ${held ? "on" : ""}" data-emblem="${esc(trait)}" ${tipOf(`${traitName(trait)} Emblem${held ? `: ${held} on the board` : ""}`, "Click to add one. Shift-click to take one off.")}>${itemIcon(item)}${held ? `<b>${held}</b>` : ""}</span>`;
     })
     .join("");
-  const suggested = suggestions(units, emblems)
+  const selected = plannerItems();
+  const suggested = suggestions(units, emblems, selected)
     .map(
       ({ id, reasons }) => `<span class="pick offer" data-pick="${id}">${unitTile(id, "m", { note: [...reasons.slice(0, 4), "Click to add it."].join("\n") })}</span>`,
     )
     .join("");
-  const groups = suggestedGroups(units)
+  const groups = suggestedGroups(units, selected)
     .map(
       ({ add, label, why }) => `<div class="suggest-group" data-picks="${add.join(",")}" ${tipOf(why, "Click to add them all.")}>
         <span class="group-tiles">${add.map((id) => unitTile(id, "s")).join("")}</span><span class="note">${esc(label)}</span></div>`,
@@ -1865,12 +1911,20 @@ function plannerHtml(board) {
       return `<span class="trait ${reached ? "top" : ""}" ${tip}>${icon ? `<img src="${esc(icon)}" alt="">` : ""}${count}${next ? `/${next}` : ""} ${esc(traitName(trait))}</span>`;
     })
     .join("");
-  const closest = closestComps(units)
-    .map(
-      ([comp, shared, missing]) => `<div class="closest" data-open="${comp.id}" ${tipOf(`${shared.length} of its ${comp.core.length} core units are on the board.`, "Click to open the comp.")}>
+  const closest = closestComps(units, selected)
+    .map(([comp, shared, missing, held, built]) => {
+      const why = [
+        `${shared.length} of ${comp.core.length}`,
+        held.length && `${unitOf(held[0]).name} holds for ${unitOf(comp.carries[0]).name}`,
+        built.length && `builds ${built.length} of your item${selected.length === 1 ? "" : "s"}`,
+      ].filter(Boolean);
+      return `<div class="closest" data-open="${comp.id}" ${tipOf(`${shared.length} of its ${comp.core.length} core units are on the board.`, held.length ? `${held.map((id) => unitOf(id).name).join(", ")} builds as its carry ${unitOf(comp.carries[0]).name} does, and costs less.` : "", built.length ? `It builds ${built.map(itemName).join(", ")}.` : "", "Click to open the comp.")}>
         <span class="tier t${comp.tier}">${comp.tier}</span><span class="closest-name">${esc(nameOf(comp))}</span>
-        <span class="note">${shared.length} of ${comp.core.length}${missing.length ? ", missing" : ""}</span>${missing.map((id) => unitTile(id, "s")).join("")}</div>`,
-    )
+        <span class="note">${esc(why.join(" · "))}${missing.length ? ", missing" : ""}</span>${missing.map((id) => unitTile(id, "s")).join("")}</div>`;
+    })
+    .join("");
+  const itemRow = offeredItems()
+    .map((item) => `<span class="emblem ${selected.includes(item) ? "on" : ""}" data-select-item="${esc(item)}" ${tipOf(itemName(item), selected.includes(item) ? "Click to unselect it." : "Click to select it: an item you have or expect.")}>${itemIcon(item)}</span>`)
     .join("");
   const attachable = [...snap().comps].sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
   const saved = allSaved()
@@ -1901,14 +1955,15 @@ function plannerHtml(board) {
       ${section("Board", `<div class="board planner-board" ${tipOf("The front row is at the top.")}>${lines.join("")}</div>`)}
       ${section("Traits", `<div class="row">${traits || `<span class="note">no unit on the board</span>`}</div>`, { width: "wraps" })}
       ${saving ? section("Saved boards", `<div>${saving}</div>`, { info: "Boards kept by the server, each with a name and a stage.\nA board attached to a comp also shows on that comp's page." }) : ""}
+      ${itemRow ? section("Items", `<div class="row emblems">${itemRow}</div>`, { width: "wraps", info: "Items you have or expect, on no unit in particular.\nA selected item brings forward the comps that build it and the units that hold it." }) : ""}
       ${section("Emblems", `<div class="row emblems">${emblemRow || `<span class="note">This set's data names no emblem.</span>`}</div>`, { width: "wraps" })}
       ${fielded ? section("On the board", `<div>${fielded}</div>`, { info: "Each unit on the board, with the items it holds most on real boards and the comps it carries, tanks or holds items for.\nClick a comp to open it." }) : ""}
       ${groups ? section("Suggested groups", `<div>${groups}</div>`, { info: "Units worth adding together: the rest of a close comp's core, or a whole board of that comp.\nClick a group to add all of it." }) : ""}
-      ${section("Suggestions", `<div class="row suggested">${suggested || `<span class="note">Put two units of a comp on the board, or bring a trait within one of a breakpoint.</span>`}</div>`, {
-        info: "Units worth adding next.\nA unit is listed because a comp this board is close to has it in its core or plays it often, or because it takes a trait on the board to its next breakpoint.\nClick one to add it.",
+      ${section("Suggested units", `<div class="row suggested">${suggested || `<span class="note">Put a unit on the board or select an item.</span>`}</div>`, {
+        info: "Units worth adding next.\nA unit is listed because a comp this board is close to has it in its core or plays it often, because it holds a selected item, or because it takes a trait on the board to its next breakpoint.\nClick one to add it.",
       })}
-      ${section("Closest comps", `<div>${closest || `<span class="note">No comp shares two core units with this board.</span>`}</div>`, {
-        info: "The comps whose core this board holds most of, each with the core units still missing.\nClick one to open it.",
+      ${section("Closest comps", `<div>${closest || `<span class="note">No comp is close to this board.</span>`}</div>`, {
+        info: "The comps this board is close to, each with the core units still missing.\nA comp is close when the board holds two of its core units, when a unit on the board is an early holder for its carry, or when it builds a selected item.\nClick one to open it.",
       })}
     </div></div>`;
 }
@@ -1950,6 +2005,10 @@ el("detail").addEventListener("click", (event) => {
     loadSaved(compId, Number(place));
   } else if (event.target.closest("#save-board")) {
     savePlanned();
+  } else if (event.target.closest("[data-select-item]")) {
+    const item = event.target.closest("[data-select-item]").dataset.selectItem;
+    const items = plannerItems();
+    keepItems(items.includes(item) ? items.filter((other) => other !== item) : [...items, item]);
   } else if (event.target.closest("[data-emblem]")) {
     const trait = event.target.closest("[data-emblem]").dataset.emblem;
     const emblems = plannerEmblems();
@@ -1966,6 +2025,7 @@ el("detail").addEventListener("click", (event) => {
     togglePlanned(event.target.closest("[data-pick]").dataset.pick);
   } else if (event.target.closest("#clear-plan")) {
     localStorage.removeItem(emblemKey());
+    localStorage.removeItem(selectedKey());
     keepPlanner({});
   } else if (event.target.closest("#copy-plan")) {
     copyText(teamCodeOf(Object.values(plannerBoard()))).then(() => {
