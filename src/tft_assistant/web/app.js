@@ -1733,11 +1733,12 @@ function teamCodeOf(units) {
 
 // The comps whose core the board shares most of, as [comp, shared units, missing units].
 const CLOSEST_SHOWN = 6;
-// A comp is close to the board when the board holds two of its core units, when a unit on the
-// board is an early holder for its main carry, or when it builds an item selected on the planner.
-// A row is [comp, shared core units, missing core units, holders on the board, selected items it
-// builds, closeness], the closest first. Closeness is the share of the core on the board, plus a
-// part for a holder and a part for the selected items it builds.
+// A comp is close to the board when the board holds two of its core units or one of its key
+// units, when a unit on the board is an early holder for its main carry, or when it builds an
+// item selected on the planner. A row is [comp, shared core units, missing core units, holders
+// on the board, selected items it builds, closeness], the closest first. Closeness is the share
+// of the core on the board, plus a part for the main carry or another key unit, a part for a
+// holder and a part for the selected items it builds.
 function closestComps(units, items = []) {
   const on = new Set(units);
   return snap()
@@ -1746,10 +1747,11 @@ function closestComps(units, items = []) {
       const held = comp.carries[0] && !on.has(comp.carries[0]) ? holdersOf(comp.carries[0]).filter((id) => on.has(id)) : [];
       const builds = builtBy(comp);
       const built = items.filter((item) => builds.has(item));
-      const close = shared.length / comp.core.length + (held.length ? 0.3 : 0) + (items.length ? (0.4 * built.length) / items.length : 0);
-      return [comp, shared, comp.core.filter((id) => !on.has(id)), held, built, close];
+      const keyed = on.has(comp.carries[0]) ? 0.4 : comp.key_units.some((key) => on.has(key.unit)) ? 0.2 : 0;
+      const close = shared.length / comp.core.length + keyed + (held.length ? 0.3 : 0) + (items.length ? (0.4 * built.length) / items.length : 0);
+      return [comp, shared, comp.core.filter((id) => !on.has(id)), held, built, close, keyed];
     })
-    .filter(([, shared, , held, built]) => shared.length >= 2 || held.length || built.length)
+    .filter(([, shared, , held, built, , keyed]) => shared.length >= 2 || keyed || held.length || built.length)
     .sort((a, b) => b[5] - a[5] || a[0].avg_placement - b[0].avg_placement)
     .slice(0, CLOSEST_SHOWN);
 }
@@ -1813,7 +1815,7 @@ function suggestions(units, emblems, items) {
 }
 
 // Groups of units worth adding together, from the comps the board is closest to: the rest of a
-// comp's core, and each of its subcomps, which fills its board. A group lists only the units the
+// comp's core, and its most played subcomp, which fills its board. A group lists only the units the
 // board lacks, and needs two of them.
 const GROUPS_SUGGESTED = 5;
 function suggestedGroups(units, items) {
@@ -1828,8 +1830,8 @@ function suggestedGroups(units, items) {
   };
   for (const [comp, shared, missing, , , close] of closestComps(units, items)) {
     offer(missing, 2 * close, `the rest of ${nameOf(comp)}'s core`, `This board holds ${shared.length} of the ${comp.core.length} core units of ${nameOf(comp)}.`);
-    // Two boards a comp, so another close comp has room in the list.
-    for (const sub of (comp.subcomps || []).slice(0, 2)) {
+    // One whole board a comp, its most played: two under one comp's name read as one row twice.
+    for (const sub of (comp.subcomps || []).slice(0, 1)) {
       offer([...missing, ...sub.units], close * (1 + sub.share), `${nameOf(comp)}, a whole board`, `The core of ${nameOf(comp)} with the units on ${pct(sub.share)} of its boards, which place ${sub.avg_placement.toFixed(2)}.`);
     }
   }
@@ -1986,7 +1988,7 @@ function plannerHtml(board) {
         info: "Units worth adding next.\nA unit is listed because a comp this board is close to has it in its core or plays it often, because it holds a selected item, or because it takes a trait on the board to its next breakpoint.\nClick one to add it.",
       })}
       ${section("Closest comps", `<div>${closest || `<span class="note">No comp is close to this board.</span>`}</div>`, {
-        info: "The comps this board is close to, each with the core units still missing.\nA comp is close when the board holds two of its core units, when a unit on the board is an early holder for its carry, or when it builds a selected item.\nClick one to open it.",
+        info: "The comps this board is close to, each with the core units still missing.\nA comp is close when the board holds two of its core units or one of its key units, when a unit on the board is an early holder for its carry, or when it builds a selected item.\nClick one to open it.",
       })}
     </div></div>`;
 }

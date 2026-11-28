@@ -697,8 +697,8 @@ unit swaps the two, and a click takes it off. The pane shows:
   it often, or the unit takes a trait on the board to its next breakpoint. A click adds one,
   and its hover card gives the reasons. The reasons come from the snapshot's comps and traits,
   so no pairing table is built for them;
-- groups of units worth adding together: the rest of a close comp's core, and up to two whole
-  boards of that comp, from its subcomps. A group lists only the units the board lacks, and a
+- groups of units worth adding together: the rest of a close comp's core, and one whole board
+  of that comp, its most played subcomp. A group lists only the units the board lacks, and a
   click adds them all;
 - each unit on the board, with the four items it holds most on real boards, from its item
   group, and up to three comps it is the main carry, a carry or the main tank of, or holds
@@ -706,8 +706,9 @@ unit swaps the two, and a click takes it off. The pane shows:
   is a costlier unit of its item group, so a board with Karma alone lists the Ahri comps. A
   click on a comp opens it.
 
-A comp is close to the board when the board holds two of its core units, when a unit on the
-board is an early holder for its main carry, or when it builds a selected item. The closest
+A comp is close to the board when the board holds two of its core units or one of its key
+units, when a unit on the board is an early holder for its main carry, or when it builds a
+selected item. The closest
 comps, the suggested units and the suggested groups all read the same list.
 
 A comp's page has an *Open in planner* button. It puts the comp's board on the planner, the
