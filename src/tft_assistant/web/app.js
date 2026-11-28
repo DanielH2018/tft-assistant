@@ -508,7 +508,7 @@ function slamGridHtml() {
     const blank = (column) => `<td class="${row === state.component || column === state.component ? "lit" : ""}"></td>`;
     return `<tr>${part(row)}${components.map((column, across) => (across < at ? blank(column) : cell(row, column))).join("")}</tr>`;
   });
-  const counts = `<label class="switch slam-switch" ${tipOf("The number on an item is how many strong comps build it.")}><input id="slam-counts" type="checkbox" ${state.slamCounts ? "checked" : ""}><i></i>Numbers on the items</label>`;
+  const counts = `<h3 class="stats-title first">Recipes <span class="info" tabindex="0" ${tipOf("Each item at the crossing of the two components that make it.\nAn item a strong comp builds is outlined, and one none builds is dimmed. Click an item to list the units that hold it, and a component to see what it goes into.")}>i</span></h3><label class="switch slam-switch" ${tipOf("The number on an item is how many strong comps build it.")}><input id="slam-counts" type="checkbox" ${state.slamCounts ? "checked" : ""}><i></i>Numbers on the items</label>`;
   return `${counts}<table class="slams ${state.slamCounts ? "" : "no-counts"}">${head}${rows.join("")}</table>`;
 }
 
@@ -643,9 +643,9 @@ function itemGroupsHtml() {
     .filter((group) => listed(group).length)
     .map(
       (group) => `<div class="group ${picked.length ? "detailed" : ""}">
-      <div class="group-items">${group.items
+      <div class="group-head"><div class="group-items">${group.items
         .map((item) => `<span class="to-filter ${picked.includes(item) ? "picked" : ""}" data-filter="${esc(named(item))}">${itemIcon(item, { note: "Click to list the comps that build it." })}</span>`)
-        .join("")}</div>
+        .join("")}</div><div class="group-name">${group.items.slice(0, 2).map((item) => esc(named(item))).join("<br>")}</div></div>
       <div class="group-units">${listed(group, group.units).sort(order(group)).map(picked.length ? card(group) : tile(group)).join("")}${
         listed(group, group.also || []).length
           ? `<span class="note also-label" ${tipOf("Units of another group that build this way on a fifth of their itemised boards or more.", "Each is counted here over those boards only.")}>also</span>${listed(group, group.also).sort(order(group)).map(picked.length ? card(group) : tile(group)).join("")}`
@@ -706,7 +706,7 @@ function itemStatsHtml() {
     .sort((a, b) => (state.statAscending ? -1 : 1) * order(a, b))
     .map(
       (stat) => `<tr data-slam="${esc(stat.item)}" class="${state.items.includes(stat.item) ? "picked" : ""}" ${tipOf(`On ${stat.boards.toLocaleString()} boards. Click to list the units that hold it.`)}>
-        <td class="stat-item">${itemIcon(stat.item)} ${itemName(stat.item)}</td>
+        <td><span class="stat-item">${itemIcon(stat.item)} ${itemName(stat.item)}</span></td>
         <td class="num">${stat.avg_placement.toFixed(2)}</td><td class="num">${pct(stat.top4)}</td>
         <td class="num">${pct(stat.win_rate)}</td><td class="num">${(stat.share * 100).toFixed(1)}%</td>
       </tr>`,
@@ -1487,19 +1487,45 @@ function section(title, body, { width = "", info = "" } = {}) {
 // the pointer or the focus that has one. It is fixed to the window, not laid out in the page, so
 // no pane's edge clips it. It goes under its thing, or above when there is no room under.
 const tip = document.body.appendChild(Object.assign(document.createElement("div"), { id: "tip" }));
-function showTip(target) {
-  const marked = target && target.closest ? target.closest("[data-tip]") : null;
-  tip.style.display = marked ? "block" : "none";
-  if (!marked) return;
-  // A unit's stats and ability are the same wherever it is drawn, so they are added here and not
-  // written into every tile.
-  const unit = marked.dataset.unit && snap().units[marked.dataset.unit];
-  tip.textContent = [marked.dataset.tip, unit && unit.stats, unit && unit.ability].filter(Boolean).join("\n\n");
+// A card's blocks drawn in the box, and the box put under its thing, or above it when there is no
+// room under. A card that opens on a name has the name as its title. A section's explanation opens
+// on a sentence, and stays plain. Each block after the first starts with a line that names it.
+function drawTip(marked, blocks) {
+  const [first, ...rest] = blocks[0].split("\n");
+  const titled = first.length <= 40 && !first.endsWith(".");
+  const parts = [];
+  if (titled) parts.push(Object.assign(document.createElement("b"), { className: "tip-title", textContent: first }));
+  parts.push(document.createTextNode(titled ? rest.join("\n") : blocks[0]));
+  for (const block of blocks.slice(1)) {
+    const [head, ...body] = block.split("\n");
+    parts.push(Object.assign(document.createElement("span"), { className: "tip-block", textContent: body.length ? "" : block }));
+    if (body.length) {
+      parts[parts.length - 1].append(Object.assign(document.createElement("b"), { textContent: head }), document.createTextNode(`\n${body.join("\n")}`));
+    }
+  }
+  tip.replaceChildren(...parts);
   tip.style.left = "0px";
   const at = marked.getBoundingClientRect();
   const below = at.bottom + 6;
   tip.style.left = `${Math.max(8, Math.min(at.left, innerWidth - tip.offsetWidth - 8))}px`;
   tip.style.top = `${below + tip.offsetHeight > innerHeight ? Math.max(8, at.top - 6 - tip.offsetHeight) : below}px`;
+}
+
+// A unit's stats and ability are the same wherever it is drawn, so they are added here and not
+// written into every tile. They make a tall card that covers the tiles under it, so they come
+// only once the pointer has rested on the unit: a reader picking units from a row sees the short
+// card and the row.
+const TIP_DWELL_MS = 450;
+let tipDwell = 0;
+function showTip(target) {
+  const marked = target && target.closest ? target.closest("[data-tip]") : null;
+  clearTimeout(tipDwell);
+  tip.style.display = marked ? "block" : "none";
+  if (!marked) return;
+  drawTip(marked, [marked.dataset.tip]);
+  const unit = marked.dataset.unit && snap().units[marked.dataset.unit];
+  const more = [unit && unit.stats, unit && unit.ability].filter(Boolean);
+  if (more.length) tipDwell = setTimeout(() => marked.isConnected && drawTip(marked, [marked.dataset.tip, ...more]), TIP_DWELL_MS);
 }
 document.addEventListener("mouseover", (event) => showTip(event.target));
 document.addEventListener("focusin", (event) => showTip(event.target));
