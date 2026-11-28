@@ -8,7 +8,7 @@
      their gaps, the row's padding and a 15-pixel scrollbar gutter take the rest of the width
      at which the list shows every column. The list never gets wider. */
   --name-width: 150px;
-  --other-columns: 538px;
+  --other-columns: 550px;
   --full-list: calc(var(--other-columns) + var(--name-width));
 }
 * { box-sizing: border-box; }
@@ -44,7 +44,7 @@ aside {
 /* A row wraps and shows its first line only, so a column that does not fit leaves whole. */
 .comp-row { display: flex; align-items: center; gap: 20px 8px; padding: 4px 10px; flex-wrap: wrap; align-content: flex-start; overflow: hidden; }
 .comp-row > * { flex: none; }
-.c-tier { width: 40px; } .c-name { width: var(--name-width); max-width: calc(100% - 48px); } .c-level { width: 44px; } .c-core { width: 196px; }
+.c-tier { width: 40px; } .c-name { width: var(--name-width); max-width: calc(100% - 48px); } .c-level { width: 44px; } .c-core { width: 208px; }
 .c-avg, .c-top4, .c-win { width: 40px; } .c-play { width: 46px; }
 #head { height: 24px; overflow-y: hidden; scrollbar-gutter: stable; border-bottom: 1px solid var(--surface0); }
 #head > * {
@@ -122,7 +122,7 @@ body[data-view="explorer"] :is(#switches, #head, #comps, #slams, #roster), body:
 #roster { flex: 1; overflow: auto; padding: 4px 10px 10px; }
 .roster-cost { display: flex; flex-wrap: wrap; gap: 4px 2px; align-items: center; padding: 6px 0; border-top: 1px solid var(--surface0); }
 .roster-cost > .note { width: 100%; }
-.pick { cursor: pointer; opacity: 0.55; }
+.pick { cursor: pointer; opacity: 0.78; }
 .pick:hover, .pick.on, .pick.offer { opacity: 1; }
 .pick.on img { outline: 2px solid var(--mauve); outline-offset: 1px; }
 .planner-board .hex[data-tip] { cursor: grab; }
@@ -162,7 +162,7 @@ body[data-view="explorer"] :is(#switches, #head, #comps, #slams, #roster), body:
 .plays .tier { width: 16px; height: 16px; line-height: 16px; font-size: 10px; }
 .suggest-name { width: 110px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .emblems { gap: 4px; }
-.emblem { position: relative; cursor: pointer; opacity: 0.45; line-height: 0; }
+.emblem { position: relative; cursor: pointer; opacity: 0.62; line-height: 0; }
 .emblem:hover, .emblem.on { opacity: 1; }
 .emblem .item-icon { width: 26px; height: 26px; border-radius: 4px; }
 .emblem.on .item-icon { outline: 2px solid var(--mauve); outline-offset: 1px; }
@@ -179,6 +179,7 @@ body[data-view="explorer"] :is(#switches, #head, #comps, #slams, #roster), body:
 }
 #add-category:focus { outline: 0; border-color: var(--mauve); }
 #slams { flex: 1; overflow: auto; padding: 4px 10px 10px; }
+.stats-title.first { margin-top: 4px; }
 .stats-title { margin: 18px 0 6px; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .stat-kinds { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
 .stat-kinds.sub { padding-left: 12px; }
@@ -190,7 +191,7 @@ body[data-view="explorer"] :is(#switches, #head, #comps, #slams, #roster), body:
 .stats th button { all: unset; cursor: pointer; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .stats th.sorted button { color: var(--mauve); }
 .stats .arrow { font-size: 8px; margin-left: 3px; vertical-align: 1px; }
-.stats td { padding: 3px 6px; border-top: 1px solid var(--crust); white-space: nowrap; }
+.stats td { padding: 3px 6px; border-top: 1px solid var(--crust); white-space: nowrap; vertical-align: middle; }
 .stats .num { text-align: right; width: 56px; }
 .stats tbody tr { cursor: pointer; }
 .stats tbody tr:hover { background: var(--surface0); }
@@ -213,7 +214,10 @@ body[data-view="explorer"] :is(#switches, #head, #comps, #slams, #roster), body:
 .slam.safe b { background: var(--green); color: var(--crust); }
 .slam.unused .item-icon { opacity: 0.3; }
 .group { display: flex; gap: 14px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--surface0); }
-.group-items { display: flex; gap: 3px; flex: none; width: 150px; padding-top: 5px; }
+.group-head { flex: none; width: 150px; padding-top: 5px; }
+.group-items { display: flex; gap: 3px; }
+/* A group is named by the two items its units hold most: a row of pictures alone is hard to find again. */
+.group-name { margin-top: 5px; font-size: 11.5px; line-height: 1.3; color: var(--subtext); }
 .group-units { display: flex; flex-wrap: wrap; gap: 6px 2px; min-width: 0; }
 .to-filter { cursor: pointer; }
 .slams th[data-component] { cursor: pointer; border-radius: 6px; }
@@ -393,3 +397,12 @@ table.items .rank { color: var(--muted); width: 16px; }
 .plan-box .plan-edit { width: min(100%, 560px); padding: 2px 6px; }
 #plan-restore { font: inherit; color: var(--subtext); background: none; border: 1px solid var(--surface1); border-radius: 4px; padding: 0 6px; cursor: pointer; }
 #plan-restore:hover { color: var(--text); border-color: var(--surface2); }
+
+/* A row of a wide table is easier to follow across with every second row shaded. */
+.explore-table tbody tr:nth-child(even), table.stats tbody tr:nth-child(even) { background: color-mix(in srgb, var(--surface0) 30%, transparent); }
+.explore-table tbody tr:hover, table.stats tbody tr:hover { background: var(--surface0); }
+/* A hover card opens on the name of its thing, and a longer card is cut into blocks. */
+#tip .tip-title { display: block; font-size: 13.5px; }
+#tip .tip-block { display: block; margin-top: 7px; padding-top: 7px; border-top: 1px solid var(--surface0); color: var(--subtext); }
+#tip .tip-block b { color: var(--text); }
+table.stats tbody tr.picked { background: var(--surface0); }

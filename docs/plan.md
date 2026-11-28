@@ -511,8 +511,10 @@ A trait's card and an item's card say what the thing does, in the game's own wor
 - **A unit's card gives its stats at one star, its mana and its ability's text.** The data holds
   the numbers of two abilities in 74, so a number it lacks reads `?` and the sentence stays:
   "deals ? (Attack Damage + Ability Power) physical damage". What the ability does and what it
-  grows with is worth reading without the number. The stats and the ability are added when the
-  card opens, so they are not written into every tile of the page.
+  grows with is worth reading without the number. The stats and the ability are added once the
+  pointer has rested on the unit for 450 ms: the tall card covers the tiles under it, and a
+  reader picking units from the roster needs to see the row. They are not written into every
+  tile of the page.
 
 - **Items are filled in from their own values.** 605 of the set's 776 items have a text. An
   emblem has none in the data and gets "The holder gains the X trait." A line that names a value
