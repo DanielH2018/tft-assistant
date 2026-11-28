@@ -15,7 +15,7 @@ from typing import Any
 
 import httpx
 
-from tft_assistant.descriptions import render, render_trait
+from tft_assistant.descriptions import render, render_ability, render_trait
 from tft_assistant.paths import state_path
 
 DOCUMENT_URL = "https://raw.communitydragon.org/{channel}/cdragon/tft/en_us.json"
@@ -39,6 +39,10 @@ class Unit:
     icon: str | None = None
     planner_code: int | None = None
     """The unit's number in Riot's team planner, which a team code is made of."""
+    stats: str = ""
+    """The unit at one star, as a line: health, damage, attack speed, armor, magic resist, range, mana."""
+    ability: str = ""
+    """The ability's name, then what it does."""
 
 
 @dataclass(frozen=True)
@@ -86,6 +90,28 @@ def _item_text(item: dict[str, Any], described: Mapping[str, dict[str, Any]], em
         if text:
             return text
     return f"The holder gains the {emblem_of.name} trait." if emblem_of else ""
+
+
+def _stat_line(stats: Mapping[str, Any]) -> str:
+    """A unit's stats at one star. A summoned unit has none, and gets an empty line."""
+    if not stats.get("hp"):
+        return ""
+    parts = [
+        f"{stats['hp']:g} Health",
+        f"{stats['damage']:g} Attack Damage" if stats.get("damage") else "",
+        f"{stats.get('attackSpeed') or 0:.2f} Attack Speed",
+        f"{stats.get('armor') or 0:g} Armor",
+        f"{stats.get('magicResist') or 0:g} Magic Resist",
+        f"range {stats.get('range') or 0:g}",
+    ]
+    if stats.get("mana"):
+        parts.append(f"Mana {stats.get('initialMana') or 0:g}/{stats['mana']:g}")
+    return " · ".join(part for part in parts if part)
+
+
+def _ability_text(ability: Mapping[str, Any]) -> str:
+    text = render_ability(ability.get("desc"), ability.get("variables"))
+    return "\n".join(part for part in (ability.get("name"), text) if part)
 
 
 def _icon_url(path: str | None) -> str | None:
@@ -202,6 +228,8 @@ class StaticData:
                 unit.get("role"),
                 _icon_url(unit.get("tileIcon") or unit.get("squareIcon")),
                 planner.get(unit["apiName"], planner_by_name.get((unit["name"] or "").split(" (")[0])),
+                _stat_line(unit.get("stats") or {}),
+                _ability_text(unit.get("ability") or {}),
             )
             for unit in entry["champions"]
         }

@@ -1,4 +1,4 @@
-from tft_assistant.descriptions import hashed, render, render_trait
+from tft_assistant.descriptions import hashed, render, render_ability, render_trait
 
 
 def test_a_value_is_read_by_its_name_or_by_the_hash_of_its_name_and_may_be_a_share():
@@ -28,3 +28,12 @@ def test_a_trait_has_an_opening_and_a_line_for_each_breakpoint_read_with_its_own
     ]
 
     assert render_trait(template, effects) == ("Gain 5 Armor.", ("(2) 4% Durability", "(4) 6% Durability", ""))
+
+
+def test_an_ability_keeps_a_sentence_whose_number_the_data_lacks_and_gives_a_number_for_each_star():
+    template = "<Bright>Adaptor </Bright>%i:scaleAD%<Bright>:</Bright> Deal @DamageCalc1@ %i:scaleAD%%i:scaleAP% damage.\n\nHeal @Heal@ over @Duration@ seconds."
+    variables = [{"name": "Heal", "value": [60.0, 350.0, 400.0, 475.0, 100.0]}, {"name": "Duration", "value": [2.0, 2.0, 2.0, 2.0, 2.0]}]
+
+    assert render_ability(template, variables) == (
+        "Adaptor (Attack Damage): Deal ? (Attack Damage + Ability Power) damage.\nHeal 350/400/475 over 2 seconds."
+    )
