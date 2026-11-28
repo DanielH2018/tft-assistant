@@ -1959,7 +1959,7 @@ function plannerHtml(board) {
       ${section("Emblems", `<div class="row emblems">${emblemRow || `<span class="note">This set's data names no emblem.</span>`}</div>`, { width: "wraps" })}
       ${fielded ? section("On the board", `<div>${fielded}</div>`, { info: "Each unit on the board, with the items it holds most on real boards and the comps it carries, tanks or holds items for.\nClick a comp to open it." }) : ""}
       ${groups ? section("Suggested groups", `<div>${groups}</div>`, { info: "Units worth adding together: the rest of a close comp's core, or a whole board of that comp.\nClick a group to add all of it." }) : ""}
-      ${section("Suggestions", `<div class="row suggested">${suggested || `<span class="note">Put a unit on the board or select an item.</span>`}</div>`, {
+      ${section("Suggested units", `<div class="row suggested">${suggested || `<span class="note">Put a unit on the board or select an item.</span>`}</div>`, {
         info: "Units worth adding next.\nA unit is listed because a comp this board is close to has it in its core or plays it often, because it holds a selected item, or because it takes a trait on the board to its next breakpoint.\nClick one to add it.",
       })}
       ${section("Closest comps", `<div>${closest || `<span class="note">No comp is close to this board.</span>`}</div>`, {
