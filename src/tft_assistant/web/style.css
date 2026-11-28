@@ -99,7 +99,6 @@ body[data-view="explorer"] :is(#switches, #head, #comps, #slams, #roster), body:
 #explore .big { font-size: 22px; font-weight: 700; margin: 6px 0 0; }
 #explore dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 8px 0; font-variant-numeric: tabular-nums; }
 #explore dt { color: var(--subtext); } #explore dd { margin: 0; }
-#explore code { background: var(--crust); padding: 0 4px; border-radius: 3px; }
 .filter-chip.unmatched { text-decoration: line-through; color: var(--red); }
 .explore-tables { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 8px 36px; align-items: start; }
 .explore-tables .explore-table, #explore .explore-table { width: 100%; }
