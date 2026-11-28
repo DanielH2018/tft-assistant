@@ -2072,7 +2072,6 @@ function plannerHtml(board) {
     <div class="flow">
       ${section("Board", `<div class="board planner-board" ${tipOf("The front row is at the top.")}>${lines.join("")}</div>`)}
       ${section("Traits", `<div class="row">${traits || `<span class="note">no unit on the board</span>`}</div>`, { width: "wraps" })}
-      ${saving ? section("Saved boards", `<div>${saving}</div>`, { info: "Boards kept by the server, each with a name and a stage.\nA board attached to a comp also shows on that comp's page." }) : ""}
       ${itemRow ? section("Items", `<div class="row emblems">${itemRow}</div>`, { width: "wraps", info: "Items you have or expect, on no unit in particular.\nA selected item brings forward the comps that build it and the units that hold it." }) : ""}
       ${section("Emblems", `<div class="row emblems">${emblemRow || `<span class="note">This set's data names no emblem.</span>`}</div>`, { width: "wraps" })}
       ${fielded ? section("On the board", `<div>${fielded}</div>`, { info: "Each unit on the board, with the items it holds most on real boards and the comps it carries, tanks or holds items for.\nClick a comp to open it." }) : ""}
@@ -2083,6 +2082,7 @@ function plannerHtml(board) {
       ${section("Closest comps", `<div>${closest || `<span class="note">No comp is close to this board.</span>`}</div>`, {
         info: "The comps this board is close to, each with the core units still missing.\nA comp is close when the board holds two of its core units or one of its key units, when a unit on the board is an early holder for its carry, or when it builds a selected item.\nClick one to open it.",
       })}
+      ${saving ? section("Saved boards", `<div>${saving}</div>`, { info: "Boards kept by the server, each with a name and a stage.\nA board attached to a comp also shows on that comp's page." }) : ""}
     </div></div>`;
 }
 
