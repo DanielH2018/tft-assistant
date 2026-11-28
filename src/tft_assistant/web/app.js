@@ -386,7 +386,7 @@ function renderExplorer() {
   // The two long tables fill the page. The short ones go under the figures in the list pane,
   // which is otherwise empty below them.
   const short = `${one.length === 1 ? exploreTable(`${esc(unitOf(one[0]).name)} by stars`, levels, all, (stars) => `${unitTile(one[0], "s")}${"★".repeat(stars)}`, (stars) => `${stars} star ${unitOf(one[0]).name}`) : ""}
-    ${exploreTable("Traits", traits, all, (key) => `${(s.traits[traitOf(key)] || {}).icon ? `<img src="${esc(s.traits[traitOf(key)].icon)}" alt="">` : ""}${parseInt(key, 10)} ${esc(traitName(traitOf(key)))}`, (key) => `${parseInt(key, 10)} ${traitName(traitOf(key))}`)}`;
+    ${exploreTable("Traits", traits, all, (key) => ((s.traits[traitOf(key)] || {}).icon ? `<img src="${esc(s.traits[traitOf(key)].icon)}" alt="" ${tipOf(traitName(traitOf(key)))}>${parseInt(key, 10)} <span class="row-name">${esc(traitName(traitOf(key)))}</span>` : `${parseInt(key, 10)} ${esc(traitName(traitOf(key)))}`), (key) => `${parseInt(key, 10)} ${traitName(traitOf(key))}`)}`;
   el("explore").innerHTML = all[0]
     ? `<p class="big">${all[0].toLocaleString()} boards</p>
        <p class="note">of ${boards.length.toLocaleString()} in ${esc(s.label)}: ${pct(all[0] / boards.length)}</p>
@@ -394,8 +394,8 @@ function renderExplorer() {
     : `<p class="big">No board</p><p class="note">No board of ${boards.length.toLocaleString()} passes every filter.</p>${help}`;
   const tables = all[0]
     ? `<div class="explore-tables">
-        ${exploreTable("Units", units, all, (id) => `${unitTile(id, "s")}${esc(unitOf(id).name)}`, (id) => unitOf(id).name)}
-        ${exploreTable(holder ? `Items on ${esc(unitOf(holder).name)}` : "Items", items, all, (item) => `${itemIcon(item)}${itemName(item)}`, (item) => (holder ? `${unitOf(holder).name}: ${itemName(item)}` : itemName(item)))}
+        ${exploreTable("Units", units, all, (id) => `${unitTile(id, "s")}<span class="row-name">${esc(unitOf(id).name)}</span>`, (id) => unitOf(id).name)}
+        ${exploreTable(holder ? `Items on ${esc(unitOf(holder).name)}` : "Items", items, all, (item) => `${itemIcon(item)}<span class="row-name">${itemName(item)}</span>`, (item) => (holder ? `${unitOf(holder).name}: ${itemName(item)}` : itemName(item)))}
       </div>`
     : `<p class="empty">Remove a filter to see boards.</p>`;
   el("detail").innerHTML = shell(tables);
@@ -542,7 +542,7 @@ function bothItemsHtml([first, second], phrases) {
   }
   if (!holding) return `<p class="empty">No board holds both items.</p>`;
   const floor = Math.max(PAIR_BOARDS, PAIR_SHARE * holding);
-  const holder = (id, items) => `<span class="pair-unit to-filter" data-filter="${esc(unitOf(id).name)}" ${tipOf("Click to list the comps that field it.")}>${unitTile(id, "s")}<span class="pair-name">${esc(unitOf(id).name)}</span><span class="pair-items">${items.map((item) => itemIcon(item)).join("")}</span></span>`;
+  const holder = (id, items) => `<span class="pair-unit to-filter" data-filter="${esc(unitOf(id).name)}" ${tipOf("Click to list the comps that field it.")}>${unitTile(id, "s")}<span class="pair-name row-name">${esc(unitOf(id).name)}</span><span class="pair-items">${items.map((item) => itemIcon(item)).join("")}</span></span>`;
   const overall = placed / holding;
   const order = EXPLORE_COLUMNS.find(([key]) => key === state.pairSort)[2];
   const rows = [...pairs]

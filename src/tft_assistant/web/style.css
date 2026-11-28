@@ -299,6 +299,8 @@ section.folded { grid-template-columns: 1fr; }
 .unit.m { width: 58px; } .unit.m img, .unit.m .blank { width: 36px; height: 36px; }
 .unit-name { font-size: 10.5px; color: var(--subtext); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .unit.s .unit-name, .hide-names :is(main, #roster) .unit-name { display: none; }
+/* A table row's name is text beside its picture, so the names switch hides it too. */
+.hide-names .row-name { display: none; }
 .hide-names :is(main, #roster) .unit { width: auto; }
 .bar label { display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--subtext); white-space: nowrap; cursor: pointer; }
 .cost1 img { border-color: var(--grey); } .cost2 img { border-color: var(--green); } .cost3 img { border-color: var(--blue); }
