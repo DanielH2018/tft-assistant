@@ -235,7 +235,7 @@ function loadExplorer() {
     .then((reply) => (reply.ok ? reply.json() : Promise.reject(new Error(`the server answered ${reply.status}`))))
     .then((doc) => explored.set(path, decodeBoards(doc)))
     .catch(() => explored.set(path, "failed"))
-    .then(() => state.view === "explorer" && renderList());
+    .then(() => ["explorer", "items"].includes(state.view) && renderList());
 }
 
 // The thing a name names: the one whose name is the text, or starts with it, or holds it, the
@@ -493,11 +493,10 @@ function slamGridHtml() {
 // is a comp's main carry is outlined. A click on a unit or an item goes to the comps tab with
 // its name as the filter.
 //
-// With one or two items picked, a group lists only the units that hold a picked item on a tenth
-// of their itemised boards or more, which is the floor the snapshot keeps an item at. A tank
-// leaves when a carry's item is picked. The units that stay are drawn as cards, with how often
-// each holds each picked item and how it places with it. A unit that holds both comes before
-// one that holds one.
+// With an item picked, a group lists only the units that hold it on a tenth of their itemised
+// boards or more, which is the floor the snapshot keeps an item at. A tank leaves when a
+// carry's item is picked. The units that stay are drawn as cards, with how often each holds
+// the item and how it places with it. With two picked, `bothItemsHtml` takes over.
 const PICKED_ITEMS = 2;
 state.items = [];
 // A radiant item is picked as its base: the groups count a radiant item as the item it upgrades.
@@ -506,6 +505,47 @@ function pickItem(asked) {
   const kept = state.items.filter((other) => other !== item);
   state.items = kept.length < state.items.length ? kept : [...kept, item].slice(-PICKED_ITEMS);
 }
+// With two items picked: the boards that hold both, as the pairs of units that hold them. One
+// unit can hold both, or two units one each, and then both are shown. A pair is counted once a
+// board, whichever of its units' copies it is. The boards are the explorer's file, so this is
+// null where they cannot be had, and the caller lists the units that hold either item.
+const PAIR_BOARDS = 10;
+const PAIR_SHARE = 0.01;
+const PAIRS_SHOWN = 30;
+function bothItemsHtml([first, second], phrases) {
+  loadExplorer();
+  const boards = explored.get(snap().explorer);
+  if (boards === "loading") return `<p class="empty">Loading the boards…</p>`;
+  if (!Array.isArray(boards)) return null;
+  const pairs = new Map();
+  let holding = 0;
+  let placed = 0;
+  for (const board of boards) {
+    const firsts = [...new Set(board.units.filter((unit) => unit.items.includes(first)).map((unit) => unit.id))];
+    const seconds = [...new Set(board.units.filter((unit) => unit.items.includes(second)).map((unit) => unit.id))];
+    if (!firsts.length || !seconds.length) continue;
+    holding += 1;
+    placed += board.placement;
+    for (const a of firsts) for (const b of seconds) tally(pairs, `${a}|${b}`, board);
+  }
+  if (!holding) return `<p class="empty">No board holds both items.</p>`;
+  const floor = Math.max(PAIR_BOARDS, PAIR_SHARE * holding);
+  const holder = (id, items) => `<span class="pair-unit to-filter" data-filter="${esc(unitOf(id).name)}" ${tipOf("Click to list the comps that field it.")}>${unitTile(id, "m")}<span class="pair-items">${items.map((item) => itemIcon(item)).join("")}</span></span>`;
+  const cards = [...pairs]
+    .map(([key, row]) => [key.split("|"), row])
+    .filter(([units, row]) => row[0] >= floor && phrases.every((phrase) => units.some((id) => unitPasses(id, phrase))))
+    .sort((a, b) => b[1][0] - a[1][0])
+    .slice(0, PAIRS_SHOWN)
+    .map(([[a, b], row]) => {
+      const units = a === b ? holder(a, [first, second]) : `${holder(a, [first])}<span class="joint">+</span>${holder(b, [second])}`;
+      return `<div class="pair-card" ${tipOf(`${row[0].toLocaleString()} of the ${holding.toLocaleString()} boards that hold both items.`)}>${units}
+        <div class="card-lines"><span class="held-line"><b>${pct(row[0] / holding)}</b><span class="note">of the boards with both</span></span>
+          <span class="note">${(row[1] / row[0]).toFixed(2)} avg · ${pct(row[2] / row[0])} top 4 · ${row[0].toLocaleString()} boards</span></div></div>`;
+    });
+  const summary = `<p class="note">${holding.toLocaleString()} boards hold both · ${(placed / holding).toFixed(2)} avg</p>`;
+  return `${summary}<div class="pair-cards">${cards.join("") || `<span class="note">No pair of holders is on ${Math.ceil(floor)} of them${phrases.length ? " and passes the filters" : ""}.</span>`}</div>`;
+}
+
 function itemGroupsHtml() {
   const s = snap();
   const carried = new Map();
@@ -550,8 +590,7 @@ function itemGroupsHtml() {
   const phrases = groupPhrases();
   const passing = (group) => group.units.filter((id) => phrases.every((phrase) => unitPasses(id, phrase)));
   const listed = (group) => passing(group).filter((id) => !picked.length || matches(group, id).length);
-  const hidden = picked.length ? s.item_groups.reduce((count, group) => count + passing(group).length - listed(group).length, 0) : 0;
-  const groups = [...s.item_groups]
+    const groups = [...s.item_groups]
     .filter((group) => listed(group).length)
     .map(
       (group) => `<div class="group ${picked.length ? "detailed" : ""}">
@@ -562,10 +601,12 @@ function itemGroupsHtml() {
     </div>`,
     );
   const info = "Units in one group build alike on real boards, so they can hold each other's items.\nA group lists the items its units hold most, then its units, the best placed first.\nClick one or two items in the grid or the table to list only the units that hold them, each with how often and how it places. An outlined unit is a comp's main carry.";
-  const names = picked.map((item) => `<b>${esc(named(item))}</b>`).join(" or ");
-  const ordered = picked.length
-    ? `<p class="stats">Units that hold ${names} on a tenth of their itemised boards or more${hidden ? `; ${hidden} that do not are hidden` : ""}. ${picked.length < PICKED_ITEMS ? "Pick a second item to add its holders. " : ""}<button id="clear-item" ${tipOf("List every unit again.")}>Clear</button></p>`
-    : "";
+  const names = picked.map((item) => `<b>${esc(named(item))}</b>`).join(" + ");
+  const ordered = picked.length ? `<p class="stats">${names} <button id="clear-item" ${tipOf("List every unit again.")}>Clear</button></p>` : "";
+  const both = picked.length === PICKED_ITEMS ? bothItemsHtml(picked, phrases) : null;
+  if (both !== null) {
+    return `<div id="sheet"><header><h1>${MAXIMIZE} Item groups <span class="info" tabindex="0" ${tipOf(info)}>i</span></h1>${ordered}</header>${both}</div>`;
+  }
   const none = picked.length ? "No unit in an item group holds a picked item that often." : phrases.length ? "No unit in an item group passes the filters." : "No unit has enough itemised boards to group.";
   return `<div id="sheet"><header><h1>${MAXIMIZE} Item groups <span class="info" tabindex="0" ${tipOf(info)}>i</span></h1>${ordered}</header>
     ${groups.join("") || `<p class="empty">${none}</p>`}</div>`;
