@@ -259,7 +259,9 @@ comp list, and a click on a row picks that item (see *Picking items*).
 A row of buttons lists one kind of item: Craftable, Artifact, Emblem, Radiant or Other. An item
 has one kind. An emblem is under Emblem whether two components make it or a game hands it out,
 so Craftable holds no emblem, and a second row of buttons under Emblem tells the craftable from
-the uncraftable. Other holds the loose components and whatever fits no kind.
+the uncraftable. Other holds whatever fits no kind, and the Tactician's items: an item made of two of
+the components that make emblems, a Spatula or a Frying Pan, is no unit's build. A loose
+component has no row under any kind.
 
 The figures say how boards with an item did, not what the item did for them. A board holds an
 artifact or a radiant item because it was ahead or was offered one. Riot's policy forbids

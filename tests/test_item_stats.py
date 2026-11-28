@@ -12,6 +12,7 @@ ITEMS = {
     "Bright": Item("Bright", "Bright", (), None, "Edge", False),
     "Relic": Item("Relic", "Relic", (), None, None, False, is_artifact=True),
     "Aid": Item("Aid", "Aid", (), None, None, False),
+    "Crown of the team": Item("Crown of the team", "Crown of the team", ("TFT_Item_Spatula", "TFT_Item_FryingPan"), None, None, False),
 }
 STATIC = StaticData(units={}, traits={}, items=ITEMS)
 
@@ -22,9 +23,9 @@ def board(placement, *held):
 
 @pytest.mark.parametrize(
     ("item", "kind"),
-    [("Edge", "craftable"), ("Sword", "component"), ("Crown", "emblem"), ("Gift", "emblem"), ("Bright", "radiant"), ("Relic", "artifact"), ("Aid", "other")],
+    [("Edge", "craftable"), ("Sword", None), ("Crown of the team", "other"), ("Crown", "emblem"), ("Gift", "emblem"), ("Bright", "radiant"), ("Relic", "artifact"), ("Aid", "other")],
 )
-def test_an_item_has_one_kind_and_an_emblem_with_a_recipe_is_still_an_emblem(item, kind):
+def test_an_item_has_one_kind_and_a_component_has_none(item, kind):
     assert kind_of(ITEMS[item]) == kind
 
 
@@ -41,5 +42,11 @@ def test_an_items_figures_are_over_the_boards_that_hold_it_each_counted_once():
 
 def test_an_item_on_few_boards_or_unknown_to_the_set_has_no_row():
     boards = [board(1, ["Edge", "Gift"]) for _ in range(49)] + [board(2, ["Edge", "From another set"]) for _ in range(30)]
+
+    assert [stat.item for stat in find_item_stats(boards, STATIC)] == ["Edge"]
+
+
+def test_a_loose_component_has_no_row_however_many_boards_hold_it():
+    boards = [board(3, ["Sword", "Edge"]) for _ in range(60)]
 
     assert [stat.item for stat in find_item_stats(boards, STATIC)] == ["Edge"]

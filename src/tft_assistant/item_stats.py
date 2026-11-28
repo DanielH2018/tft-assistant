@@ -21,12 +21,19 @@ CRAFTABLE = "craftable"
 ARTIFACT = "artifact"
 EMBLEM = "emblem"
 RADIANT = "radiant"
-COMPONENT = "component"
 OTHER = "other"
 
+_TRAIT_COMPONENTS = ("Spatula", "FryingPan")
+"""How the API names of the two components that make emblems end, in every set. Two of them make a
+Tactician's item, which gives a team slot or a shield and is no unit's build."""
 
-def kind_of(item: Item) -> str:
-    """The one kind an item is listed under. An emblem is an emblem whether or not it has a recipe."""
+
+def kind_of(item: Item) -> str | None:
+    """The one kind an item is listed under, or None for a loose component, which is not listed.
+
+    An emblem is an emblem whether or not it has a recipe. An item made of two emblem components
+    is a Tactician's item, and is listed with the items of no kind.
+    """
     if item.emblem_of:
         return EMBLEM
     if item.radiant_of:
@@ -34,7 +41,9 @@ def kind_of(item: Item) -> str:
     if item.is_artifact:
         return ARTIFACT
     if item.is_component:
-        return COMPONENT
+        return None
+    if item.components and all(part.endswith(_TRAIT_COMPONENTS) for part in item.components):
+        return OTHER
     return CRAFTABLE if item.components else OTHER
 
 
@@ -52,15 +61,15 @@ class ItemStat:
 
 
 def find_item_stats(boards: Sequence[Board], static: StaticData) -> tuple[ItemStat, ...]:
-    """The items on at least `MIN_BOARDS` boards, most held first."""
+    """The items on at least `MIN_BOARDS` boards, most held first. A loose component has no row."""
     placements: dict[str, list[int]] = defaultdict(list)
     for board in boards:
-        for item in {item for unit in board.units for item in unit.items if item in static.items}:
+        for item in {item for unit in board.units for item in unit.items if item in static.items and kind_of(static.items[item])}:
             placements[item].append(board.placement)
     stats = [
         ItemStat(
             item,
-            kind_of(static.items[item]),
+            kind_of(static.items[item]) or OTHER,
             bool(static.items[item].components),
             len(placed),
             len(placed) / len(boards),
