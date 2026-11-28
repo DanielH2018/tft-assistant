@@ -637,7 +637,6 @@ const STAT_COLUMNS = [
   ["Play", "play", (a, b) => b.share - a.share],
 ];
 Object.assign(state, { statKind: null, emblemCraft: null, statSort: "avg", statAscending: false });
-const kindOf = (stat) => (stat.kind === "component" ? "other" : stat.kind);
 function itemStatsHtml() {
   const stats = snap().item_stats || [];
   if (!stats.length) return "";
@@ -649,7 +648,7 @@ function itemStatsHtml() {
       : "";
   const order = STAT_COLUMNS.find(([, key]) => key === state.statSort)[2];
   const rows = stats
-    .filter((stat) => state.statKind === null || kindOf(stat) === state.statKind)
+    .filter((stat) => state.statKind === null || stat.kind === state.statKind)
     .filter((stat) => state.statKind !== "emblem" || state.emblemCraft === null || stat.has_recipe === state.emblemCraft)
     .sort((a, b) => (state.statAscending ? -1 : 1) * order(a, b))
     .map(
