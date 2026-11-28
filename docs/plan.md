@@ -710,6 +710,10 @@ A comp is close to the board when the board holds two of its core units, when a 
 board is an early holder for its main carry, or when it builds a selected item. The closest
 comps, the suggested units and the suggested groups all read the same list.
 
+A comp's page has an *Open in planner* button. It puts the comp's board on the planner, the
+core and the picked flex units where the page draws them, the reader's own places included, and
+sets the save form to the comp. It replaces the planner's working board.
+
 A row of craftable items sits above the emblems. A click selects one: an item the reader has or
 expects, on no unit in particular. A selected item brings forward the comps that build it and
 suggests the units that hold it on real boards. The selection is kept in the browser with the
