@@ -1815,6 +1815,15 @@ function plannerContext(units) {
   const room = Math.max(0, ...[...extra].filter(([, count]) => count / like.length >= 0.1).map(([size]) => size));
   return { on: on.size, boards: like.length, avg: placed / like.length, adds, rests, extra, room };
 }
+// The selected items a unit holds on real boards, as [item, share of its itemised boards,
+// placement with it], from its item group, the most held first.
+function selectedOn(id, items) {
+  const held = snap().item_groups.map((group) => (group.held || {})[id]).find(Boolean);
+  return items
+    .filter((item) => held && held.items[item])
+    .map((item) => [item, ...held.items[item]])
+    .sort((a, b) => b[1] - a[1]);
+}
 const theseUnits = (context) => (context.on === 1 ? "this unit" : `these ${context.on} units`);
 
 // With real boards that hold the planner's units, the units those boards add come first, each
@@ -1901,8 +1910,8 @@ function suggestedGroups(units, items, context) {
         .sort((a, b) => b.boards - a.boards)
         .map((rest) => ({
           add: rest.add,
-          label: `on ${pct(rest.boards / context.boards)} of the boards with ${theseUnits(context)}, avg ${(rest.placed / rest.boards).toFixed(2)}`,
-          why: `${rest.boards.toLocaleString()} of the ${context.boards.toLocaleString()} boards that hold ${theseUnits(context)} add exactly these.`,
+          label: "",
+          why: `${rest.boards.toLocaleString()} of the ${context.boards.toLocaleString()} boards that hold ${theseUnits(context)} add exactly these: ${pct(rest.boards / context.boards)} of them, placing ${(rest.placed / rest.boards).toFixed(2)}.`,
         }))
     : [];
   const listed = new Set(fromBoards.map((group) => group.add.join(",")));
@@ -1979,7 +1988,7 @@ function plannerHtml(board) {
   const suggested = suggestions(units, emblems, selected, context)
     .map(
       ({ id, reasons, share }) =>
-        `<span class="pick offer" data-pick="${id}">${unitTile(id, "m", { note: [...reasons.slice(0, 4), "Click to add it."].join("\n") })}${share ? `<span class="note offer-share">${pct(share)}</span>` : ""}</span>`,
+        `<span class="pick offer" data-pick="${id}">${unitTile(id, "m", { note: [...reasons.slice(0, 4), ...selectedOn(id, selected).map(([item, held, avg]) => `Holds ${itemName(item)} on ${pct(held)} of its itemised boards, placing ${avg.toFixed(2)}.`), "Click to add it."].join("\n") })}${share ? `<span class="note offer-share">${pct(share)}</span>` : ""}<span class="offer-items">${selectedOn(id, selected).map(([item]) => itemIcon(item)).join("")}</span></span>`,
     )
     .join("");
   // How many units the boards that hold these add, the commonest numbers first.
@@ -1993,7 +2002,7 @@ function plannerHtml(board) {
   const groups = suggestedGroups(units, selected, context)
     .map(
       ({ add, label, why }) => `<div class="suggest-group" data-picks="${add.join(",")}" ${tipOf(why, "Click to add them all.")}>
-        <span class="group-tiles">${add.map((id) => unitTile(id, "s")).join("")}</span><span class="note">${esc(label)}</span></div>`,
+        <span class="group-tiles">${add.map((id) => unitTile(id, "s")).join("")}</span>${label ? `<span class="note">${esc(label)}</span>` : ""}</div>`,
     )
     .join("");
   const fielded = [...new Set(units)]
@@ -2067,9 +2076,9 @@ function plannerHtml(board) {
       ${itemRow ? section("Items", `<div class="row emblems">${itemRow}</div>`, { width: "wraps", info: "Items you have or expect, on no unit in particular.\nA selected item brings forward the comps that build it and the units that hold it." }) : ""}
       ${section("Emblems", `<div class="row emblems">${emblemRow || `<span class="note">This set's data names no emblem.</span>`}</div>`, { width: "wraps" })}
       ${fielded ? section("On the board", `<div>${fielded}</div>`, { info: "Each unit on the board, with the items it holds most on real boards and the comps it carries, tanks or holds items for.\nClick a comp to open it." }) : ""}
-      ${groups ? section("Suggested groups", `<div>${groups}</div>`, { info: "Units worth adding together.\nA group with a share is a set the real boards that hold every unit here add, exactly. The others are the rest of a close comp's core or a whole board of that comp, kept only when they fit in what those boards add.\nClick a group to add all of it." }) : ""}
+      ${groups ? section("Suggested groups", `<div>${groups}</div>`, { info: "Units worth adding together.\nA group with no label is a set the real boards that hold every unit here add, exactly; its hover card gives the share and the placement. The others are the rest of a close comp's core or a whole board of that comp, kept only when they fit in what those boards add.\nClick a group to add all of it." }) : ""}
       ${section("Suggested units", `<div>${likeLine}<div class="row suggested">${suggested || `<span class="note">${context ? "The boards that hold these units add no unit often enough to name." : "Put a unit on the board or select an item."}</span>`}</div></div>`, {
-        info: "Units worth adding next.\nA unit with a share under it is one the real boards that hold every unit here add, on a twentieth of them or more. When those boards add two units or fewer, only such units are listed.\nA unit with no share is listed because a comp this board is close to has it in its core or plays it often, because it holds a selected item, or because it takes a trait on the board to its next breakpoint.\nClick one to add it.",
+        info: "Units worth adding next.\nA unit with a share under it is one the real boards that hold every unit here add, on a twentieth of them or more. When those boards add two units or fewer, only such units are listed.\nA unit with no share is listed because a comp this board is close to has it in its core or plays it often, because it holds a selected item, or because it takes a trait on the board to its next breakpoint.\nA selected item is drawn under each unit that holds it on real boards.\nClick one to add it.",
       })}
       ${section("Closest comps", `<div>${closest || `<span class="note">No comp is close to this board.</span>`}</div>`, {
         info: "The comps this board is close to, each with the core units still missing.\nA comp is close when the board holds two of its core units or one of its key units, when a unit on the board is an early holder for its carry, or when it builds a selected item.\nClick one to open it.",
