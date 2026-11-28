@@ -132,3 +132,19 @@ def test_a_radiant_item_finds_its_base_when_riot_spells_the_two_names_in_differe
     static = StaticData.from_document(with_radiant, "TFTSet99")
 
     assert static.items["I_BladeRadiant"].radiant_of == "I_Blade"
+
+
+def test_an_item_with_no_text_of_its_own_takes_the_text_of_the_record_of_its_name_and_an_emblem_names_its_trait():
+    document = {
+        **DOCUMENT,
+        "items": [
+            *DOCUMENT["items"],
+            {"apiName": "TFT_Item_Vow", "name": "Vow", "desc": "Gain @Shield@ Shield.", "effects": {"Shield": 25.0}},
+        ],
+    }
+
+    static = StaticData.from_document(document, "TFTSet99")
+
+    assert static.items["I_Vow"].description == "Gain 25 Shield."
+    assert static.items["I_EmblemHunter"].description == "The holder gains the Hunter trait."
+    assert static.items["I_Blade"].description == ""

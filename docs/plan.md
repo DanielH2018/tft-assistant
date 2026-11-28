@@ -504,14 +504,22 @@ on, and the page sets no native tooltip on its content.
 - An "i" beside a section's heading explains how to read the section. Explanations that stood
   on the page as sentences live there, including the thresholds for "critical" and "needs".
 
-A card does not say what a trait or a unit's ability does. The operator asked for both on
-2026-11-26 and then deferred them. What a first look at Set 18's data found:
+A trait's card and an item's card say what the thing does, in the game's own words
+(`descriptions.py`). The operator asked for descriptions on 2026-11-26, deferred them, and on
+2026-11-28 asked for whatever could be built. A unit's card still does not say what its ability
+does. What Set 18's data holds:
 
+- **Items are filled in from their own values.** 605 of the set's 776 items have a text. An
+  emblem has none in the data and gets "The holder gains the X trait." A line that names a value
+  the data lacks is left out: those are counters a game fills in, such as damage dealt. A
+  keyword such as Precision is named and not explained, because the data holds no definition.
 - **Traits can be filled in from the summary document.** A trait has a `desc` template and one
   `effects` entry per breakpoint, each with a table of variables. 92 of the 239 variables the
   templates name sit under a hashed key such as `{2c61751d}`. The key is the 32-bit FNV-1a hash
   of the variable's lower-cased name, written in hex between braces. Matching by that hash
   resolves 239 of 239. The n-th `<row>` of a template reads the n-th breakpoint's variables.
+  One trait of 36, Rapidfire, names a value the data lacks in its rows, so its card has the
+  opening text and the bare breakpoints.
 - **Abilities cannot.** The summary gives an ability's name and its template, but its
   `variables` list is empty for 72 of the 74 Set 18 units. Older sets have the list. The
   templates name calculated values such as `@MagicDamageCalc1@`, which no list of raw values
