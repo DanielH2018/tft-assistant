@@ -1573,13 +1573,18 @@ function keepPlanner(board) {
   localStorage.setItem(plannerKey(), JSON.stringify(board));
   renderPlanner();
 }
-// The emblems the board holds, as trait → how many. An emblem gives its trait to a unit that
-// lacks it, so the page keeps a count for each trait and not which unit holds which.
+// The emblems the board holds, as trait → 1. An emblem gives its trait to a unit that lacks it,
+// so the page keeps the traits and not which unit holds which. The value is a count because a
+// saved board stores it as one.
 const emblemKey = () => `${plannerKey()}.emblems`;
 function plannerEmblems() {
   try {
     const kept = JSON.parse(localStorage.getItem(emblemKey()) || "{}");
-    return Object.fromEntries(Object.entries(kept || {}).filter(([trait, count]) => snap().traits[trait] && count > 0));
+    return Object.fromEntries(
+      Object.entries(kept || {})
+        .filter(([trait, count]) => snap().traits[trait] && count > 0)
+        .map(([trait]) => [trait, 1]),
+    );
   } catch {
     return {};
   }
@@ -1877,7 +1882,7 @@ function plannerHtml(board) {
   const emblemRow = emblemItems()
     .map(([trait, item]) => {
       const held = emblems[trait] || 0;
-      return `<span class="emblem ${held ? "on" : ""}" data-emblem="${esc(trait)}" ${tipOf(`${traitName(trait)} Emblem${held ? `: ${held} on the board` : ""}`, "Click to add one. Shift-click to take one off.")}>${itemIcon(item)}${held ? `<b>${held}</b>` : ""}</span>`;
+      return `<span class="emblem ${held ? "on" : ""}" data-emblem="${esc(trait)}" ${tipOf(`${traitName(trait)} Emblem${held ? ": on the board" : ""}`, held ? "Click to take it off." : "Click to add it.")}>${itemIcon(item)}</span>`;
     })
     .join("");
   const selected = plannerItems();
@@ -2017,7 +2022,8 @@ el("detail").addEventListener("click", (event) => {
   } else if (event.target.closest("[data-emblem]")) {
     const trait = event.target.closest("[data-emblem]").dataset.emblem;
     const emblems = plannerEmblems();
-    emblems[trait] = Math.max(0, (emblems[trait] || 0) + (event.shiftKey ? -1 : 1));
+    if (emblems[trait]) delete emblems[trait];
+    else emblems[trait] = 1;
     keepEmblems(emblems);
   } else if (event.target.closest("[data-picks]")) {
     const board = plannerBoard();
