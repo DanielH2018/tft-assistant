@@ -91,3 +91,22 @@ def test_a_group_knows_how_each_unit_places_overall_and_with_each_item():
     assert (tanks.held["Tank4"].boards, tanks.held["Tank4"].avg_placement) == (4, 3.0)
     assert tanks.held["Tank4"].items["Visage"] == (0.75, 2.0)
     assert tanks.held["Tank4"].items["Plate"] == (1.0, 3.0)
+
+
+def test_an_emblem_or_an_artifact_is_listed_at_a_hundredth_of_a_units_boards_and_ten_of_them():
+    static = StaticData(
+        units=STATIC.units,
+        traits={},
+        items=STATIC.items | {"Relic": Item("Relic", "Relic", (), None, None, False, is_artifact=True)},
+    )
+    plain = [board(("Mage5", MAGE), ("Mage2", MAGE), placement=5) for _ in range(180)]
+    with_emblem = [board(("Mage5", [*MAGE[:2], "Emblem"]), ("Mage2", MAGE), placement=2) for _ in range(12)]
+    with_relic = [board(("Mage5", [*MAGE[:2], "Relic"]), ("Mage2", [*MAGE[:2], "Relic"]), placement=3) for _ in range(9)]
+
+    (group,) = find_item_groups([*plain, *with_emblem, *with_relic, *[board(("Mage2", ["Staff", "Deathcap"])) for _ in range(9)]], static)
+
+    held = group.held["Mage5"].items
+    assert held["Emblem"] == (12 / 201, 2.0)
+    assert "Relic" not in held
+    assert "Emblem" not in group.items
+    assert {"Relic", "Emblem"}.isdisjoint(group.held["Mage2"].items)

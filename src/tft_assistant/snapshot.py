@@ -331,6 +331,7 @@ def build_snapshot(
     units |= set(roster(static))
     units |= {key["unit"] for comp in comps for key in comp["key_units"]}
     items = {pick["item"] for comp in comps for pick in comp["items"]} | {i for g in groups for i in g.items}
+    items |= {item for group in groups for held in group.held.values() for item in held.items}
     items |= {item for comp in comps for item in comp["take"]}
     items |= {item for comp in comps for spare in comp["spare"] for item in [spare["component"], *spare["uses"]]}
     items |= {special["item"] for special in specials} | {item for special in specials for item in special["beside"]}

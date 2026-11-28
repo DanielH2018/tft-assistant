@@ -457,6 +457,9 @@ function builtBy(comp) {
 // The grid has a row and a column for each component, and the item two components build stands
 // where they cross. The number on an item is how many strong comps build it. An item a third of
 // them build is marked safe: it fits whichever of them the game turns into.
+// The number on a grid item can be hidden; the browser keeps the choice.
+const SLAM_COUNTS = "tft-assistant.hide-slam-counts";
+state.slamCounts = !localStorage.getItem(SLAM_COUNTS);
 function slamGridHtml() {
   const s = snap();
   const strong = s.comps.filter(isStrong).sort(SORTS.play);
@@ -486,7 +489,8 @@ function slamGridHtml() {
     const blank = (column) => `<td class="${row === state.component || column === state.component ? "lit" : ""}"></td>`;
     return `<tr>${part(row)}${components.map((column, across) => (across < at ? blank(column) : cell(row, column))).join("")}</tr>`;
   });
-  return `<table class="slams">${head}${rows.join("")}</table>`;
+  const counts = `<label class="switch slam-switch" ${tipOf("The number on an item is how many strong comps build it.")}><input id="slam-counts" type="checkbox" ${state.slamCounts ? "checked" : ""}><i></i>Numbers on the items</label>`;
+  return `${counts}<table class="slams ${state.slamCounts ? "" : "no-counts"}">${head}${rows.join("")}</table>`;
 }
 
 // Each group lists the items its units build and its units, the best placed first. A unit that
@@ -494,7 +498,8 @@ function slamGridHtml() {
 // its name as the filter.
 //
 // With an item picked, a group lists only the units that hold it on a tenth of their itemised
-// boards or more, which is the floor the snapshot keeps an item at. A tank leaves when a
+// boards or more, or a hundredth for an emblem or an artifact: the floors the snapshot keeps an
+// item at. A tank leaves when a
 // carry's item is picked. The units that stay are drawn as cards, with how often each holds
 // the item and how it places with it. With two picked, `bothItemsHtml` takes over.
 const PICKED_ITEMS = 2;
@@ -558,7 +563,14 @@ function itemGroupsHtml() {
   // What a unit holds of the picked items, as [item, share of its boards, placement with it].
   const matches = (group, id) => picked.map((item) => [item, ...((heldBy(group, id) || { items: {} }).items[item] || [])]).filter((match) => match.length > 1);
   const shares = (group, id) => matches(group, id).reduce((sum, match) => sum + match[1], 0);
+  const artifacts = new Set((s.item_stats || []).filter((stat) => stat.kind === "artifact").map((stat) => stat.item));
+  const isRare = (item) => Boolean((s.items[item] || {}).emblem_of) || artifacts.has(item);
+  // What the picked items do to a unit's placement: its placement with the item less its own average.
+  const gain = (group, id) => Math.min(...matches(group, id).map((match) => match[2] - heldBy(group, id).avg));
   const order = (group) => (a, b) => {
+    // An emblem or an artifact is on few boards of any unit, so its holders run from the unit it
+    // helps most. An item a player builds runs from the unit that holds it most.
+    if (picked.length && picked.every(isRare)) return gain(group, a) - gain(group, b);
     if (picked.length) return matches(group, b).length - matches(group, a).length || shares(group, b) - shares(group, a);
     const avg = (id) => (heldBy(group, id) || { avg: 9 }).avg;
     return avg(a) - avg(b) || unitOf(a).cost - unitOf(b).cost;
@@ -579,7 +591,11 @@ function itemGroupsHtml() {
     const held = heldBy(group, id);
     const comp = carried.get(id);
     const lines = matches(group, id)
-      .map(([item, share, avg]) => `<span class="held-line" ${tipOf(`Holds ${named(item)} on ${pct(share)} of its itemised boards, and places ${avg.toFixed(2)} there.`)}>${itemIcon(item)}<b>${pct(share)}</b><span class="note">${avg.toFixed(2)}</span></span>`)
+      .map(([item, share, avg]) => {
+        const apart = avg - held.avg;
+        const tone = apart < -0.005 ? "better" : apart > 0.005 ? "worse" : "note";
+        return `<span class="held-line" ${tipOf(`Holds ${named(item)} on ${pct(share)} of its itemised boards, and places ${avg.toFixed(2)} there: ${Math.abs(apart).toFixed(2)} ${apart < 0 ? "better" : "worse"} than its ${held.avg.toFixed(2)} over all of them.`)}>${itemIcon(item)}<b class="${tone}">${apart > 0 ? "+" : ""}${apart.toFixed(2)}</b><span class="note">${avg.toFixed(2)} on ${pct(share)}</span></span>`;
+      })
       .join("");
     return `<div class="unit-card to-filter ${comp ? "carrier" : ""}" data-filter="${esc(unitOf(id).name)}" ${tipOf("Click to list the comps that field it.")}>
       ${unitTile(id, "m")}
@@ -2061,6 +2077,13 @@ el("detail").addEventListener("click", (event) => {
     state.exploreFilters.push(row.dataset.explore);
     renderFilters();
   }
+});
+el("slams").addEventListener("change", (event) => {
+  if (event.target.id !== "slam-counts") return;
+  state.slamCounts = event.target.checked;
+  if (state.slamCounts) localStorage.removeItem(SLAM_COUNTS);
+  else localStorage.setItem(SLAM_COUNTS, "1");
+  renderItems();
 });
 el("explore").addEventListener("change", (event) => {
   if (event.target.id !== "explore-holder") return;
