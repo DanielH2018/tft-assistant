@@ -598,13 +598,13 @@ function itemGroupsHtml() {
     const held = heldBy(group, id);
     const comp = carried.get(id);
     const note = [
-      held && `Average placement ${held.avg.toFixed(2)} over ${held.boards.toLocaleString()} boards where it holds items.`,
+      held && `Average placement ${held.avg.toFixed(2)} over ${held.boards.toLocaleString()} boards where it ${(group.also || []).includes(id) ? "builds this group's way" : "holds items"}.`,
       comp && `Carries ${nameOf(comp)}.`,
       "Click to list the comps that field it.",
     ]
       .filter(Boolean)
       .join("\n");
-    return `<span class="to-filter ${comp ? "carrier" : ""}" data-filter="${esc(unitOf(id).name)}">${unitTile(id, "m", { note })}</span>`;
+    return `<span class="to-filter" data-filter="${esc(unitOf(id).name)}">${unitTile(id, "m", { note })}</span>`;
   };
   const card = (group) => (id) => {
     const held = heldBy(group, id);
@@ -616,15 +616,16 @@ function itemGroupsHtml() {
         return `<span class="held-line" ${tipOf(`Holds ${named(item)} on ${pct(share)} of its itemised boards, and places ${avg.toFixed(2)} there: ${Math.abs(apart).toFixed(2)} ${apart < 0 ? "better" : "worse"} than its ${held.avg.toFixed(2)} over all of them.`)}>${itemIcon(item)}<b class="${tone}">${apart > 0 ? "+" : ""}${apart.toFixed(2)}</b><span class="note">${avg.toFixed(2)} on ${pct(share)}</span></span>`;
       })
       .join("");
-    return `<div class="unit-card to-filter ${comp ? "carrier" : ""}" data-filter="${esc(unitOf(id).name)}" ${tipOf("Click to list the comps that field it.")}>
+    return `<div class="unit-card to-filter" data-filter="${esc(unitOf(id).name)}" ${tipOf("Click to list the comps that field it.")}>
       ${unitTile(id, "m")}
       <div class="card-lines">${lines}
         <span class="note">${held.avg.toFixed(2)} avg over ${held.boards.toLocaleString()}${comp ? ` · carries ${esc(nameOf(comp))}` : ""}</span></div>
     </div>`;
   };
   const phrases = groupPhrases();
-  const passing = (group) => group.units.filter((id) => phrases.every((phrase) => unitPasses(id, phrase)));
-  const listed = (group) => passing(group).filter((id) => !picked.length || matches(group, id).length);
+  // A group's own units, then the units of another group that build its way on some of their boards.
+  const listed = (group, units = [...group.units, ...(group.also || [])]) =>
+    units.filter((id) => phrases.every((phrase) => unitPasses(id, phrase)) && (!picked.length || matches(group, id).length));
     const groups = [...s.item_groups]
     .filter((group) => listed(group).length)
     .map(
@@ -632,10 +633,14 @@ function itemGroupsHtml() {
       <div class="group-items">${group.items
         .map((item) => `<span class="to-filter ${picked.includes(item) ? "picked" : ""}" data-filter="${esc(named(item))}">${itemIcon(item, { note: "Click to list the comps that build it." })}</span>`)
         .join("")}</div>
-      <div class="group-units">${listed(group).sort(order(group)).map(picked.length ? card(group) : tile(group)).join("")}</div>
+      <div class="group-units">${listed(group, group.units).sort(order(group)).map(picked.length ? card(group) : tile(group)).join("")}${
+        listed(group, group.also || []).length
+          ? `<span class="note also-label" ${tipOf("Units of another group that build this way on a fifth of their itemised boards or more.", "Each is counted here over those boards only.")}>also</span>${listed(group, group.also).sort(order(group)).map(picked.length ? card(group) : tile(group)).join("")}`
+          : ""
+      }</div>
     </div>`,
     );
-  const info = "Units in one group build alike on real boards, so they can hold each other's items.\nA group lists the items its units hold most, then its units, the best placed first.\nClick one or two items in the grid or the table to list only the units that hold them, each with how often and how it places. An outlined unit is a comp's main carry.";
+  const info = "Units in one group build alike on real boards, so they can hold each other's items.\nA group lists the items its units hold most, then its units, the best placed first.\nClick one or two items in the grid or the table to list only the units that hold them, each with how often and how it places.\nA unit after \"also\" belongs to another group and builds this group's way on a fifth of its boards or more: Akali builds for attack damage or for ability power.";
   const names = picked.map((item) => `<b>${esc(named(item))}</b>`).join(" + ");
   const ordered = picked.length ? `<p class="stats">${names} <button id="clear-item" ${tipOf("List every unit again.")}>Clear</button></p>` : "";
   const both = picked.length === PICKED_ITEMS ? bothItemsHtml(picked, phrases) : null;
@@ -1818,7 +1823,7 @@ function plannerContext(units) {
 // The selected items a unit holds on real boards, as [item, share of its itemised boards,
 // placement with it], from its item group, the most held first.
 function selectedOn(id, items) {
-  const held = snap().item_groups.map((group) => (group.held || {})[id]).find(Boolean);
+  const held = (snap().item_groups.find((group) => group.units.includes(id)) || { held: {} }).held[id];
   return items
     .filter((item) => held && held.items[item])
     .map((item) => [item, ...held.items[item]])
@@ -1863,8 +1868,9 @@ function suggestions(units, emblems, items, context) {
   }
   for (const item of items) {
     for (const group of snap().item_groups) {
-      for (const [id, held] of Object.entries(group.held || {})) {
-        if (held.items[item]) add(id, held.items[item][0], `Holds ${itemName(item)} on ${pct(held.items[item][0])} of its itemised boards, placing ${held.items[item][1].toFixed(2)}.`);
+      for (const id of group.units) {
+        const held = (group.held || {})[id];
+        if (held && held.items[item]) add(id, held.items[item][0], `Holds ${itemName(item)} on ${pct(held.items[item][0])} of its itemised boards, placing ${held.items[item][1].toFixed(2)}.`);
       }
     }
   }
@@ -1926,7 +1932,7 @@ function suggestedGroups(units, items, context) {
 // key units or holds one of the comp's priority items.
 const ROLE_ORDER = ["Main carry", "Carry", "Main tank", "Holds items"];
 function unitAdvice(id) {
-  const group = snap().item_groups.find((candidate) => candidate.held && candidate.held[id]);
+  const group = snap().item_groups.find((candidate) => candidate.held && candidate.units.includes(id));
   const items = group
     ? Object.entries(group.held[id].items)
         .map(([item, [share, avg]]) => [item, share, avg])

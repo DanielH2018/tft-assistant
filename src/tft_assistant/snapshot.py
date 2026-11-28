@@ -104,6 +104,7 @@ def _group(group: ItemGroup) -> dict[str, Any]:
     return {
         "items": list(group.items),
         "units": list(group.units),
+        "also": list(group.also),
         "held": {
             unit: {
                 "boards": held.boards,
